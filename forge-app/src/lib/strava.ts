@@ -70,7 +70,7 @@ export interface StravaActivityZones {
  */
 export function getStravaAuthUrl(redirectUri: string, state?: string): string {
   const params = new URLSearchParams({
-    client_id: process.env.NEXT_PUBLIC_STRAVA_CLIENT_ID!,
+    client_id: process.env.STRAVA_CLIENT_ID!,
     redirect_uri: redirectUri,
     response_type: 'code',
     scope: 'read,activity:read_all,profile:read_all',
