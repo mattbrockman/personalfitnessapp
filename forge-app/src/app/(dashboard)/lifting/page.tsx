@@ -1,5 +1,5 @@
-import { LiftingTracker } from '@/components/LiftingTracker'
+import { LiftingTab } from '@/components/LiftingTab'
 
 export default function LiftingPage() {
-  return <LiftingTracker />
+  return <LiftingTab />
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Plus,
   Search,
@@ -17,6 +17,7 @@ import {
   Check,
   Star,
   StarOff,
+  Loader2,
 } from 'lucide-react'
 
 // Types
@@ -46,6 +47,10 @@ interface WorkoutTemplate {
   created_at: string
 }
 
+interface WorkoutTemplateLibraryProps {
+  onStartWorkout?: (template: WorkoutTemplate) => void
+}
+
 // Constants
 const CATEGORY_COLORS: Record<string, string> = {
   push: 'bg-red-500/20 text-red-400',
@@ -58,106 +63,6 @@ const CATEGORY_COLORS: Record<string, string> = {
   custom: 'bg-white/10 text-white/60',
 }
 
-// Mock templates
-const MOCK_TEMPLATES: WorkoutTemplate[] = [
-  {
-    id: 'push1',
-    name: 'Push Day A - Chest Focus',
-    description: 'Horizontal push emphasis with tricep accessories',
-    category: 'push',
-    estimated_duration_min: 60,
-    is_favorite: true,
-    is_system: true,
-    times_used: 12,
-    last_used: '2024-12-28',
-    created_at: '2024-01-01',
-    exercises: [
-      { exercise_id: '1', exercise_name: 'Barbell Bench Press', sets: 4, reps_min: 6, reps_max: 8, rpe_target: 8, rest_seconds: 180 },
-      { exercise_id: '2', exercise_name: 'Incline Dumbbell Press', sets: 3, reps_min: 8, reps_max: 10, rpe_target: 8, rest_seconds: 120 },
-      { exercise_id: '3', exercise_name: 'Cable Flyes', sets: 3, reps_min: 12, reps_max: 15, rest_seconds: 90 },
-      { exercise_id: '4', exercise_name: 'Overhead Press', sets: 3, reps_min: 8, reps_max: 10, rpe_target: 7, rest_seconds: 120 },
-      { exercise_id: '5', exercise_name: 'Tricep Pushdown', sets: 3, reps_min: 12, reps_max: 15, rest_seconds: 60, superset_group: 'A' },
-      { exercise_id: '6', exercise_name: 'Lateral Raise', sets: 3, reps_min: 15, reps_max: 20, rest_seconds: 60, superset_group: 'A' },
-    ],
-  },
-  {
-    id: 'pull1',
-    name: 'Pull Day A - Back Focus',
-    description: 'Vertical and horizontal pulls with bicep work',
-    category: 'pull',
-    estimated_duration_min: 55,
-    is_favorite: true,
-    is_system: true,
-    times_used: 10,
-    last_used: '2024-12-27',
-    created_at: '2024-01-01',
-    exercises: [
-      { exercise_id: '7', exercise_name: 'Pull-Ups', sets: 4, reps_min: 6, reps_max: 10, rpe_target: 8, rest_seconds: 180 },
-      { exercise_id: '8', exercise_name: 'Barbell Row', sets: 4, reps_min: 6, reps_max: 8, rpe_target: 8, rest_seconds: 150 },
-      { exercise_id: '9', exercise_name: 'Seated Cable Row', sets: 3, reps_min: 10, reps_max: 12, rest_seconds: 90 },
-      { exercise_id: '10', exercise_name: 'Face Pulls', sets: 3, reps_min: 15, reps_max: 20, rest_seconds: 60 },
-      { exercise_id: '11', exercise_name: 'Barbell Curl', sets: 3, reps_min: 10, reps_max: 12, rest_seconds: 60, superset_group: 'A' },
-      { exercise_id: '12', exercise_name: 'Hammer Curls', sets: 3, reps_min: 12, reps_max: 15, rest_seconds: 60, superset_group: 'A' },
-    ],
-  },
-  {
-    id: 'legs1',
-    name: 'Leg Day A - Quad Focus',
-    description: 'Squat-based leg day with quad emphasis',
-    category: 'legs',
-    estimated_duration_min: 65,
-    is_favorite: true,
-    is_system: true,
-    times_used: 8,
-    last_used: '2024-12-26',
-    created_at: '2024-01-01',
-    exercises: [
-      { exercise_id: '13', exercise_name: 'Barbell Back Squat', sets: 4, reps_min: 5, reps_max: 6, rpe_target: 8, rest_seconds: 180 },
-      { exercise_id: '14', exercise_name: 'Leg Press', sets: 3, reps_min: 10, reps_max: 12, rest_seconds: 120 },
-      { exercise_id: '15', exercise_name: 'Walking Lunges', sets: 3, reps_min: 10, reps_max: 12, notes: 'per leg', rest_seconds: 90 },
-      { exercise_id: '16', exercise_name: 'Leg Extension', sets: 3, reps_min: 12, reps_max: 15, rest_seconds: 60 },
-      { exercise_id: '17', exercise_name: 'Leg Curl', sets: 3, reps_min: 12, reps_max: 15, rest_seconds: 60 },
-      { exercise_id: '18', exercise_name: 'Calf Raises', sets: 4, reps_min: 12, reps_max: 15, rest_seconds: 45 },
-    ],
-  },
-  {
-    id: 'legs2',
-    name: 'Leg Day B - Posterior Chain',
-    description: 'Deadlift-based with hamstring and glute focus',
-    category: 'legs',
-    estimated_duration_min: 60,
-    is_favorite: false,
-    is_system: true,
-    times_used: 6,
-    created_at: '2024-01-01',
-    exercises: [
-      { exercise_id: '19', exercise_name: 'Deadlift', sets: 4, reps_min: 4, reps_max: 5, rpe_target: 8, rest_seconds: 180 },
-      { exercise_id: '20', exercise_name: 'Romanian Deadlift', sets: 3, reps_min: 8, reps_max: 10, rest_seconds: 120 },
-      { exercise_id: '21', exercise_name: 'Hip Thrust', sets: 3, reps_min: 10, reps_max: 12, rest_seconds: 90 },
-      { exercise_id: '22', exercise_name: 'Leg Curl', sets: 3, reps_min: 12, reps_max: 15, rest_seconds: 60 },
-      { exercise_id: '23', exercise_name: 'Glute Bridge', sets: 3, reps_min: 15, reps_max: 20, rest_seconds: 45 },
-    ],
-  },
-  {
-    id: 'upper1',
-    name: 'Upper Body - Strength',
-    description: 'Compound-focused upper body for strength',
-    category: 'upper',
-    estimated_duration_min: 70,
-    is_favorite: false,
-    is_system: true,
-    times_used: 4,
-    created_at: '2024-01-01',
-    exercises: [
-      { exercise_id: '1', exercise_name: 'Barbell Bench Press', sets: 4, reps_min: 5, reps_max: 6, rpe_target: 8, rest_seconds: 180 },
-      { exercise_id: '7', exercise_name: 'Pull-Ups', sets: 4, reps_min: 6, reps_max: 8, rest_seconds: 150 },
-      { exercise_id: '4', exercise_name: 'Overhead Press', sets: 3, reps_min: 6, reps_max: 8, rpe_target: 8, rest_seconds: 150 },
-      { exercise_id: '8', exercise_name: 'Barbell Row', sets: 3, reps_min: 6, reps_max: 8, rest_seconds: 120 },
-      { exercise_id: '24', exercise_name: 'Dips', sets: 3, reps_min: 8, reps_max: 10, rest_seconds: 90 },
-      { exercise_id: '25', exercise_name: 'Chin-Ups', sets: 3, reps_min: 8, reps_max: 10, rest_seconds: 90 },
-    ],
-  },
-]
 
 // Template Card Component
 function TemplateCard({
@@ -363,12 +268,31 @@ function TemplateDetailModal({
 }
 
 // Main Template Library Component
-export function WorkoutTemplateLibrary() {
-  const [templates, setTemplates] = useState<WorkoutTemplate[]>(MOCK_TEMPLATES)
+export function WorkoutTemplateLibrary({ onStartWorkout }: WorkoutTemplateLibraryProps) {
+  const [templates, setTemplates] = useState<WorkoutTemplate[]>([])
+  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState<WorkoutTemplate | null>(null)
+
+  // Fetch templates from API
+  useEffect(() => {
+    fetchTemplates()
+  }, [])
+
+  const fetchTemplates = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/workout-templates')
+      const data = await res.json()
+      setTemplates(data.templates || [])
+    } catch (error) {
+      console.error('Failed to fetch templates:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   // Get unique categories
   const categories = Array.from(new Set(templates.map(t => t.category)))
@@ -391,21 +315,61 @@ export function WorkoutTemplateLibrary() {
     return b.times_used - a.times_used
   })
 
-  const toggleFavorite = (id: string) => {
-    setTemplates(prev => prev.map(t => 
+  const toggleFavorite = async (id: string) => {
+    const template = templates.find(t => t.id === id)
+    if (!template) return
+
+    // Optimistic update
+    setTemplates(prev => prev.map(t =>
       t.id === id ? { ...t, is_favorite: !t.is_favorite } : t
     ))
+
+    try {
+      await fetch('/api/workout-templates', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, is_favorite: !template.is_favorite }),
+      })
+    } catch (error) {
+      console.error('Failed to toggle favorite:', error)
+      // Revert on error
+      setTemplates(prev => prev.map(t =>
+        t.id === id ? { ...t, is_favorite: template.is_favorite } : t
+      ))
+    }
   }
 
-  const deleteTemplate = (id: string) => {
-    if (confirm('Delete this template?')) {
-      setTemplates(prev => prev.filter(t => t.id !== id))
+  const deleteTemplate = async (id: string) => {
+    if (!confirm('Delete this template?')) return
+
+    try {
+      const res = await fetch(`/api/workout-templates?id=${id}`, {
+        method: 'DELETE',
+      })
+
+      if (res.ok) {
+        setTemplates(prev => prev.filter(t => t.id !== id))
+      } else {
+        const data = await res.json()
+        alert(data.error || 'Failed to delete template')
+      }
+    } catch (error) {
+      console.error('Failed to delete template:', error)
+      alert('Failed to delete template')
     }
   }
 
   const handleStartWorkout = (template: WorkoutTemplate) => {
-    // Would navigate to lifting tracker with template loaded
-    console.log('Starting workout with template:', template.name)
+    // Increment usage count
+    fetch('/api/workout-templates', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: template.id, increment_usage: true }),
+    }).catch(console.error)
+
+    if (onStartWorkout) {
+      onStartWorkout(template)
+    }
     setSelectedTemplate(null)
   }
 
@@ -414,17 +378,29 @@ export function WorkoutTemplateLibrary() {
     console.log('Scheduling template:', template.name)
   }
 
-  const handleDuplicate = (template: WorkoutTemplate) => {
-    const duplicate: WorkoutTemplate = {
-      ...template,
-      id: `${template.id}-copy-${Date.now()}`,
-      name: `${template.name} (Copy)`,
-      is_system: false,
-      is_favorite: false,
-      times_used: 0,
-      created_at: new Date().toISOString(),
+  const handleDuplicate = async (template: WorkoutTemplate) => {
+    try {
+      const res = await fetch('/api/workout-templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: `${template.name} (Copy)`,
+          description: template.description,
+          category: template.category,
+          estimated_duration_min: template.estimated_duration_min,
+          exercises: template.exercises,
+        }),
+      })
+
+      if (res.ok) {
+        fetchTemplates() // Refresh list
+      } else {
+        throw new Error('Failed to duplicate')
+      }
+    } catch (error) {
+      console.error('Failed to duplicate template:', error)
+      alert('Failed to duplicate template')
     }
-    setTemplates(prev => [...prev, duplicate])
     setSelectedTemplate(null)
   }
 
@@ -491,19 +467,24 @@ export function WorkoutTemplateLibrary() {
 
       {/* Templates grid */}
       <div className="grid gap-3">
-        {sortedTemplates.map(template => (
-          <TemplateCard
-            key={template.id}
-            template={template}
-            onSelect={() => setSelectedTemplate(template)}
-            onEdit={() => console.log('Edit:', template.id)}
-            onDelete={() => deleteTemplate(template.id)}
-            onToggleFavorite={() => toggleFavorite(template.id)}
-            onSchedule={() => handleSchedule(template)}
-          />
-        ))}
-
-        {sortedTemplates.length === 0 && (
+        {loading ? (
+          <div className="text-center py-12">
+            <Loader2 size={32} className="mx-auto text-white/30 animate-spin mb-4" />
+            <p className="text-white/40">Loading templates...</p>
+          </div>
+        ) : sortedTemplates.length > 0 ? (
+          sortedTemplates.map(template => (
+            <TemplateCard
+              key={template.id}
+              template={template}
+              onSelect={() => setSelectedTemplate(template)}
+              onEdit={() => console.log('Edit:', template.id)}
+              onDelete={() => deleteTemplate(template.id)}
+              onToggleFavorite={() => toggleFavorite(template.id)}
+              onSchedule={() => handleSchedule(template)}
+            />
+          ))
+        ) : (
           <div className="text-center py-12">
             <Dumbbell size={48} className="mx-auto text-white/20 mb-4" />
             <p className="text-white/40">No templates found</p>
