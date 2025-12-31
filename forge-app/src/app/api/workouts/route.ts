@@ -177,14 +177,14 @@ export async function PATCH(request: NextRequest) {
   try {
     const supabase = await createClient()
     const adminClient = createAdminClient()
-    
+
     const { data: { session }, error: sessionError } = await supabase.auth.getSession()
     if (sessionError || !session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const body = await request.json()
-    const { id, ...updates } = body
+    const { id } = body
 
     if (!id) {
       return NextResponse.json({ error: 'Workout ID required' }, { status: 400 })
@@ -201,20 +201,41 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Workout not found' }, { status: 404 })
     }
 
+    // Only allow updating specific fields that exist in the database
+    const allowedFields = [
+      'name',
+      'scheduled_date',
+      'scheduled_time',
+      'planned_duration_minutes',
+      'actual_duration_minutes',
+      'notes',
+      'status',
+      'completed_at',
+      'perceived_exertion',
+    ]
+
+    const updates: Record<string, any> = {}
+    for (const field of allowedFields) {
+      if (body[field] !== undefined) {
+        updates[field] = body[field]
+      }
+    }
+
     // Update workout
     const { data: workout, error: updateError }: any = await (adminClient
       .from('workouts') as any)
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updates)
       .eq('id', id)
       .select()
       .single()
 
     if (updateError) {
       console.error('Error updating workout:', updateError)
-      return NextResponse.json({ error: 'Failed to update workout' }, { status: 500 })
+      return NextResponse.json({
+        error: 'Failed to update workout',
+        details: updateError.message,
+        code: updateError.code
+      }, { status: 500 })
     }
 
     return NextResponse.json({ workout })

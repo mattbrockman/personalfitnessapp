@@ -38,6 +38,7 @@ import {
 } from 'lucide-react'
 import { Workout } from '@/types/database'
 import { CreateWorkoutModal } from './CreateWorkoutModal'
+import { WorkoutDetailModal } from './WorkoutDetailModal'
 import { WeeklySummaryBar } from './WeeklySummaryBar'
 import { AIChatBubble } from './AIChatBubble'
 
@@ -402,9 +403,10 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
 
       {/* Workout detail modal */}
       {selectedWorkout && (
-        <WorkoutModal
+        <WorkoutDetailModal
           workout={selectedWorkout}
           onClose={() => setSelectedWorkout(null)}
+          onUpdate={() => window.location.reload()}
         />
       )}
 
@@ -427,132 +429,6 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
           plannedWorkouts: workouts.filter(w => w.status === 'planned').length,
         }}
       />
-    </div>
-  )
-}
-
-function WorkoutModal({ workout, onClose }: { workout: Workout; onClose: () => void }) {
-  const colors = categoryColors[workout.category]
-  const Icon = workoutIcons[workout.workout_type] || workoutIcons.default
-  const zone = workout.primary_intensity ? intensityZones[workout.primary_intensity] : null
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80" onClick={onClose}>
-      <div 
-        className="bg-zinc-900 rounded-2xl w-full max-w-md overflow-hidden border border-white/10 animate-slide-up"
-        onClick={e => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className={`p-4 ${colors.light}`}>
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3">
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${colors.bg}`}>
-                <Icon size={24} className="text-white" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-lg">{workout.name || workout.workout_type}</h3>
-                <p className="text-white/60 text-sm capitalize">
-                  {workout.workout_type} • {workout.category}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Content */}
-        <div className="p-4 space-y-4">
-          {/* Status badges */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {workout.status === 'completed' ? (
-              <span className="px-2 py-1 bg-emerald-500/20 text-emerald-400 text-xs rounded-full flex items-center gap-1">
-                <CheckCircle2 size={12} /> Completed
-              </span>
-            ) : (
-              <span className="px-2 py-1 bg-amber-500/20 text-amber-400 text-xs rounded-full">
-                Planned
-              </span>
-            )}
-            {zone && (
-              <span className={`px-2 py-1 text-xs rounded-full ${zone.color} text-black font-medium`}>
-                {zone.label}
-              </span>
-            )}
-            {workout.source !== 'manual' && (
-              <span className="px-2 py-1 bg-white/10 text-white/60 text-xs rounded-full capitalize">
-                {workout.source}
-              </span>
-            )}
-          </div>
-
-          {/* Metrics grid */}
-          <div className="grid grid-cols-3 gap-3">
-            {workout.actual_duration_minutes && (
-              <div className="glass rounded-lg p-3 text-center">
-                <Clock size={16} className="mx-auto text-white/40 mb-1" />
-                <p className="text-lg font-semibold">
-                  {Math.floor(workout.actual_duration_minutes / 60)}:{String(workout.actual_duration_minutes % 60).padStart(2, '0')}
-                </p>
-                <p className="text-xs text-white/40">Duration</p>
-              </div>
-            )}
-            {workout.actual_distance_miles && (
-              <div className="glass rounded-lg p-3 text-center">
-                <Route size={16} className="mx-auto text-white/40 mb-1" />
-                <p className="text-lg font-semibold">{workout.actual_distance_miles}</p>
-                <p className="text-xs text-white/40">Miles</p>
-              </div>
-            )}
-            {workout.actual_tss && (
-              <div className="glass rounded-lg p-3 text-center">
-                <Gauge size={16} className="mx-auto text-white/40 mb-1" />
-                <p className="text-lg font-semibold">{workout.actual_tss}</p>
-                <p className="text-xs text-white/40">TSS</p>
-              </div>
-            )}
-            {workout.actual_avg_hr && (
-              <div className="glass rounded-lg p-3 text-center">
-                <Activity size={16} className="mx-auto text-white/40 mb-1" />
-                <p className="text-lg font-semibold">{workout.actual_avg_hr}</p>
-                <p className="text-xs text-white/40">Avg HR</p>
-              </div>
-            )}
-            {workout.actual_avg_power && (
-              <div className="glass rounded-lg p-3 text-center">
-                <Zap size={16} className="mx-auto text-white/40 mb-1" />
-                <p className="text-lg font-semibold">{workout.actual_avg_power}</p>
-                <p className="text-xs text-white/40">Avg Watts</p>
-              </div>
-            )}
-            {workout.actual_elevation_ft && (
-              <div className="glass rounded-lg p-3 text-center">
-                <Activity size={16} className="mx-auto text-white/40 mb-1" />
-                <p className="text-lg font-semibold">{workout.actual_elevation_ft}</p>
-                <p className="text-xs text-white/40">Elevation</p>
-              </div>
-            )}
-          </div>
-
-          {/* External link */}
-          {workout.external_url && (
-            <a
-              href={workout.external_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block w-full py-2.5 glass rounded-lg text-center text-sm text-white/60 hover:text-white transition-colors"
-            >
-              View on {workout.source === 'strava' ? 'Strava' : 'Source'} →
-            </a>
-          )}
-
-          {/* Close button */}
-          <button
-            onClick={onClose}
-            className="w-full py-2.5 bg-white/10 hover:bg-white/20 rounded-lg text-sm transition-colors"
-          >
-            Close
-          </button>
-        </div>
-      </div>
     </div>
   )
 }
