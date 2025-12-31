@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   format,
   startOfMonth,
@@ -10,6 +10,7 @@ import {
   eachDayOfInterval,
   isSameMonth,
   isSameDay,
+  isSameWeek,
   addMonths,
   subMonths,
   addWeeks,
@@ -38,12 +39,55 @@ import {
   XCircle,
   AlertTriangle,
   CheckCircle,
+  Target,
+  Flag,
 } from 'lucide-react'
 import { Workout } from '@/types/database'
 import { CreateWorkoutModal } from './CreateWorkoutModal'
 import { WorkoutDetailModal } from './WorkoutDetailModal'
 import { WeeklySummaryBar } from './WeeklySummaryBar'
 import { AIChatBubble } from './AIChatBubble'
+import { PhaseType, PHASE_COLORS, PHASE_LABELS, EventType, EVENT_TYPE_ICONS } from '@/types/training-plan'
+
+interface PlanData {
+  plan: {
+    id: string
+    name: string
+    goal: string
+    primary_sport: string
+    weekly_hours_target: number
+  } | null
+  phase: {
+    id: string
+    name: string
+    phase_type: PhaseType
+    intensity_focus: string
+    volume_modifier: number
+    intensity_modifier: number
+    activity_distribution: Record<string, number>
+    start_date: string
+    end_date: string
+  } | null
+  weeklyTarget: {
+    id: string
+    target_hours: number
+    target_tss: number
+    cycling_hours: number
+    running_hours: number
+    swimming_hours: number
+    lifting_sessions: number
+    other_hours: number
+    week_type: string
+    daily_structure: Record<string, string>
+  } | null
+  events: Array<{
+    id: string
+    name: string
+    event_type: EventType
+    priority: string
+    event_date: string
+  }>
+}
 
 interface CalendarViewProps {
   initialWorkouts: Workout[]
@@ -121,6 +165,27 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [createModalDate, setCreateModalDate] = useState<Date>(new Date())
   const [viewMode, setViewMode] = useState<ViewMode>('month')
+  const [planData, setPlanData] = useState<PlanData | null>(null)
+  const [planLoading, setPlanLoading] = useState(true)
+
+  // Fetch current week's plan data
+  const fetchPlanData = useCallback(async () => {
+    try {
+      const response = await fetch('/api/training-plans/current-week')
+      if (response.ok) {
+        const data = await response.json()
+        setPlanData(data)
+      }
+    } catch (error) {
+      console.error('Failed to fetch plan data:', error)
+    } finally {
+      setPlanLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchPlanData()
+  }, [])
 
   // Generate calendar days based on view mode
   const monthStart = startOfMonth(currentDate)
@@ -332,9 +397,13 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
       <WeeklySummaryBar
         currentDate={currentDate}
         workouts={workouts}
-        trainingPhase="base"
-        targetTSS={500}
-        targetHours={10}
+        trainingPhase={planData?.phase?.phase_type || 'base'}
+        phaseName={planData?.phase?.name}
+        targetTSS={planData?.weeklyTarget?.target_tss || 500}
+        targetHours={planData?.weeklyTarget?.target_hours || 10}
+        weeklyTarget={planData?.weeklyTarget || null}
+        planName={planData?.plan?.name}
+        loading={planLoading}
       />
 
       {/* Calendar grid */}
@@ -366,17 +435,29 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
                   !isCurrentMonth && viewMode === 'month' ? 'bg-white/[0.01]' : ''
                 }`}
               >
-                {/* Day number */}
+                {/* Day number and event marker */}
                 <div className="flex items-center justify-between mb-2">
-                  <span className={`text-sm font-medium w-7 h-7 flex items-center justify-center rounded-full ${
-                    isCurrentDay 
-                      ? 'bg-amber-500 text-black' 
-                      : isCurrentMonth 
-                        ? 'text-white' 
-                        : 'text-white/30'
-                  }`}>
-                    {format(day, 'd')}
-                  </span>
+                  <div className="flex items-center gap-1">
+                    <span className={`text-sm font-medium w-7 h-7 flex items-center justify-center rounded-full ${
+                      isCurrentDay
+                        ? 'bg-amber-500 text-black'
+                        : isCurrentMonth
+                          ? 'text-white'
+                          : 'text-white/30'
+                    }`}>
+                      {format(day, 'd')}
+                    </span>
+                    {/* Plan event marker */}
+                    {planData?.events?.filter(e => e.event_date === dateKey).map(event => (
+                      <span
+                        key={event.id}
+                        className="text-xs cursor-help"
+                        title={`${event.name} (${event.event_type}, ${event.priority}-priority)`}
+                      >
+                        {EVENT_TYPE_ICONS[event.event_type] || '📅'}
+                      </span>
+                    ))}
+                  </div>
                   <button
                     onClick={(e) => { e.stopPropagation(); openCreateModal(day); }}
                     className="p-1 hover:bg-white/10 rounded opacity-0 hover:opacity-100 transition-opacity"

@@ -3,11 +3,11 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { User } from '@supabase/supabase-js'
-import { 
-  Calendar, 
-  Dumbbell, 
-  Utensils, 
-  TrendingUp, 
+import {
+  Calendar,
+  Dumbbell,
+  Utensils,
+  TrendingUp,
   Settings,
   Bot,
   Menu,
@@ -15,6 +15,7 @@ import {
   LogOut,
   Moon,
   BookOpen,
+  Target,
 } from 'lucide-react'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -30,6 +31,7 @@ export function Navigation({ user }: NavigationProps) {
 
   const navItems = [
     { href: '/calendar', label: 'Calendar', icon: Calendar },
+    { href: '/plan', label: 'Plan', icon: Target },
     { href: '/lifting', label: 'Lifting', icon: Dumbbell },
     { href: '/nutrition', label: 'Nutrition', icon: Utensils },
     { href: '/sleep', label: 'Sleep', icon: Moon },

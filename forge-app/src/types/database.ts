@@ -34,6 +34,7 @@ export interface Database {
           max_hr_bpm: number | null
           threshold_pace_per_mile: string | null
           active_program_id: string | null
+          available_equipment: string[] | null
           created_at: string
           updated_at: string
         }

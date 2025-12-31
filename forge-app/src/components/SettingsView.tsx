@@ -22,11 +22,26 @@ interface SettingsViewProps {
   integrations: Integration[]
 }
 
+const EQUIPMENT_OPTIONS = [
+  { id: 'barbell', label: 'Barbell & Rack' },
+  { id: 'dumbbell', label: 'Dumbbells' },
+  { id: 'cable', label: 'Cable Machine' },
+  { id: 'machine', label: 'Weight Machines' },
+  { id: 'bodyweight', label: 'Bodyweight / Pull-up Bar' },
+  { id: 'kettlebell', label: 'Kettlebells' },
+  { id: 'bands', label: 'Resistance Bands' },
+]
+
+const DEFAULT_EQUIPMENT = ['barbell', 'dumbbell', 'cable', 'machine', 'bodyweight']
+
 export function SettingsView({ user, profile, integrations }: SettingsViewProps) {
   const [isSaving, setIsSaving] = useState(false)
   const [ftpWatts, setFtpWatts] = useState(profile?.ftp_watts?.toString() || '')
   const [lthrBpm, setLthrBpm] = useState(profile?.lthr_bpm?.toString() || '')
   const [maxHrBpm, setMaxHrBpm] = useState(profile?.max_hr_bpm?.toString() || '')
+  const [availableEquipment, setAvailableEquipment] = useState<string[]>(
+    profile?.available_equipment || DEFAULT_EQUIPMENT
+  )
   
   const supabase = createClient() as any
   const stravaIntegration = integrations.find(i => i.service === 'strava')
@@ -40,6 +55,7 @@ export function SettingsView({ user, profile, integrations }: SettingsViewProps)
           ftp_watts: ftpWatts ? parseInt(ftpWatts) : null,
           lthr_bpm: lthrBpm ? parseInt(lthrBpm) : null,
           max_hr_bpm: maxHrBpm ? parseInt(maxHrBpm) : null,
+          available_equipment: availableEquipment,
           updated_at: new Date().toISOString(),
         })
         .eq('id', user.id)
@@ -48,6 +64,14 @@ export function SettingsView({ user, profile, integrations }: SettingsViewProps)
     } finally {
       setIsSaving(false)
     }
+  }
+
+  const toggleEquipment = (equipmentId: string) => {
+    setAvailableEquipment(prev =>
+      prev.includes(equipmentId)
+        ? prev.filter(e => e !== equipmentId)
+        : [...prev, equipmentId]
+    )
   }
 
   const handleDisconnectStrava = async () => {
@@ -137,6 +161,60 @@ export function SettingsView({ user, profile, integrations }: SettingsViewProps)
             />
             <p className="text-xs text-white/40 mt-1">Maximum Heart Rate</p>
           </div>
+        </div>
+
+        <button
+          onClick={handleSaveProfile}
+          disabled={isSaving}
+          className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black font-medium rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+        >
+          {isSaving && <Loader2 size={16} className="animate-spin" />}
+          Save Changes
+        </button>
+      </section>
+
+      {/* Equipment & Space Section */}
+      <section className="glass rounded-xl p-6 mb-6">
+        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+          <Dumbbell size={20} className="text-white/40" />
+          Equipment & Space
+        </h2>
+        <p className="text-sm text-white/50 mb-4">
+          Select the equipment you have access to. This is used by the AI workout generator to create workouts tailored to your setup.
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+          {EQUIPMENT_OPTIONS.map((eq) => (
+            <label
+              key={eq.id}
+              className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
+                availableEquipment.includes(eq.id)
+                  ? 'bg-amber-500/20 border border-amber-500/50'
+                  : 'bg-white/5 border border-white/10 hover:bg-white/10'
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={availableEquipment.includes(eq.id)}
+                onChange={() => toggleEquipment(eq.id)}
+                className="sr-only"
+              />
+              <div
+                className={`w-5 h-5 rounded flex items-center justify-center border transition-colors ${
+                  availableEquipment.includes(eq.id)
+                    ? 'bg-amber-500 border-amber-500'
+                    : 'border-white/30'
+                }`}
+              >
+                {availableEquipment.includes(eq.id) && (
+                  <Check size={14} className="text-black" />
+                )}
+              </div>
+              <span className={availableEquipment.includes(eq.id) ? 'text-white' : 'text-white/70'}>
+                {eq.label}
+              </span>
+            </label>
+          ))}
         </div>
 
         <button

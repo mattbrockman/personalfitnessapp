@@ -35,9 +35,21 @@ export async function POST(request: NextRequest) {
     }
 
     const body: GenerateWorkoutRequest = await request.json()
-    const { muscle_focus, duration_minutes = 45, equipment = 'full_gym', prompt } = body
+    const { muscle_focus, duration_minutes = 45, equipment, prompt } = body
 
     console.log('AI Workout Generation request:', { muscle_focus, duration_minutes, equipment, hasPrompt: !!prompt })
+
+    // Fetch user's saved equipment preferences
+    const { data: profileData } = await adminClient
+      .from('profiles')
+      .select('available_equipment')
+      .eq('id', session.user.id)
+      .single() as { data: { available_equipment: string[] | null } | null }
+
+    // Use equipment from request, or fall back to saved preferences, or default
+    const userEquipment = equipment || profileData?.available_equipment || ['barbell', 'dumbbell', 'cable', 'machine', 'bodyweight']
+
+    console.log('Using equipment:', userEquipment)
 
     // Gather context for the AI
 
@@ -140,15 +152,19 @@ export async function POST(request: NextRequest) {
           if (!exerciseByMuscle[muscle]) {
             exerciseByMuscle[muscle] = []
           }
-          // Only add if equipment matches
+          // Only add if equipment matches user's available equipment
           const exEquipment = ex.equipment?.toLowerCase() || ''
-          let includeExercise = true
 
-          if (equipment === 'dumbbells') {
-            includeExercise = exEquipment.includes('dumbbell') || exEquipment.includes('bodyweight')
-          } else if (equipment === 'bodyweight') {
-            includeExercise = exEquipment.includes('bodyweight') || exEquipment === 'none'
-          }
+          // Check if exercise equipment type matches any of user's available equipment
+          const equipmentArray = Array.isArray(userEquipment) ? userEquipment : ['barbell', 'dumbbell', 'cable', 'machine', 'bodyweight']
+
+          const includeExercise = equipmentArray.some(equip => {
+            const equipLower = equip.toLowerCase()
+            if (equipLower === 'bodyweight') {
+              return exEquipment.includes('bodyweight') || exEquipment === 'none' || exEquipment === ''
+            }
+            return exEquipment.includes(equipLower)
+          })
 
           if (includeExercise && exerciseByMuscle[muscle].length < 8) {
             exerciseByMuscle[muscle].push(ex.name)
@@ -207,6 +223,19 @@ IMPORTANT: Only use exercises from the provided exercise library.`
       userRequest = 'Create a balanced strength training workout'
     }
 
+    // Format equipment list for prompt
+    const equipmentArray = Array.isArray(userEquipment) ? userEquipment : ['barbell', 'dumbbell', 'cable', 'machine', 'bodyweight']
+    const equipmentLabels: Record<string, string> = {
+      barbell: 'Barbell & Rack',
+      dumbbell: 'Dumbbells',
+      cable: 'Cable Machine',
+      machine: 'Weight Machines',
+      bodyweight: 'Bodyweight/Pull-up Bar',
+      kettlebell: 'Kettlebells',
+      bands: 'Resistance Bands',
+    }
+    const equipmentDescription = equipmentArray.map(e => equipmentLabels[e] || e).join(', ')
+
     const userPrompt = `PRIMARY DIRECTIVE (from user):
 "${prompt || userRequest}"
 
@@ -214,7 +243,8 @@ Your workout MUST follow this directive. If they want to focus on something, foc
 
 WORKOUT PARAMETERS:
 - Duration: approximately ${duration_minutes} minutes
-- Equipment: ${equipment === 'full_gym' ? 'Full gym (barbells, dumbbells, machines, cables)' : equipment === 'dumbbells' ? 'Dumbbells only' : 'Bodyweight only'}
+- Available Equipment: ${equipmentDescription}
+- IMPORTANT: Only use exercises that can be done with the available equipment listed above
 
 ADDITIONAL CONTEXT:
 ${contextParts.join('\n\n')}
