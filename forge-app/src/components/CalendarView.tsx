@@ -61,6 +61,7 @@ const categoryColors: Record<string, { bg: string; light: string; text: string; 
 // Status icon helper - HOW the workout went
 const getStatusIcon = (workout: Workout) => {
   const { status, scheduled_date, planned_duration_minutes, actual_duration_minutes } = workout
+  if (!scheduled_date) return null
   const isPast = new Date(scheduled_date) < new Date(new Date().toDateString()) // Compare dates only
 
   if (!isPast && status === 'planned') return null // Future planned - no icon
