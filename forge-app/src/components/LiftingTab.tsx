@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useCallback } from 'react'
-import { Plus, Layers, History, Dumbbell } from 'lucide-react'
+import { useState, useCallback, useEffect } from 'react'
+import { Plus, Layers, History, Dumbbell, Loader2, Sparkles } from 'lucide-react'
 import { WorkoutBuilder } from './WorkoutBuilder'
 import { LiftingTracker } from './LiftingTracker'
 import { WorkoutTemplateLibrary } from './WorkoutTemplateLibrary'
+import { AIWorkoutGenerator } from './AIWorkoutGenerator'
 
 // Types
 interface Exercise {
@@ -52,11 +53,103 @@ interface WorkoutExercise {
 type TabView = 'new' | 'templates' | 'history'
 type MainView = 'tabs' | 'builder' | 'tracker'
 
-export function LiftingTab() {
+interface LiftingTabProps {
+  workoutId?: string | null
+}
+
+export function LiftingTab({ workoutId }: LiftingTabProps) {
   const [mainView, setMainView] = useState<MainView>('tabs')
   const [activeTab, setActiveTab] = useState<TabView>('new')
   const [workoutName, setWorkoutName] = useState('')
   const [preloadedExercises, setPreloadedExercises] = useState<WorkoutExercise[]>([])
+  const [plannedWorkoutId, setPlannedWorkoutId] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [showAIGenerator, setShowAIGenerator] = useState(false)
+
+  // Load workout from URL param if provided
+  useEffect(() => {
+    if (workoutId) {
+      loadPlannedWorkout(workoutId)
+    }
+  }, [workoutId])
+
+  const loadPlannedWorkout = async (id: string) => {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/workouts/${id}`)
+      if (!res.ok) {
+        throw new Error('Failed to load workout')
+      }
+
+      const data = await res.json()
+      const workout = data.workout
+
+      if (!workout) {
+        throw new Error('Workout not found')
+      }
+
+      // Convert workout exercises to tracker format
+      const trackerExercises: WorkoutExercise[] = (workout.exercises || []).map((we: any) => {
+        // Convert sets from API format to tracker format
+        const sets: SetData[] = (we.sets || []).map((set: any, index: number) => ({
+          id: set.id || `set-${Date.now()}-${index}`,
+          set_number: set.set_number || index + 1,
+          set_type: set.set_type || 'working',
+          target_reps: set.target_reps,
+          target_weight: set.target_weight_lbs,
+          target_rir: set.target_rpe ? String(10 - set.target_rpe) : null, // Convert RPE to RIR
+          actual_reps: set.actual_reps,
+          actual_weight: set.actual_weight_lbs,
+          actual_rir: set.actual_rpe ? String(10 - set.actual_rpe) : null,
+          completed: set.completed || false,
+        }))
+
+        // If no sets exist, create default sets
+        if (sets.length === 0) {
+          for (let i = 0; i < 3; i++) {
+            sets.push({
+              id: `set-${Date.now()}-${i}`,
+              set_number: i + 1,
+              set_type: 'working',
+              target_reps: 10,
+              target_weight: null,
+              target_rir: null,
+              actual_reps: null,
+              actual_weight: null,
+              actual_rir: null,
+              completed: false,
+            })
+          }
+        }
+
+        return {
+          id: we.id || `ex-${Date.now()}`,
+          exercise: {
+            id: we.exercise_id || we.exercise?.id || '',
+            name: we.exercise_name || we.exercise?.name || 'Unknown Exercise',
+            primary_muscle: we.exercise?.primary_muscles?.[0] || '',
+            equipment: we.exercise?.equipment || '',
+            cues: we.exercise?.coaching_cues || [],
+          },
+          superset_group: we.superset_group || null,
+          rest_seconds: we.rest_seconds || 90,
+          notes: we.notes || '',
+          sets,
+          collapsed: false,
+        }
+      })
+
+      setWorkoutName(workout.name || 'Planned Workout')
+      setPreloadedExercises(trackerExercises)
+      setPlannedWorkoutId(id)
+      setMainView('tracker')
+    } catch (error) {
+      console.error('Failed to load planned workout:', error)
+      alert('Failed to load workout. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   // Convert BuilderExercise to WorkoutExercise format for the tracker
   const convertToTrackerFormat = useCallback((builderExercises: BuilderExercise[]): WorkoutExercise[] => {
@@ -95,6 +188,29 @@ export function LiftingTab() {
     const trackerExercises = convertToTrackerFormat(exercises)
     setWorkoutName(name)
     setPreloadedExercises(trackerExercises)
+    setShowAIGenerator(false)
+    setMainView('tracker')
+  }, [convertToTrackerFormat])
+
+  // Handle AI generated workout - start immediately
+  const handleAIStartWorkout = useCallback((exercises: BuilderExercise[], name: string) => {
+    const trackerExercises = convertToTrackerFormat(exercises)
+    setWorkoutName(name)
+    setPreloadedExercises(trackerExercises)
+    setShowAIGenerator(false)
+    setMainView('tracker')
+  }, [convertToTrackerFormat])
+
+  // Handle AI generated workout - edit first in builder
+  // Note: WorkoutBuilder would need to accept initial exercises to support this fully
+  // For now, we'll just start the workout directly
+  const handleAIEditInBuilder = useCallback((exercises: BuilderExercise[], name: string) => {
+    // TODO: Pass exercises to WorkoutBuilder when it supports initial data
+    // For now, start workout directly (user can modify in tracker)
+    const trackerExercises = convertToTrackerFormat(exercises)
+    setWorkoutName(name)
+    setPreloadedExercises(trackerExercises)
+    setShowAIGenerator(false)
     setMainView('tracker')
   }, [convertToTrackerFormat])
 
@@ -190,6 +306,9 @@ export function LiftingTab() {
     setMainView('tabs')
     setPreloadedExercises([])
     setWorkoutName('')
+    setPlannedWorkoutId(null)
+    // Clear the URL param
+    window.history.replaceState({}, '', '/lifting')
   }, [])
 
   // Handle canceling workout
@@ -198,8 +317,23 @@ export function LiftingTab() {
       setMainView('tabs')
       setPreloadedExercises([])
       setWorkoutName('')
+      setPlannedWorkoutId(null)
+      // Clear the URL param
+      window.history.replaceState({}, '', '/lifting')
     }
   }, [])
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="text-center">
+          <Loader2 size={32} className="mx-auto text-amber-400 animate-spin mb-4" />
+          <p className="text-white/60">Loading workout...</p>
+        </div>
+      </div>
+    )
+  }
 
   // Render main view
   if (mainView === 'builder') {
@@ -218,6 +352,7 @@ export function LiftingTab() {
       <LiftingTracker
         initialExercises={preloadedExercises}
         initialName={workoutName}
+        plannedWorkoutId={plannedWorkoutId}
         onFinish={handleFinishWorkout}
         onCancel={handleCancelWorkout}
       />
@@ -275,22 +410,29 @@ export function LiftingTab() {
             </div>
             <h2 className="text-xl font-semibold mb-2">Start a New Workout</h2>
             <p className="text-white/50 mb-6 max-w-sm mx-auto">
-              Build your workout from scratch or choose from your saved templates
+              Build your workout from scratch, use AI to generate one, or choose from templates
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button
+                onClick={() => setShowAIGenerator(true)}
+                className="px-6 py-3 bg-violet-500 hover:bg-violet-400 text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
+              >
+                <Sparkles size={18} />
+                AI Generate
+              </button>
               <button
                 onClick={() => setMainView('builder')}
                 className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-black font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
               >
                 <Plus size={18} />
-                Build Custom Workout
+                Build Custom
               </button>
               <button
                 onClick={() => setActiveTab('templates')}
                 className="px-6 py-3 bg-white/10 hover:bg-white/20 font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
               >
                 <Layers size={18} />
-                Browse Templates
+                Templates
               </button>
             </div>
           </div>
@@ -332,6 +474,15 @@ export function LiftingTab() {
             </p>
           </div>
         </div>
+      )}
+
+      {/* AI Workout Generator Modal */}
+      {showAIGenerator && (
+        <AIWorkoutGenerator
+          onStartWorkout={handleAIStartWorkout}
+          onEditInBuilder={handleAIEditInBuilder}
+          onClose={() => setShowAIGenerator(false)}
+        />
       )}
     </div>
   )

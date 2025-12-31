@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import {
   X,
@@ -16,6 +17,7 @@ import {
   Activity,
   Loader2,
   ExternalLink,
+  Play,
 } from 'lucide-react'
 import { Workout } from '@/types/database'
 
@@ -50,11 +52,14 @@ const feelingOptions = [
 ]
 
 export function WorkoutDetailModal({ workout, onClose, onUpdate }: WorkoutDetailModalProps) {
+  const router = useRouter()
   const [isEditing, setIsEditing] = useState(false)
   const [showFullCompletion, setShowFullCompletion] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const isStrengthWorkout = workout.category === 'strength'
 
   // Quick complete duration (editable on main view)
   const [quickDuration, setQuickDuration] = useState(
@@ -669,6 +674,20 @@ export function WorkoutDetailModal({ workout, onClose, onUpdate }: WorkoutDetail
             <div className="p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-400 text-sm">
               {error}
             </div>
+          )}
+
+          {/* Start Workout Button (for planned strength workouts) */}
+          {isStrengthWorkout && workout.status !== 'completed' && (
+            <button
+              onClick={() => {
+                onClose()
+                router.push(`/lifting?workout_id=${workout.id}`)
+              }}
+              className="w-full py-3 bg-violet-500 hover:bg-violet-400 text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
+            >
+              <Play size={18} />
+              Start Workout
+            </button>
           )}
 
           {/* Quick Complete Section (for planned workouts) */}

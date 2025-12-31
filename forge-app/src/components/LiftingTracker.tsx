@@ -70,6 +70,7 @@ interface WorkoutExercise {
 interface LiftingTrackerProps {
   initialExercises?: WorkoutExercise[]
   initialName?: string
+  plannedWorkoutId?: string | null
   onFinish?: () => void
   onCancel?: () => void
 }
@@ -1271,6 +1272,7 @@ function ExerciseCard({
 export function LiftingTracker({
   initialExercises = [],
   initialName = '',
+  plannedWorkoutId,
   onFinish,
   onCancel,
 }: LiftingTrackerProps) {
@@ -1411,6 +1413,24 @@ export function LiftingTracker({
         })),
       }))
 
+      // If this workout was started from a planned workout, mark that as completed
+      if (plannedWorkoutId) {
+        const patchRes = await fetch(`/api/workouts/${plannedWorkoutId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            status: 'completed',
+            completed_at: new Date().toISOString(),
+            actual_duration_minutes: elapsedMinutes,
+          }),
+        })
+
+        if (!patchRes.ok) {
+          console.error('Failed to update planned workout status')
+        }
+      }
+
+      // Save the completed workout with all tracking data
       const res = await fetch('/api/workouts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
