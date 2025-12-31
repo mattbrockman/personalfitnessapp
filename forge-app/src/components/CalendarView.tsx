@@ -418,11 +418,6 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
                                 )}
                               </div>
                             </div>
-                            {zone && (
-                              <span className={`text-[9px] font-bold px-1 py-0.5 rounded ${zone.color} text-black flex-shrink-0`}>
-                                {zone.label}
-                              </span>
-                            )}
                           </div>
                         </div>
                       </div>
