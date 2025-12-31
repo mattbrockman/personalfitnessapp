@@ -132,7 +132,7 @@ export async function POST(request: Request) {
           actual_avg_power: activity.average_watts ? Math.round(activity.average_watts) : null,
           actual_np: activity.weighted_average_watts ? Math.round(activity.weighted_average_watts) : null,
           actual_elevation_ft: activity.total_elevation_gain ? Math.round(metersToFeet(activity.total_elevation_gain)) : null,
-          notes: `[v3] Strava: ${activity.name} | https://www.strava.com/activities/${activity.id}`,
+          notes: `[v4] Strava: ${activity.name} | https://www.strava.com/activities/${activity.id}`,
         }
 
         let workout
@@ -218,7 +218,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      version: 3,
+      version: 4,
       ...results,
       total: activities.length,
     })
