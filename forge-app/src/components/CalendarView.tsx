@@ -133,15 +133,25 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
       const response = await fetch('/api/strava/sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ daysBack: 30 }),
+        body: JSON.stringify({ daysBack: 60 }),
       })
-      
+
+      const data = await response.json()
+
       if (response.ok) {
-        // Refresh page to get new workouts
-        window.location.reload()
+        const { synced, matched, skipped, total } = data
+        if (total === 0) {
+          alert('No activities found in Strava for the last 60 days')
+        } else {
+          alert(`Synced ${synced} new, matched ${matched} planned, skipped ${skipped} existing (${total} total)`)
+          window.location.reload()
+        }
+      } else {
+        alert(`Sync error: ${data.error || 'Unknown error'}`)
       }
     } catch (error) {
       console.error('Sync failed:', error)
+      alert(`Sync failed: ${error}`)
     } finally {
       setIsSyncing(false)
     }
