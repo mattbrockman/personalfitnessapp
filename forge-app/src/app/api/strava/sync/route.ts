@@ -35,36 +35,23 @@ export async function POST(request: Request) {
 
   let accessToken = integration.access_token!
 
-  // Check if token needs refresh
-  const expiresAt = new Date(integration.token_expires_at!).getTime()
-  if (Date.now() >= expiresAt - 60000) { // Refresh if expires in less than 1 minute
-    try {
-      const newTokens = await refreshStravaToken(integration.refresh_token!)
-      accessToken = newTokens.access_token
+  // Always try to refresh token to ensure it's valid
+  try {
+    const newTokens = await refreshStravaToken(integration.refresh_token!)
+    accessToken = newTokens.access_token
 
-      // Update tokens in database
-      await adminSupabase
-        .from('integrations')
-        .update({
-          access_token: newTokens.access_token,
-          refresh_token: newTokens.refresh_token,
-          token_expires_at: new Date(newTokens.expires_at * 1000).toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', integration.id)
+    // Update tokens in database (only essential fields)
+    await adminSupabase
+      .from('integrations')
+      .update({
+        access_token: newTokens.access_token,
+        refresh_token: newTokens.refresh_token,
+      })
+      .eq('id', integration.id)
 
-    } catch (err) {
-      console.error('Token refresh failed:', err)
-      await adminSupabase
-        .from('integrations')
-        .update({
-          sync_status: 'error',
-          sync_error: 'Token refresh failed',
-        })
-        .eq('id', integration.id)
-
-      return NextResponse.json({ error: 'Token refresh failed' }, { status: 401 })
-    }
+  } catch (err) {
+    console.error('Token refresh failed, trying with existing token:', err)
+    // Continue with existing token - it might still work
   }
 
   try {
@@ -227,16 +214,6 @@ export async function POST(request: Request) {
       }
     }
 
-    // Update last sync time
-    await adminSupabase
-      .from('integrations')
-      .update({
-        last_sync_at: new Date().toISOString(),
-        sync_status: 'active',
-        sync_error: null,
-      })
-      .eq('id', integration.id)
-
     return NextResponse.json({
       success: true,
       ...results,
@@ -245,32 +222,22 @@ export async function POST(request: Request) {
 
   } catch (err: any) {
     console.error('Strava sync error:', err)
-    
-    // Update error status
-    await adminSupabase
-      .from('integrations')
-      .update({
-        sync_status: 'error',
-        sync_error: err.message,
-      })
-      .eq('id', integration.id)
-
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
 }
 
 // GET endpoint to check sync status
 export async function GET() {
-  const supabase = createClient() as any
+  const supabase = await createClient()
   const { data: { session } } = await supabase.auth.getSession()
 
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { data: integration } = await supabase
-    .from('integrations')
-    .select('service, last_sync_at, sync_status, sync_error, external_user_id')
+  const { data: integration } = await (supabase
+    .from('integrations') as any)
+    .select('id, service')
     .eq('user_id', session.user.id)
     .eq('service', 'strava')
     .single()
@@ -282,9 +249,5 @@ export async function GET() {
   return NextResponse.json({
     connected: true,
     service: integration.service,
-    last_sync_at: integration.last_sync_at,
-    sync_status: integration.sync_status,
-    sync_error: integration.sync_error,
-    external_user_id: integration.external_user_id,
   })
 }

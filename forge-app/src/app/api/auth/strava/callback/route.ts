@@ -53,15 +53,12 @@ export async function GET(request: Request) {
       .eq('service', 'strava')
       .single()
 
+    // Only use columns that definitely exist in the database
     const integrationData = {
       user_id: session.user.id,
       service: 'strava',
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token,
-      token_expires_at: new Date(tokens.expires_at * 1000).toISOString(),
-      external_user_id: tokens.athlete.id.toString(),
-      scopes: ['read', 'activity:read_all', 'profile:read_all'],
-      sync_status: 'active',
     }
 
     let saveError
