@@ -55,7 +55,7 @@ export function CreateWorkoutModal({ selectedDate, onClose, onCreated }: CreateW
     category: 'cardio' as 'cardio' | 'strength' | 'other',
     workout_type: 'bike',
     scheduled_date: format(selectedDate, 'yyyy-MM-dd'),
-    scheduled_time: '09:00',
+    scheduled_time: '', // Empty = all day event
     planned_duration_minutes: 60,
     planned_distance_miles: '',
     planned_tss: '',
@@ -74,6 +74,7 @@ export function CreateWorkoutModal({ selectedDate, onClose, onCreated }: CreateW
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
+          scheduled_time: formData.scheduled_time || null, // null = all day event
           planned_distance_miles: formData.planned_distance_miles ? parseFloat(formData.planned_distance_miles) : null,
           planned_tss: formData.planned_tss ? parseInt(formData.planned_tss) : null,
           status: 'planned',
@@ -192,13 +193,19 @@ export function CreateWorkoutModal({ selectedDate, onClose, onCreated }: CreateW
           {/* Time */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm text-white/60 mb-1.5">Time</label>
+              <label className="block text-sm text-white/60 mb-1.5">
+                Time <span className="text-white/30">(optional)</span>
+              </label>
               <input
                 type="time"
                 value={formData.scheduled_time}
                 onChange={e => setFormData(prev => ({ ...prev, scheduled_time: e.target.value }))}
+                placeholder="All day"
                 className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-amber-500/50"
               />
+              {!formData.scheduled_time && (
+                <p className="text-xs text-white/30 mt-1">Leave empty for all-day event</p>
+              )}
             </div>
             <div>
               <label className="block text-sm text-white/60 mb-1.5">Duration (min)</label>
