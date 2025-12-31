@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import {
   Moon,
   Sun,
@@ -20,13 +20,14 @@ import {
   Plus,
   X,
   Calendar,
+  Loader2,
 } from 'lucide-react'
 import { format, subDays, addDays, isToday, startOfWeek, eachDayOfInterval, isSameDay } from 'date-fns'
 
 // Types
 interface SleepLog {
   id: string
-  sleep_date: string
+  log_date: string
   bedtime?: string
   wake_time?: string
   total_sleep_minutes?: number
@@ -45,62 +46,6 @@ interface SleepLog {
   ai_parsed_data?: any
   notes?: string
 }
-
-// Mock data
-const MOCK_SLEEP_LOGS: SleepLog[] = [
-  {
-    id: '1',
-    sleep_date: format(subDays(new Date(), 0), 'yyyy-MM-dd'),
-    bedtime: '22:45',
-    wake_time: '06:30',
-    total_sleep_minutes: 7 * 60 + 15,
-    time_in_bed_minutes: 7 * 60 + 45,
-    deep_sleep_minutes: 85,
-    rem_sleep_minutes: 95,
-    light_sleep_minutes: 4 * 60 + 15,
-    awake_minutes: 30,
-    sleep_score: 82,
-    hrv_avg: 48,
-    resting_hr: 52,
-    respiratory_rate: 14.5,
-    recovery_score: 76,
-    source: 'eight_sleep_screenshot',
-  },
-  {
-    id: '2',
-    sleep_date: format(subDays(new Date(), 1), 'yyyy-MM-dd'),
-    bedtime: '23:15',
-    wake_time: '06:45',
-    total_sleep_minutes: 6 * 60 + 45,
-    time_in_bed_minutes: 7 * 60 + 30,
-    deep_sleep_minutes: 72,
-    rem_sleep_minutes: 88,
-    light_sleep_minutes: 4 * 60,
-    awake_minutes: 45,
-    sleep_score: 71,
-    hrv_avg: 42,
-    resting_hr: 55,
-    recovery_score: 62,
-    source: 'eight_sleep_screenshot',
-  },
-  {
-    id: '3',
-    sleep_date: format(subDays(new Date(), 2), 'yyyy-MM-dd'),
-    bedtime: '22:30',
-    wake_time: '06:15',
-    total_sleep_minutes: 7 * 60 + 30,
-    time_in_bed_minutes: 7 * 60 + 45,
-    deep_sleep_minutes: 95,
-    rem_sleep_minutes: 105,
-    light_sleep_minutes: 4 * 60 + 10,
-    awake_minutes: 20,
-    sleep_score: 89,
-    hrv_avg: 55,
-    resting_hr: 50,
-    recovery_score: 85,
-    source: 'eight_sleep_screenshot',
-  },
-]
 
 // Helper functions
 function formatMinutesToTime(minutes: number): string {
@@ -232,7 +177,7 @@ function ScreenshotUploadModal({
     setTimeout(() => {
       // In real app, would call AI API to parse Eight Sleep screenshot
       const mockParsedData: Partial<SleepLog> = {
-        sleep_date: selectedDate,
+        log_date: selectedDate,
         bedtime: '22:45',
         wake_time: '06:30',
         total_sleep_minutes: 7 * 60 + 15,
@@ -351,7 +296,7 @@ function ManualEntryModal({
     if (totalMinutes < 0) totalMinutes += 24 * 60 // Handle overnight
 
     const sleepLog: Partial<SleepLog> = {
-      sleep_date: date,
+      log_date: date,
       bedtime: formData.bedtime,
       wake_time: formData.wake_time,
       total_sleep_minutes: totalMinutes - 30, // Assume ~30min to fall asleep/awake time
@@ -468,28 +413,47 @@ function ManualEntryModal({
 
 // Main Sleep Tracker
 export function SleepTracker() {
-  const [sleepLogs, setSleepLogs] = useState<SleepLog[]>(MOCK_SLEEP_LOGS)
+  const [sleepLogs, setSleepLogs] = useState<SleepLog[]>([])
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [showManualModal, setShowManualModal] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+
+  // Fetch sleep logs on mount
+  useEffect(() => {
+    async function fetchSleepLogs() {
+      try {
+        const response = await fetch('/api/sleep?limit=60')
+        if (response.ok) {
+          const data = await response.json()
+          setSleepLogs(data.sleepLogs || [])
+        }
+      } catch (error) {
+        console.error('Error fetching sleep logs:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    fetchSleepLogs()
+  }, [])
 
   // Get current week
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 })
   const weekDays = eachDayOfInterval({ start: weekStart, end: addDays(weekStart, 6) })
 
   // Get log for selected date
-  const selectedLog = sleepLogs.find(log => 
-    log.sleep_date === format(selectedDate, 'yyyy-MM-dd')
+  const selectedLog = sleepLogs.find(log =>
+    log.log_date === format(selectedDate, 'yyyy-MM-dd')
   )
 
   // Get previous log for comparison
-  const previousLog = sleepLogs.find(log => 
-    log.sleep_date === format(subDays(selectedDate, 1), 'yyyy-MM-dd')
+  const previousLog = sleepLogs.find(log =>
+    log.log_date === format(subDays(selectedDate, 1), 'yyyy-MM-dd')
   )
 
   // Calculate weekly averages
   const weeklyLogs = sleepLogs.filter(log => {
-    const logDate = new Date(log.sleep_date)
+    const logDate = new Date(log.log_date)
     return logDate >= weekStart && logDate <= addDays(weekStart, 6)
   })
 
@@ -501,20 +465,47 @@ export function SleepTracker() {
     ? Math.round(weeklyLogs.reduce((sum, log) => sum + (log.total_sleep_minutes || 0), 0) / weeklyLogs.length)
     : 0
 
-  const handleAddSleepLog = (data: Partial<SleepLog>) => {
-    const newLog: SleepLog = {
-      id: `sleep-${Date.now()}`,
-      sleep_date: data.sleep_date || format(selectedDate, 'yyyy-MM-dd'),
-      ...data,
-    } as SleepLog
+  const handleAddSleepLog = async (data: Partial<SleepLog>) => {
+    const logDate = data.log_date || format(selectedDate, 'yyyy-MM-dd')
 
-    setSleepLogs(prev => {
-      // Replace if exists for this date
-      const filtered = prev.filter(log => log.sleep_date !== newLog.sleep_date)
-      return [...filtered, newLog].sort((a, b) => 
-        new Date(b.sleep_date).getTime() - new Date(a.sleep_date).getTime()
-      )
-    })
+    try {
+      const response = await fetch('/api/sleep', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...data,
+          log_date: logDate,
+        }),
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        const newLog = result.sleepLog
+
+        setSleepLogs(prev => {
+          // Replace if exists for this date
+          const filtered = prev.filter(log => log.log_date !== newLog.log_date)
+          return [...filtered, newLog].sort((a, b) =>
+            new Date(b.log_date).getTime() - new Date(a.log_date).getTime()
+          )
+        })
+      } else {
+        console.error('Failed to save sleep log')
+      }
+    } catch (error) {
+      console.error('Error saving sleep log:', error)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="p-4 lg:p-6 flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <Loader2 size={32} className="animate-spin mx-auto text-amber-500 mb-2" />
+          <p className="text-white/50">Loading sleep data...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -566,7 +557,7 @@ export function SleepTracker() {
         {/* Week days */}
         <div className="grid grid-cols-7 gap-2">
           {weekDays.map(day => {
-            const dayLog = sleepLogs.find(log => log.sleep_date === format(day, 'yyyy-MM-dd'))
+            const dayLog = sleepLogs.find(log => log.log_date === format(day, 'yyyy-MM-dd'))
             const isSelected = isSameDay(day, selectedDate)
 
             return (
