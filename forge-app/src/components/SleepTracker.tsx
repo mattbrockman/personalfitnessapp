@@ -161,6 +161,7 @@ interface ParsedSleepItem {
   status: 'pending' | 'parsing' | 'success' | 'error'
   data?: Partial<SleepLog>
   error?: string
+  extraction_quality?: string
 }
 
 // Screenshot Upload Modal - supports batch upload
@@ -214,6 +215,7 @@ function ScreenshotUploadModal({
           const result = await response.json()
           updatedFiles[i].status = 'success'
           updatedFiles[i].data = result.parsed
+          updatedFiles[i].extraction_quality = result.extraction_quality
         } else {
           const errorData = await response.json()
           updatedFiles[i].status = 'error'
@@ -309,9 +311,18 @@ function ScreenshotUploadModal({
                     <div className="flex-1 min-w-0">
                       <p className="text-sm truncate">{item.file.name}</p>
                       {item.status === 'success' && item.data?.log_date && (
-                        <p className="text-xs text-emerald-400">
-                          {item.data.log_date} • Score: {item.data.sleep_score || 'N/A'}
-                        </p>
+                        <div className="text-xs">
+                          <p className="text-emerald-400">
+                            {item.data.log_date} • Score: {item.data.sleep_score || 'N/A'}
+                            {item.data.total_sleep_minutes && ` • ${Math.floor(item.data.total_sleep_minutes / 60)}h ${item.data.total_sleep_minutes % 60}m`}
+                          </p>
+                          {item.extraction_quality && (
+                            <p className="text-white/40">{item.extraction_quality}</p>
+                          )}
+                        </div>
+                      )}
+                      {item.status === 'success' && !item.data?.log_date && (
+                        <p className="text-xs text-amber-400">No date found in image</p>
                       )}
                       {item.status === 'error' && (
                         <p className="text-xs text-red-400">{item.error}</p>
@@ -339,10 +350,17 @@ function ScreenshotUploadModal({
               {/* Summary */}
               {allDone && (
                 <div className="p-3 bg-white/5 rounded-lg mb-4">
-                  <p className="text-sm">
-                    <span className="text-emerald-400">{successCount} parsed successfully</span>
-                    {errorCount > 0 && <span className="text-red-400"> • {errorCount} failed</span>}
-                  </p>
+                  {(() => {
+                    const withDates = files.filter(f => f.status === 'success' && f.data?.log_date).length
+                    const noDates = files.filter(f => f.status === 'success' && !f.data?.log_date).length
+                    return (
+                      <div className="text-sm space-y-1">
+                        <p className="text-emerald-400">{withDates} ready to save</p>
+                        {noDates > 0 && <p className="text-amber-400">{noDates} missing date (won&apos;t be saved)</p>}
+                        {errorCount > 0 && <p className="text-red-400">{errorCount} failed to parse</p>}
+                      </div>
+                    )
+                  })()}
                 </div>
               )}
             </>

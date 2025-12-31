@@ -50,46 +50,41 @@ export async function POST(request: NextRequest) {
             },
             {
               type: 'text',
-              text: `This is a screenshot from the Eight Sleep app showing sleep data. Extract ALL visible data.
+              text: `Extract sleep data from this Eight Sleep app screenshot.
 
-Eight Sleep screenshots typically show:
-- DATE: Look for text like "Dec 30", "December 30", "Mon, Dec 30", or similar at the top
-- SLEEP SCORE: A large number (0-100) usually in a circle, labeled "Sleep Score" or "Sleep Fitness"
-- TOTAL SLEEP: Shows as "Xh Ym" format (e.g., "7h 15m")
-- BEDTIME: Time went to bed (e.g., "10:45 PM" or "22:45")
-- WAKE TIME: Time woke up (e.g., "6:30 AM" or "06:30")
-- SLEEP STAGES: Deep, REM, Light sleep shown as "Xh Ym" or bars
-- HRV: Heart Rate Variability in milliseconds (ms)
-- RESTING HR: Heart rate in bpm
-- RECOVERY: Percentage (%)
+LOOK FOR THESE SPECIFIC UI ELEMENTS:
 
-Return a JSON object:
-{
-  "log_date": "YYYY-MM-DD",
-  "bedtime": "HH:MM",
-  "wake_time": "HH:MM",
-  "total_sleep_minutes": number,
-  "deep_sleep_minutes": number,
-  "rem_sleep_minutes": number,
-  "light_sleep_minutes": number,
-  "awake_minutes": number,
-  "sleep_score": number,
-  "hrv_avg": number,
-  "resting_hr": number,
-  "respiratory_rate": number,
-  "recovery_score": number
-}
+1. DATE - Usually at the very top, like "Sun, Dec 29" or "December 29". Current year is 2025.
 
-CRITICAL INSTRUCTIONS:
-1. For the DATE: The current year is 2025. If you see "Dec 30", return "2025-12-30". If you see "Jan 2", it's likely "2026-01-02" or based on context.
-2. Convert ALL times to minutes: "7h 15m" = 435, "1h 25m" = 85, "45m" = 45
-3. Convert bedtime/wake_time to 24-hour format: "10:45 PM" = "22:45", "6:30 AM" = "06:30"
-4. The sleep score is the big number in the circle (0-100)
-5. HRV is in milliseconds (usually 20-100), HR is in bpm (usually 40-80)
-6. Return ONLY the JSON, no other text
-7. Use null ONLY if data is truly not visible
+2. SLEEP FITNESS/SCORE - A large prominent number 0-100, often in a circular gauge or ring. This is the main score.
 
-${dateHint ? `Context: Screenshots are from around ${dateHint}` : 'Context: Screenshots are from late December 2025'}`
+3. TIME ASLEEP - Shows total sleep duration like "6h 52m" or "7h 15m". Convert to minutes.
+
+4. IN BED / TIME IN BED - When you went to bed and woke up, like "11:30 PM - 6:30 AM" or separate "Fell asleep" and "Woke up" times.
+
+5. SLEEP STAGES section showing:
+   - Deep sleep (e.g., "1h 14m")
+   - REM sleep (e.g., "1h 59m")
+   - Light sleep (e.g., "3h 39m")
+   - Awake time (e.g., "23m")
+
+6. HEALTH METRICS section showing:
+   - HRV: Heart Rate Variability in ms (e.g., "42 ms" or just "42")
+   - Resting Heart Rate in bpm (e.g., "52 bpm" or just "52")
+   - Respiratory Rate in breaths/min (e.g., "15.2")
+
+7. RECOVERY - Sometimes shown as a percentage
+
+OUTPUT THIS EXACT JSON (no markdown, no backticks):
+{"log_date":"YYYY-MM-DD","bedtime":"HH:MM","wake_time":"HH:MM","total_sleep_minutes":number,"deep_sleep_minutes":number,"rem_sleep_minutes":number,"light_sleep_minutes":number,"awake_minutes":number,"sleep_score":number,"hrv_avg":number,"resting_hr":number,"respiratory_rate":number,"recovery_score":number}
+
+CONVERSION RULES:
+- Date: "Dec 29" = "2025-12-29", "Jan 2" = "2026-01-02"
+- Duration to minutes: "6h 52m" = 412, "1h 14m" = 74, "23m" = 23
+- Time to 24hr: "11:30 PM" = "23:30", "6:30 AM" = "06:30"
+- Use null only if truly not visible
+
+${dateHint ? `Date context: ${dateHint}` : 'Date context: Late December 2025 / Early January 2026'}`
             }
           ],
         }
@@ -120,12 +115,20 @@ ${dateHint ? `Context: Screenshots are from around ${dateHint}` : 'Context: Scre
       }, { status: 500 })
     }
 
+    // Log what was extracted for debugging
+    console.log('Parsed sleep data from screenshot:', JSON.stringify(parsedData, null, 2))
+
     // Add source
     parsedData.source = 'eight_sleep_screenshot'
 
+    // Count non-null fields for quality indication
+    const nonNullFields = Object.entries(parsedData).filter(([k, v]) => v !== null && k !== 'source').length
+    const totalFields = 13 // Total expected fields
+
     return NextResponse.json({
       parsed: parsedData,
-      success: true
+      success: true,
+      extraction_quality: `${nonNullFields}/${totalFields} fields extracted`
     })
   } catch (error) {
     console.error('Error parsing sleep screenshot:', error)
