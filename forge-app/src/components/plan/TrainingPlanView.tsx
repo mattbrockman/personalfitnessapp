@@ -17,6 +17,10 @@ import { AIGeneratePlanModal } from './AIGeneratePlanModal'
 import { WeeklyWorkoutView } from './WeeklyWorkoutView'
 import { WorkoutEditor } from './WorkoutEditor'
 import { BulkScheduleModal } from './BulkScheduleModal'
+import { PlanTimelineHeader } from './PlanTimelineHeader'
+import { CreateSuggestedWorkoutModal } from './CreateSuggestedWorkoutModal'
+import { ConflictResolutionModal } from './ConflictResolutionModal'
+import { startOfWeek, format } from 'date-fns'
 import {
   TrainingPlan,
   TrainingPhase,
@@ -42,6 +46,20 @@ export function TrainingPlanView() {
   const [loadingWorkouts, setLoadingWorkouts] = useState(false)
   const [editingWorkout, setEditingWorkout] = useState<SuggestedWorkout | null>(null)
   const [bulkScheduleWorkouts, setBulkScheduleWorkouts] = useState<SuggestedWorkout[] | null>(null)
+
+  // Week navigation state
+  const [currentWeekStart, setCurrentWeekStart] = useState(() =>
+    startOfWeek(new Date(), { weekStartsOn: 1 })
+  )
+
+  // Add workout modal state
+  const [addWorkoutDate, setAddWorkoutDate] = useState<Date | null>(null)
+
+  // Conflict resolution state
+  const [conflictWorkouts, setConflictWorkouts] = useState<SuggestedWorkout[] | null>(null)
+  const [conflicts, setConflicts] = useState<Record<string, any[]>>({})
+  const [isCheckingConflicts, setIsCheckingConflicts] = useState(false)
+  const [isScheduling, setIsScheduling] = useState(false)
 
   // Fetch active plan
   const fetchPlan = useCallback(async () => {
@@ -166,27 +184,129 @@ export function TrainingPlanView() {
     }
   }
 
-  // Handle bulk schedule
-  const handleBulkSchedule = async (workoutIds: string[]) => {
+  // Handle schedule week - check for conflicts first
+  const handleScheduleWeek = async (workouts: SuggestedWorkout[]) => {
+    setIsCheckingConflicts(true)
+    setBulkScheduleWorkouts(workouts)
+
+    try {
+      // Get unique dates from workouts
+      const dates = Array.from(new Set(workouts.map(w => w.suggested_date)))
+
+      // Check for conflicts
+      const res = await fetch(`/api/workouts/conflicts?dates=${dates.join(',')}`)
+      if (res.ok) {
+        const { conflicts: foundConflicts } = await res.json()
+
+        if (Object.keys(foundConflicts).length > 0) {
+          // Show conflict resolution modal
+          setConflicts(foundConflicts)
+          setConflictWorkouts(workouts)
+          setBulkScheduleWorkouts(null)
+        } else {
+          // No conflicts - proceed with bulk schedule directly
+          await executeBulkSchedule(workouts.map(w => w.id), [], [])
+          setBulkScheduleWorkouts(null)
+        }
+      }
+    } catch (err) {
+      console.error('Error checking conflicts:', err)
+    } finally {
+      setIsCheckingConflicts(false)
+    }
+  }
+
+  // Execute bulk schedule with conflict resolution options
+  const executeBulkSchedule = async (
+    workoutIds: string[],
+    overwriteWorkoutIds: string[],
+    skipSuggestedIds: string[]
+  ) => {
+    setIsScheduling(true)
     try {
       const res = await fetch('/api/suggested-workouts/schedule-bulk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ suggested_workout_ids: workoutIds }),
+        body: JSON.stringify({
+          suggested_workout_ids: workoutIds,
+          overwrite_workout_ids: overwriteWorkoutIds,
+          skip_suggested_ids: skipSuggestedIds,
+        }),
       })
       if (res.ok) {
-        // Update all scheduled workouts in local state
+        const scheduledIds = workoutIds.filter(id => !skipSuggestedIds.includes(id))
+        // Update scheduled workouts in local state
         setSuggestedWorkouts(prev =>
           prev.map(w =>
-            workoutIds.includes(w.id) ? { ...w, status: 'scheduled' as const } : w
+            scheduledIds.includes(w.id) ? { ...w, status: 'scheduled' as const } : w
           )
         )
       }
     } catch (err) {
       console.error('Error bulk scheduling:', err)
       throw err
+    } finally {
+      setIsScheduling(false)
+      setConflictWorkouts(null)
+      setConflicts({})
     }
+  }
+
+  // Handle conflict resolution confirm
+  const handleConflictResolutionConfirm = async (options: {
+    suggestedWorkoutIds: string[]
+    overwriteWorkoutIds: string[]
+    skipSuggestedIds: string[]
+  }) => {
+    await executeBulkSchedule(
+      options.suggestedWorkoutIds,
+      options.overwriteWorkoutIds,
+      options.skipSuggestedIds
+    )
+  }
+
+  // Legacy bulk schedule (from modal)
+  const handleBulkSchedule = async (workoutIds: string[]) => {
+    await executeBulkSchedule(workoutIds, [], [])
     setBulkScheduleWorkouts(null)
+  }
+
+  // Handle moving a workout to a different day (drag-and-drop)
+  const handleMoveWorkout = async (workoutId: string, newDate: string, newDayOfWeek: string) => {
+    // Optimistic update
+    setSuggestedWorkouts(prev =>
+      prev.map(w =>
+        w.id === workoutId
+          ? { ...w, suggested_date: newDate, day_of_week: newDayOfWeek }
+          : w
+      )
+    )
+
+    try {
+      const res = await fetch(`/api/suggested-workouts/${workoutId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ suggested_date: newDate, day_of_week: newDayOfWeek }),
+      })
+      if (!res.ok) {
+        // Rollback on error
+        if (plan?.id) fetchSuggestedWorkouts(plan.id)
+      }
+    } catch (err) {
+      console.error('Error moving workout:', err)
+      if (plan?.id) fetchSuggestedWorkouts(plan.id)
+    }
+  }
+
+  // Handle adding a new workout to a day
+  const handleAddWorkout = (date: Date) => {
+    setAddWorkoutDate(date)
+  }
+
+  // Handle workout created from modal
+  const handleWorkoutCreated = (workout: SuggestedWorkout) => {
+    setSuggestedWorkouts(prev => [...prev, workout])
+    setAddWorkoutDate(null)
   }
 
   // Get current phase based on today's date
@@ -446,17 +566,32 @@ export function TrainingPlanView() {
 
       {/* View Mode Content */}
       {viewMode === 'workouts' && (
-        <WeeklyWorkoutView
-          planId={plan.id}
-          suggestedWorkouts={suggestedWorkouts}
-          phases={plan.phases || []}
-          onEdit={setEditingWorkout}
-          onSchedule={handleScheduleWorkout}
-          onScheduleWeek={setBulkScheduleWorkouts}
-          onSkip={handleSkipWorkout}
-          onRefresh={() => fetchSuggestedWorkouts(plan.id)}
-          isLoading={loadingWorkouts}
-        />
+        <>
+          {/* Timeline Header */}
+          <PlanTimelineHeader
+            phases={plan.phases || []}
+            planStartDate={plan.start_date}
+            planEndDate={plan.end_date}
+            currentWeekStart={currentWeekStart}
+            onWeekSelect={setCurrentWeekStart}
+          />
+
+          <WeeklyWorkoutView
+            planId={plan.id}
+            suggestedWorkouts={suggestedWorkouts}
+            phases={plan.phases || []}
+            currentWeekStart={currentWeekStart}
+            onWeekChange={setCurrentWeekStart}
+            onEdit={setEditingWorkout}
+            onSchedule={handleScheduleWorkout}
+            onScheduleWeek={handleScheduleWeek}
+            onSkip={handleSkipWorkout}
+            onRefresh={() => fetchSuggestedWorkouts(plan.id)}
+            onAddWorkout={handleAddWorkout}
+            onMoveWorkout={handleMoveWorkout}
+            isLoading={loadingWorkouts || isCheckingConflicts}
+          />
+        </>
       )}
 
       {viewMode === 'timeline' && (
@@ -506,6 +641,30 @@ export function TrainingPlanView() {
           workouts={bulkScheduleWorkouts}
           onSchedule={handleBulkSchedule}
           onClose={() => setBulkScheduleWorkouts(null)}
+        />
+      )}
+
+      {/* Add Workout Modal */}
+      {addWorkoutDate && plan && (
+        <CreateSuggestedWorkoutModal
+          planId={plan.id}
+          date={addWorkoutDate}
+          onCreated={handleWorkoutCreated}
+          onClose={() => setAddWorkoutDate(null)}
+        />
+      )}
+
+      {/* Conflict Resolution Modal */}
+      {conflictWorkouts && (
+        <ConflictResolutionModal
+          suggestedWorkouts={conflictWorkouts}
+          conflicts={conflicts}
+          onConfirm={handleConflictResolutionConfirm}
+          onClose={() => {
+            setConflictWorkouts(null)
+            setConflicts({})
+          }}
+          isSubmitting={isScheduling}
         />
       )}
     </div>

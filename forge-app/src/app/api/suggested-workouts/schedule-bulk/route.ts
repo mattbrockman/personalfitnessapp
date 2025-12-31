@@ -13,20 +13,63 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { suggested_workout_ids, skip_existing = true } = body
+    const {
+      suggested_workout_ids,
+      skip_existing = true,
+      overwrite_workout_ids = [],
+      skip_suggested_ids = [],
+    } = body
 
     if (!suggested_workout_ids || !Array.isArray(suggested_workout_ids) || suggested_workout_ids.length === 0) {
       return NextResponse.json({ error: 'suggested_workout_ids is required' }, { status: 400 })
     }
 
-    // Fetch all suggested workouts
+    // Delete workouts that should be overwritten
+    if (overwrite_workout_ids.length > 0) {
+      // First verify ownership of these workouts
+      const { data: existingWorkouts, error: fetchExistingError } = await (adminClient as any)
+        .from('workouts')
+        .select('id, user_id')
+        .in('id', overwrite_workout_ids)
+
+      if (fetchExistingError) {
+        console.error('Error fetching existing workouts:', fetchExistingError)
+        return NextResponse.json({ error: 'Failed to verify workouts to overwrite' }, { status: 500 })
+      }
+
+      // Check ownership
+      const unauthorizedDeletes = existingWorkouts?.filter(
+        (w: any) => w.user_id !== session.user.id
+      )
+      if (unauthorizedDeletes?.length > 0) {
+        return NextResponse.json({ error: 'Unauthorized to delete some workouts' }, { status: 403 })
+      }
+
+      // Delete the workouts (cascade will handle workout_exercises and exercise_sets)
+      const { error: deleteError } = await (adminClient as any)
+        .from('workouts')
+        .delete()
+        .in('id', overwrite_workout_ids)
+
+      if (deleteError) {
+        console.error('Error deleting workouts to overwrite:', deleteError)
+        return NextResponse.json({ error: 'Failed to delete existing workouts' }, { status: 500 })
+      }
+    }
+
+    // Filter out suggested workouts that should be skipped
+    const filteredSuggestedIds = suggested_workout_ids.filter(
+      (id: string) => !skip_suggested_ids.includes(id)
+    )
+
+    // Fetch all suggested workouts (using filtered list)
     const { data: suggestedWorkouts, error: fetchError } = await (adminClient as any)
       .from('suggested_workouts')
       .select(`
         *,
         training_plans!inner(user_id)
       `)
-      .in('id', suggested_workout_ids)
+      .in('id', filteredSuggestedIds)
 
     if (fetchError) {
       console.error('Error fetching suggested workouts:', fetchError)
@@ -153,7 +196,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       scheduled: results.success.length,
       failed: results.errors.length,
-      skipped: suggested_workout_ids.length - workoutsToSchedule.length,
+      skipped: skip_suggested_ids.length + (suggested_workout_ids.length - filteredSuggestedIds.length - skip_suggested_ids.length),
+      overwritten: overwrite_workout_ids.length,
       results,
     })
   } catch (error) {

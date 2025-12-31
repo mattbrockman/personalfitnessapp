@@ -2,12 +2,23 @@
 
 import { useState, useMemo } from 'react'
 import {
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  closestCenter,
+  useSensor,
+  useSensors,
+  PointerSensor,
+  TouchSensor,
+} from '@dnd-kit/core'
+import {
   ChevronLeft,
   ChevronRight,
   CalendarPlus,
-  SkipForward,
   Loader2,
   RefreshCw,
+  Plus,
 } from 'lucide-react'
 import {
   SuggestedWorkout,
@@ -16,17 +27,22 @@ import {
   PHASE_LABELS,
 } from '@/types/training-plan'
 import { SuggestedWorkoutCard } from './SuggestedWorkoutCard'
+import { DraggableWorkoutCard, DroppableDayColumn } from './DragDropComponents'
 import { addDays, startOfWeek, format, isSameDay, parseISO, addWeeks, subWeeks } from 'date-fns'
 
 interface WeeklyWorkoutViewProps {
   planId: string
   suggestedWorkouts: SuggestedWorkout[]
   phases: TrainingPhase[]
+  currentWeekStart: Date
+  onWeekChange: (weekStart: Date) => void
   onEdit?: (workout: SuggestedWorkout) => void
   onSchedule?: (workout: SuggestedWorkout) => void
   onScheduleWeek?: (workouts: SuggestedWorkout[]) => void
   onSkip?: (workout: SuggestedWorkout) => void
   onRefresh?: () => void
+  onAddWorkout?: (date: Date) => void
+  onMoveWorkout?: (workoutId: string, newDate: string, newDayOfWeek: string) => Promise<void>
   isLoading?: boolean
 }
 
@@ -36,16 +52,33 @@ export function WeeklyWorkoutView({
   planId,
   suggestedWorkouts,
   phases,
+  currentWeekStart,
+  onWeekChange,
   onEdit,
   onSchedule,
   onScheduleWeek,
   onSkip,
   onRefresh,
+  onAddWorkout,
+  onMoveWorkout,
   isLoading = false,
 }: WeeklyWorkoutViewProps) {
-  // Start with current week
-  const [currentWeekStart, setCurrentWeekStart] = useState(() =>
-    startOfWeek(new Date(), { weekStartsOn: 1 })
+  const [activeId, setActiveId] = useState<string | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+
+  // Configure sensors for drag
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // 8px movement before drag starts
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200,
+        tolerance: 5,
+      },
+    })
   )
 
   // Get workouts for the current week
@@ -91,12 +124,54 @@ export function WeeklyWorkoutView({
   }, [weekWorkouts])
 
   // Navigation
-  const goToPreviousWeek = () => setCurrentWeekStart(prev => subWeeks(prev, 1))
-  const goToNextWeek = () => setCurrentWeekStart(prev => addWeeks(prev, 1))
-  const goToCurrentWeek = () => setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))
+  const goToPreviousWeek = () => onWeekChange(subWeeks(currentWeekStart, 1))
+  const goToNextWeek = () => onWeekChange(addWeeks(currentWeekStart, 1))
+  const goToCurrentWeek = () => onWeekChange(startOfWeek(new Date(), { weekStartsOn: 1 }))
 
   // Check if viewing current week
   const isCurrentWeek = isSameDay(currentWeekStart, startOfWeek(new Date(), { weekStartsOn: 1 }))
+
+  // Get the active workout for drag overlay
+  const activeWorkout = useMemo(() => {
+    if (!activeId) return null
+    return suggestedWorkouts.find(w => w.id === activeId) || null
+  }, [activeId, suggestedWorkouts])
+
+  // Drag handlers
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string)
+    setIsDragging(true)
+  }
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event
+    setActiveId(null)
+    setIsDragging(false)
+
+    if (!over || !onMoveWorkout) return
+
+    const workoutId = active.id as string
+    const targetDay = over.id as string // e.g., "monday", "tuesday", etc.
+
+    // Find the target date
+    const dayIndex = DAYS_OF_WEEK.findIndex(d => d.toLowerCase() === targetDay)
+    if (dayIndex === -1) return
+
+    const newDate = addDays(currentWeekStart, dayIndex)
+    const newDateStr = format(newDate, 'yyyy-MM-dd')
+
+    // Check if workout is already on this day
+    const workout = suggestedWorkouts.find(w => w.id === workoutId)
+    if (workout?.suggested_date === newDateStr) return
+
+    // Move the workout
+    await onMoveWorkout(workoutId, newDateStr, targetDay)
+  }
+
+  const handleDragCancel = () => {
+    setActiveId(null)
+    setIsDragging(false)
+  }
 
   return (
     <div className="space-y-4">
@@ -180,57 +255,90 @@ export function WeeklyWorkoutView({
         </div>
       )}
 
-      {/* Week grid */}
+      {/* Week grid with drag-and-drop */}
       {!isLoading && (
-        <div className="grid grid-cols-1 md:grid-cols-7 gap-3">
-          {DAYS_OF_WEEK.map((day, idx) => {
-            const dayDate = addDays(currentWeekStart, idx)
-            const isToday = isSameDay(dayDate, new Date())
-            const dayWorkouts = weekWorkouts[day.toLowerCase()] || []
-            const hasWorkouts = dayWorkouts.length > 0
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onDragCancel={handleDragCancel}
+        >
+          <div className="grid grid-cols-1 md:grid-cols-7 gap-3">
+            {DAYS_OF_WEEK.map((day, idx) => {
+              const dayDate = addDays(currentWeekStart, idx)
+              const isToday = isSameDay(dayDate, new Date())
+              const dayWorkouts = weekWorkouts[day.toLowerCase()] || []
+              const hasWorkouts = dayWorkouts.length > 0
 
-            return (
-              <div
-                key={day}
-                className={`rounded-xl overflow-hidden ${
-                  isToday
-                    ? 'ring-2 ring-amber-500/50 bg-amber-500/5'
-                    : 'bg-white/5'
-                }`}
-              >
-                {/* Day header */}
-                <div className={`px-3 py-2 ${isToday ? 'bg-amber-500/10' : 'bg-white/5'}`}>
-                  <p className="text-xs text-white/50">{day.slice(0, 3)}</p>
-                  <p className={`font-semibold ${isToday ? 'text-amber-400' : ''}`}>
-                    {format(dayDate, 'd')}
-                  </p>
-                </div>
+              return (
+                <DroppableDayColumn
+                  key={day}
+                  id={day.toLowerCase()}
+                  isOver={isDragging}
+                >
+                  <div
+                    className={`rounded-xl overflow-hidden h-full ${
+                      isToday
+                        ? 'ring-2 ring-amber-500/50 bg-amber-500/5'
+                        : 'bg-white/5'
+                    }`}
+                  >
+                    {/* Day header */}
+                    <div className={`px-3 py-2 flex items-center justify-between ${isToday ? 'bg-amber-500/10' : 'bg-white/5'}`}>
+                      <div>
+                        <p className="text-xs text-white/50">{day.slice(0, 3)}</p>
+                        <p className={`font-semibold ${isToday ? 'text-amber-400' : ''}`}>
+                          {format(dayDate, 'd')}
+                        </p>
+                      </div>
+                      {onAddWorkout && (
+                        <button
+                          onClick={() => onAddWorkout(dayDate)}
+                          className="p-1 hover:bg-white/10 rounded transition-colors"
+                          title="Add workout"
+                        >
+                          <Plus size={16} className="text-white/40 hover:text-white/70" />
+                        </button>
+                      )}
+                    </div>
 
-                {/* Workouts */}
-                <div className="p-2 min-h-[120px]">
-                  {hasWorkouts ? (
-                    <div className="space-y-2">
-                      {dayWorkouts.map(workout => (
-                        <SuggestedWorkoutCard
-                          key={workout.id}
-                          workout={workout}
-                          onEdit={onEdit}
-                          onSchedule={onSchedule}
-                          onSkip={onSkip}
-                          compact
-                        />
-                      ))}
+                    {/* Workouts */}
+                    <div className="p-2 min-h-[120px]">
+                      {hasWorkouts ? (
+                        <div className="space-y-2">
+                          {dayWorkouts.map(workout => (
+                            <DraggableWorkoutCard
+                              key={workout.id}
+                              id={workout.id}
+                              workout={workout}
+                              onEdit={onEdit}
+                              onSchedule={onSchedule}
+                              onSkip={onSkip}
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="h-full flex items-center justify-center text-white/20 text-xs min-h-[80px]">
+                          Rest
+                        </div>
+                      )}
                     </div>
-                  ) : (
-                    <div className="h-full flex items-center justify-center text-white/20 text-xs">
-                      Rest
-                    </div>
-                  )}
-                </div>
+                  </div>
+                </DroppableDayColumn>
+              )
+            })}
+          </div>
+
+          {/* Drag overlay */}
+          <DragOverlay>
+            {activeWorkout ? (
+              <div className="opacity-90 transform scale-105">
+                <SuggestedWorkoutCard workout={activeWorkout} compact />
               </div>
-            )
-          })}
-        </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       )}
 
       {/* No workouts message */}
