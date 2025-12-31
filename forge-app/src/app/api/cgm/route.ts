@@ -177,8 +177,3 @@ export async function DELETE(request: NextRequest) {
   }
 }
 
-// GET /api/cgm/stats - Get CGM statistics for a time period
-export async function getStats(request: NextRequest) {
-  // This would be accessed via /api/cgm/stats route
-  // Implemented in separate route file
-}
