@@ -6,7 +6,6 @@ import {
   X,
   Bike,
   Footprints,
-  Waves,
   Dumbbell,
   Activity,
   Clock,
@@ -31,7 +30,6 @@ const categories = [
 const workoutTypes = [
   { value: 'bike', label: 'Bike', icon: Bike, category: 'cardio' },
   { value: 'run', label: 'Run', icon: Footprints, category: 'cardio' },
-  { value: 'swim', label: 'Swim', icon: Waves, category: 'cardio' },
   { value: 'strength', label: 'Strength', icon: Dumbbell, category: 'strength' },
   { value: 'yoga', label: 'Yoga', icon: Activity, category: 'other' },
   { value: 'other', label: 'Other', icon: Activity, category: 'other' },
@@ -87,7 +85,10 @@ export function CreateWorkoutModal({ selectedDate, onClose, onCreated }: CreateW
       } else {
         const errorData = await response.json()
         console.error('Failed to create workout:', errorData)
-        setError(errorData.error || 'Failed to create workout. Please try again.')
+        const errorMsg = errorData.details
+          ? `${errorData.error}: ${errorData.details}`
+          : (errorData.error || 'Failed to create workout. Please try again.')
+        setError(errorMsg)
       }
     } catch (err) {
       console.error('Error creating workout:', err)

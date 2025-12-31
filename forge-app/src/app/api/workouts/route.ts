@@ -86,25 +86,30 @@ export async function POST(request: NextRequest) {
       .from('workouts') as any)
       .insert({
         user_id: session.user.id,
-        workout_type,
-        name,
+        workout_type: workout_type || 'other',
+        name: name || null,
         scheduled_date,
-        scheduled_time,
-        description,
-        planned_duration_minutes,
-        planned_tss,
-        planned_distance_miles,
-        notes,
+        scheduled_time: scheduled_time || null,
+        description: description || null,
+        planned_duration_minutes: planned_duration_minutes || null,
+        planned_tss: planned_tss || null,
+        planned_distance_miles: planned_distance_miles || null,
+        notes: notes || null,
         category: category || 'other',
-        primary_intensity: primary_intensity || 'mixed',
+        primary_intensity: primary_intensity || null,
         status: 'planned',
+        source: 'manual',
       })
       .select()
       .single()
 
     if (workoutError) {
       console.error('Error creating workout:', workoutError)
-      return NextResponse.json({ error: 'Failed to create workout' }, { status: 500 })
+      return NextResponse.json({
+        error: 'Failed to create workout',
+        details: workoutError.message,
+        code: workoutError.code
+      }, { status: 500 })
     }
 
     // Insert workout zones if provided
