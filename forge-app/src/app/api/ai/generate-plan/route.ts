@@ -6,7 +6,10 @@ import {
   AIGeneratePlanResponse,
   TrainingPlan,
   ACTIVITY_LABELS,
+  AISuggestedWorkout,
+  AIGeneratePlanResponseWithWorkouts,
 } from '@/types/training-plan'
+import { addDays, format, startOfWeek } from 'date-fns'
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -42,8 +45,33 @@ export async function POST(request: NextRequest) {
 
     console.log('Generating training plan:', body)
 
+    // Fetch exercise library for strength workouts
+    const { data: exercises } = await (adminClient as any)
+      .from('exercises')
+      .select('name, primary_muscles, equipment, is_compound')
+      .order('name')
+
+    // Group exercises by muscle group for the prompt
+    const exercisesByMuscle: Record<string, string[]> = {}
+    for (const ex of (exercises || []) as any[]) {
+      const muscles = ex.primary_muscles || []
+      for (const muscle of muscles) {
+        if (!exercisesByMuscle[muscle]) exercisesByMuscle[muscle] = []
+        exercisesByMuscle[muscle].push(ex.name)
+      }
+    }
+
+    const exerciseLibraryText = Object.entries(exercisesByMuscle)
+      .map(([muscle, names]) => `${muscle}: ${names.join(', ')}`)
+      .join('\n')
+
+    // Calculate 4 weeks from start date for workout generation
+    const startDate = new Date(body.start_date)
+    const fourWeeksLater = addDays(startDate, 28)
+    const workoutEndDate = format(fourWeeksLater, 'yyyy-MM-dd')
+
     // Build the AI prompt
-    const systemPrompt = `You are an expert endurance coach and periodization specialist creating personalized training plans.
+    const systemPrompt = `You are an expert endurance coach and periodization specialist creating personalized training plans WITH DETAILED WORKOUT PRESCRIPTIONS.
 
 PERIODIZATION PRINCIPLES:
 1. Structure phases to peak for "A" priority events
@@ -70,19 +98,38 @@ PHASE CHARACTERISTICS:
 - recovery: Low everything (50-70% hours), active recovery
 - transition: Between goals, maintain fitness
 
+WORKOUT GENERATION RULES:
+1. Generate SPECIFIC workouts for each training day in the first 4 weeks
+2. For STRENGTH workouts:
+   - Select exercises from the provided exercise library ONLY
+   - Include 4-6 exercises per session
+   - Specify sets (2-5), rep ranges (e.g., 6-8 or 10-12), rest periods (60-180 seconds)
+   - Base phase = higher reps (10-15), Build phase = moderate (8-12), Peak phase = lower (4-8)
+   - Avoid overworking same muscles on consecutive days
+   - Split types: upper, lower, full_body
+3. For CARDIO workouts (bike/run):
+   - Specify ride/run type: steady (Z2), tempo (Z3), intervals, long
+   - Include warmup_minutes and cooldown_minutes
+   - For intervals: specify duration, intensity (z1-z5), and repeats
+   - Match intensity to phase (base = 80% Z2, build = add Z3-4, peak = add Z5)
+   - Estimate TSS based on duration and intensity
+4. REST days should have no workout entry
+5. Deload weeks: reduce volume 40-50%, keep intensity low, fewer exercises per session
+
 VOLUME MODIFIERS: Express as decimal (0.8 = 80%, 1.2 = 120% of base weekly hours)
 
 OUTPUT FORMAT: Return ONLY valid JSON matching the specified structure. No markdown, no explanations outside the JSON.`
 
     const activitiesLabel = body.primary_activities.map(a => ACTIVITY_LABELS[a]).join(', ')
 
-    const userPrompt = `Create a periodized training plan with these parameters:
+    const userPrompt = `Create a periodized training plan with DETAILED WORKOUTS for the first 4 weeks.
 
 GOAL: ${body.goal}
 PRIMARY ACTIVITIES: ${activitiesLabel}
 WEEKLY HOURS AVAILABLE: ${body.weekly_hours_available}
 START DATE: ${body.start_date}
 END DATE: ${body.end_date || 'Rolling/Open-ended (create ~12 weeks of phases)'}
+GENERATE WORKOUTS FOR: ${body.start_date} to ${workoutEndDate} (first 4 weeks)
 
 TARGET EVENTS:
 ${body.events && body.events.length > 0
@@ -96,6 +143,9 @@ ${body.preferences?.vacation_dates && body.preferences.vacation_dates.length > 0
   ? `- Blocked dates (vacations):\n${body.preferences.vacation_dates.map(v => `  * ${v.start} to ${v.end}${v.name ? ` (${v.name})` : ''}`).join('\n')}`
   : ''
 }
+
+AVAILABLE EXERCISES (use ONLY these names for strength workouts):
+${exerciseLibraryText}
 
 ${body.custom_prompt ? `ADDITIONAL INSTRUCTIONS:\n${body.custom_prompt}` : ''}
 
@@ -157,6 +207,67 @@ Return a JSON object with this EXACT structure:
       ]
     }
   ],
+  "suggested_workouts": [
+    {
+      "phase_index": 0,
+      "week_number": 1,
+      "day_of_week": "monday",
+      "suggested_date": "2025-01-06",
+      "category": "strength",
+      "workout_type": "lower",
+      "name": "Lower Body Strength",
+      "description": "Heavy leg day focusing on squat and hip hinge patterns",
+      "planned_duration_minutes": 60,
+      "primary_intensity": "mixed",
+      "exercises": [
+        {"exercise_name": "Barbell Back Squat", "sets": 4, "reps_min": 8, "reps_max": 10, "rest_seconds": 180, "notes": "Focus on depth"},
+        {"exercise_name": "Romanian Deadlift", "sets": 3, "reps_min": 10, "reps_max": 12, "rest_seconds": 120},
+        {"exercise_name": "Leg Press", "sets": 3, "reps_min": 12, "reps_max": 15, "rest_seconds": 90},
+        {"exercise_name": "Leg Curl", "sets": 3, "reps_min": 12, "reps_max": 15, "rest_seconds": 60}
+      ]
+    },
+    {
+      "phase_index": 0,
+      "week_number": 1,
+      "day_of_week": "tuesday",
+      "suggested_date": "2025-01-07",
+      "category": "cardio",
+      "workout_type": "bike",
+      "name": "Z2 Endurance Ride",
+      "description": "Easy aerobic base building ride",
+      "planned_duration_minutes": 90,
+      "primary_intensity": "z2",
+      "planned_tss": 70,
+      "cardio_structure": {
+        "type": "steady",
+        "warmup_minutes": 10,
+        "main_set": [{"duration_minutes": 70, "intensity": "z2"}],
+        "cooldown_minutes": 10
+      }
+    },
+    {
+      "phase_index": 0,
+      "week_number": 1,
+      "day_of_week": "thursday",
+      "suggested_date": "2025-01-09",
+      "category": "cardio",
+      "workout_type": "bike",
+      "name": "VO2max Intervals",
+      "description": "High intensity intervals for aerobic power",
+      "planned_duration_minutes": 60,
+      "primary_intensity": "z5",
+      "planned_tss": 85,
+      "cardio_structure": {
+        "type": "intervals",
+        "warmup_minutes": 15,
+        "main_set": [
+          {"duration_minutes": 3, "intensity": "z5", "repeats": 5},
+          {"duration_minutes": 3, "intensity": "z1"}
+        ],
+        "cooldown_minutes": 15
+      }
+    }
+  ],
   "balance_rules": [
     {
       "rule_type": "reduce_when",
@@ -170,18 +281,20 @@ Return a JSON object with this EXACT structure:
   "reasoning": "<2-3 sentences explaining the periodization strategy>"
 }
 
-Important:
+CRITICAL REQUIREMENTS:
+- Generate suggested_workouts for EVERY training day in the first 4 weeks (not rest days)
+- Use ONLY exercise names from the AVAILABLE EXERCISES list above
 - Ensure all dates are valid YYYY-MM-DD format
 - Week start dates should be Mondays
 - Activity distribution should sum to 100
-- Include vacation periods as recovery phases with blocks_training flag
 - Generate 4-12 phases depending on plan duration
-- Each phase should have 2-4 weeks typically`
+- Each phase should have 2-4 weeks typically
+- For cardio, estimate TSS (rule of thumb: Z2 ~0.8 TSS/min, Z3 ~1.0, Z4 ~1.2, Z5 ~1.5)`
 
-    // Call Claude API
+    // Call Claude API - increased tokens for workout details
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 8192,
+      max_tokens: 16384,
       system: systemPrompt,
       messages: [
         { role: 'user', content: userPrompt },
@@ -195,7 +308,7 @@ Important:
     }
 
     // Parse JSON
-    let planData: AIGeneratePlanResponse
+    let planData: AIGeneratePlanResponseWithWorkouts
     try {
       const jsonMatch = textContent.text.match(/\{[\s\S]*\}/)
       if (!jsonMatch) {
@@ -213,6 +326,7 @@ Important:
     console.log('AI generated plan structure:', {
       phases: planData.phases?.length,
       weekly_targets: planData.weekly_targets?.length,
+      suggested_workouts: planData.suggested_workouts?.length,
     })
 
     // Save the plan to database
@@ -347,6 +461,45 @@ Important:
       }
     }
 
+    // Create suggested workouts
+    const createdSuggestedWorkouts: any[] = []
+    if (planData.suggested_workouts && planData.suggested_workouts.length > 0) {
+      for (const workout of planData.suggested_workouts) {
+        // Find the phase for this workout
+        const phase = createdPhases[workout.phase_index]
+
+        const { data: createdWorkout, error: workoutError } = await (adminClient as any)
+          .from('suggested_workouts')
+          .insert({
+            plan_id: createdPlan.id,
+            phase_id: phase?.id || null,
+            suggested_date: workout.suggested_date,
+            day_of_week: workout.day_of_week,
+            category: workout.category,
+            workout_type: workout.workout_type,
+            name: workout.name,
+            description: workout.description,
+            planned_duration_minutes: workout.planned_duration_minutes,
+            primary_intensity: workout.primary_intensity || null,
+            planned_tss: workout.planned_tss || null,
+            exercises: workout.exercises || null,
+            cardio_structure: workout.cardio_structure || null,
+            status: 'suggested',
+            week_number: workout.week_number,
+            order_in_day: 0,
+          })
+          .select()
+          .single()
+
+        if (workoutError) {
+          console.error('Error creating suggested workout:', workoutError)
+        } else if (createdWorkout) {
+          createdSuggestedWorkouts.push(createdWorkout)
+        }
+      }
+      console.log(`Created ${createdSuggestedWorkouts.length} suggested workouts`)
+    }
+
     // Set as active plan
     await (adminClient as any)
       .from('profiles')
@@ -389,11 +542,19 @@ Important:
       weekly_targets: weeklyTargets.filter((t: any) => t.phase_id === phase.id),
     }))
 
+    // Fetch suggested workouts
+    const { data: suggestedWorkouts } = await (adminClient as any)
+      .from('suggested_workouts')
+      .select('*')
+      .eq('plan_id', createdPlan.id)
+      .order('suggested_date')
+
     return NextResponse.json({
       plan: {
         ...fullPlan,
         phases: phasesWithTargets,
         events: events || [],
+        suggested_workouts: suggestedWorkouts || [],
       } as TrainingPlan,
       reasoning: planData.reasoning,
     })

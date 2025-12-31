@@ -10,27 +10,38 @@ import {
   ChevronRight,
   Flag,
   AlertCircle,
+  Dumbbell,
 } from 'lucide-react'
 import { PlanTimeline } from './PlanTimeline'
 import { AIGeneratePlanModal } from './AIGeneratePlanModal'
+import { WeeklyWorkoutView } from './WeeklyWorkoutView'
+import { WorkoutEditor } from './WorkoutEditor'
+import { BulkScheduleModal } from './BulkScheduleModal'
 import {
   TrainingPlan,
   TrainingPhase,
   PlanEvent,
+  SuggestedWorkout,
   PHASE_COLORS,
   PHASE_LABELS,
   EVENT_TYPE_ICONS,
 } from '@/types/training-plan'
 
-type ViewMode = 'timeline' | 'list'
+type ViewMode = 'timeline' | 'list' | 'workouts'
 
 export function TrainingPlanView() {
   const [plan, setPlan] = useState<TrainingPlan | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [viewMode, setViewMode] = useState<ViewMode>('timeline')
+  const [viewMode, setViewMode] = useState<ViewMode>('workouts')
   const [showAIGenerator, setShowAIGenerator] = useState(false)
   const [expandedPhases, setExpandedPhases] = useState<string[]>([])
+
+  // Suggested workouts state
+  const [suggestedWorkouts, setSuggestedWorkouts] = useState<SuggestedWorkout[]>([])
+  const [loadingWorkouts, setLoadingWorkouts] = useState(false)
+  const [editingWorkout, setEditingWorkout] = useState<SuggestedWorkout | null>(null)
+  const [bulkScheduleWorkouts, setBulkScheduleWorkouts] = useState<SuggestedWorkout[] | null>(null)
 
   // Fetch active plan
   const fetchPlan = useCallback(async () => {
@@ -74,6 +85,109 @@ export function TrainingPlanView() {
   useEffect(() => {
     fetchPlan()
   }, [fetchPlan])
+
+  // Fetch suggested workouts for a plan
+  const fetchSuggestedWorkouts = useCallback(async (planId: string) => {
+    try {
+      setLoadingWorkouts(true)
+      const res = await fetch(`/api/training-plans/${planId}/suggested-workouts`)
+      if (res.ok) {
+        const { suggested_workouts } = await res.json()
+        setSuggestedWorkouts(suggested_workouts || [])
+      }
+    } catch (err) {
+      console.error('Error fetching suggested workouts:', err)
+    } finally {
+      setLoadingWorkouts(false)
+    }
+  }, [])
+
+  // Fetch workouts when plan is loaded
+  useEffect(() => {
+    if (plan?.id) {
+      fetchSuggestedWorkouts(plan.id)
+    }
+  }, [plan?.id, fetchSuggestedWorkouts])
+
+  // Handle workout edit save
+  const handleSaveWorkout = async (workout: SuggestedWorkout) => {
+    try {
+      const res = await fetch(`/api/suggested-workouts/${workout.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(workout),
+      })
+      if (res.ok) {
+        const { suggested_workout } = await res.json()
+        setSuggestedWorkouts(prev =>
+          prev.map(w => (w.id === suggested_workout.id ? suggested_workout : w))
+        )
+      }
+    } catch (err) {
+      console.error('Error saving workout:', err)
+    }
+    setEditingWorkout(null)
+  }
+
+  // Handle single workout schedule
+  const handleScheduleWorkout = async (workout: SuggestedWorkout) => {
+    try {
+      const res = await fetch(`/api/suggested-workouts/${workout.id}/schedule`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      if (res.ok) {
+        // Update status in local state
+        setSuggestedWorkouts(prev =>
+          prev.map(w => (w.id === workout.id ? { ...w, status: 'scheduled' as const } : w))
+        )
+      }
+    } catch (err) {
+      console.error('Error scheduling workout:', err)
+    }
+  }
+
+  // Handle workout skip
+  const handleSkipWorkout = async (workout: SuggestedWorkout) => {
+    try {
+      const res = await fetch(`/api/suggested-workouts/${workout.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'skipped' }),
+      })
+      if (res.ok) {
+        setSuggestedWorkouts(prev =>
+          prev.map(w => (w.id === workout.id ? { ...w, status: 'skipped' as const } : w))
+        )
+      }
+    } catch (err) {
+      console.error('Error skipping workout:', err)
+    }
+  }
+
+  // Handle bulk schedule
+  const handleBulkSchedule = async (workoutIds: string[]) => {
+    try {
+      const res = await fetch('/api/suggested-workouts/schedule-bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ suggested_workout_ids: workoutIds }),
+      })
+      if (res.ok) {
+        // Update all scheduled workouts in local state
+        setSuggestedWorkouts(prev =>
+          prev.map(w =>
+            workoutIds.includes(w.id) ? { ...w, status: 'scheduled' as const } : w
+          )
+        )
+      }
+    } catch (err) {
+      console.error('Error bulk scheduling:', err)
+      throw err
+    }
+    setBulkScheduleWorkouts(null)
+  }
 
   // Get current phase based on today's date
   const getCurrentPhase = (phases: TrainingPhase[]): TrainingPhase | null => {
@@ -220,12 +334,33 @@ export function TrainingPlanView() {
             <Sparkles size={16} />
             Regenerate
           </button>
-          <button
-            onClick={() => setViewMode(viewMode === 'timeline' ? 'list' : 'timeline')}
-            className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm"
-          >
-            {viewMode === 'timeline' ? 'List View' : 'Timeline View'}
-          </button>
+          <div className="flex bg-white/5 rounded-lg p-0.5">
+            <button
+              onClick={() => setViewMode('workouts')}
+              className={`px-3 py-1.5 rounded text-sm flex items-center gap-1.5 ${
+                viewMode === 'workouts' ? 'bg-white/15 text-white' : 'text-white/60 hover:text-white'
+              }`}
+            >
+              <Dumbbell size={14} />
+              Workouts
+            </button>
+            <button
+              onClick={() => setViewMode('timeline')}
+              className={`px-3 py-1.5 rounded text-sm ${
+                viewMode === 'timeline' ? 'bg-white/15 text-white' : 'text-white/60 hover:text-white'
+              }`}
+            >
+              Timeline
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`px-3 py-1.5 rounded text-sm ${
+                viewMode === 'list' ? 'bg-white/15 text-white' : 'text-white/60 hover:text-white'
+              }`}
+            >
+              List
+            </button>
+          </div>
         </div>
       </div>
 
@@ -309,15 +444,31 @@ export function TrainingPlanView() {
         </div>
       )}
 
-      {/* Timeline or List View */}
-      {viewMode === 'timeline' ? (
+      {/* View Mode Content */}
+      {viewMode === 'workouts' && (
+        <WeeklyWorkoutView
+          planId={plan.id}
+          suggestedWorkouts={suggestedWorkouts}
+          phases={plan.phases || []}
+          onEdit={setEditingWorkout}
+          onSchedule={handleScheduleWorkout}
+          onScheduleWeek={setBulkScheduleWorkouts}
+          onSkip={handleSkipWorkout}
+          onRefresh={() => fetchSuggestedWorkouts(plan.id)}
+          isLoading={loadingWorkouts}
+        />
+      )}
+
+      {viewMode === 'timeline' && (
         <PlanTimeline
           phases={plan.phases || []}
           events={plan.events || []}
           expandedPhases={expandedPhases}
           onTogglePhase={togglePhaseExpansion}
         />
-      ) : (
+      )}
+
+      {viewMode === 'list' && (
         <div className="space-y-4">
           {(plan.phases || []).map(phase => (
             <PhaseListCard
@@ -337,6 +488,24 @@ export function TrainingPlanView() {
           onClose={() => setShowAIGenerator(false)}
           onPlanGenerated={handlePlanGenerated}
           existingPlan={plan}
+        />
+      )}
+
+      {/* Workout Editor Modal */}
+      {editingWorkout && (
+        <WorkoutEditor
+          workout={editingWorkout}
+          onSave={handleSaveWorkout}
+          onClose={() => setEditingWorkout(null)}
+        />
+      )}
+
+      {/* Bulk Schedule Modal */}
+      {bulkScheduleWorkouts && (
+        <BulkScheduleModal
+          workouts={bulkScheduleWorkouts}
+          onSchedule={handleBulkSchedule}
+          onClose={() => setBulkScheduleWorkouts(null)}
         />
       )}
     </div>

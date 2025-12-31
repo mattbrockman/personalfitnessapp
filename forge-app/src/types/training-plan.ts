@@ -72,6 +72,7 @@ export interface TrainingPlan {
   phases?: TrainingPhase[]
   events?: PlanEvent[]
   balance_rules?: ActivityBalanceRule[]
+  suggested_workouts?: SuggestedWorkout[]
 }
 
 export interface TrainingPhase {
@@ -354,4 +355,138 @@ export function formatDateRange(startDate: string, endDate: string): string {
   const startMonth = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   const endMonth = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   return `${startMonth} - ${endMonth}`
+}
+
+// ============================================================================
+// SUGGESTED WORKOUTS - AI-generated workout templates
+// ============================================================================
+
+export type SuggestedWorkoutStatus = 'suggested' | 'scheduled' | 'skipped'
+export type CardioStructureType = 'steady' | 'tempo' | 'intervals' | 'long'
+export type PrimaryIntensity = 'z1' | 'z2' | 'z3' | 'z4' | 'z5' | 'hit' | 'mixed'
+
+// Exercise definition for strength workouts
+export interface SuggestedExercise {
+  exercise_name: string
+  exercise_id?: string  // Reference to exercises table
+  sets: number
+  reps_min: number
+  reps_max: number
+  rest_seconds: number
+  superset_group?: string | null
+  notes?: string
+}
+
+// Interval definition for cardio workouts
+export interface CardioInterval {
+  duration_minutes: number
+  intensity: PrimaryIntensity
+  repeats?: number  // For interval sets
+}
+
+// Cardio structure (intervals, tempo, steady, long)
+export interface CardioStructure {
+  type: CardioStructureType
+  warmup_minutes: number
+  main_set: CardioInterval[]
+  cooldown_minutes: number
+}
+
+// Main suggested workout interface
+export interface SuggestedWorkout {
+  id: string
+  plan_id: string
+  phase_id: string | null
+
+  // Scheduling
+  suggested_date: string
+  day_of_week: string
+
+  // Workout details
+  category: 'cardio' | 'strength' | 'other'
+  workout_type: string  // 'bike', 'run', 'upper', 'lower', 'full_body', etc.
+  name: string
+  description: string | null
+
+  // Duration and intensity
+  planned_duration_minutes: number | null
+  primary_intensity: PrimaryIntensity | null
+  planned_tss: number | null
+
+  // Content
+  exercises: SuggestedExercise[] | null  // For strength
+  cardio_structure: CardioStructure | null  // For cardio
+
+  // Status
+  status: SuggestedWorkoutStatus
+  scheduled_workout_id: string | null  // Link to actual workout once scheduled
+
+  // Metadata
+  week_number: number | null
+  order_in_day: number
+
+  created_at: string
+  updated_at: string
+}
+
+// AI-generated suggested workout (before saving to DB)
+export interface AISuggestedWorkout {
+  phase_index: number
+  week_number: number
+  day_of_week: string
+  suggested_date: string
+  category: 'cardio' | 'strength' | 'other'
+  workout_type: string
+  name: string
+  description: string
+  planned_duration_minutes: number
+  primary_intensity: PrimaryIntensity | null
+  planned_tss?: number
+  exercises?: SuggestedExercise[]
+  cardio_structure?: CardioStructure
+}
+
+// Extended AI response with suggested workouts
+export interface AIGeneratePlanResponseWithWorkouts extends AIGeneratePlanResponse {
+  suggested_workouts: AISuggestedWorkout[]
+}
+
+// Request to generate workouts for specific weeks
+export interface GenerateWorkoutsRequest {
+  plan_id: string
+  start_date: string
+  end_date: string
+  regenerate?: boolean  // If true, replace existing suggested workouts
+}
+
+// Schedule workout request
+export interface ScheduleWorkoutRequest {
+  suggested_workout_id: string
+  scheduled_date?: string  // Override the suggested date
+  scheduled_time?: string
+}
+
+// Bulk schedule request
+export interface BulkScheduleRequest {
+  suggested_workout_ids: string[]
+  skip_existing?: boolean  // Skip if already scheduled on that date
+}
+
+// Cardio type labels for display
+export const CARDIO_TYPE_LABELS: Record<CardioStructureType, string> = {
+  steady: 'Steady State',
+  tempo: 'Tempo',
+  intervals: 'Intervals',
+  long: 'Long Ride/Run',
+}
+
+// Intensity zone colors
+export const INTENSITY_COLORS: Record<PrimaryIntensity, string> = {
+  z1: 'bg-blue-400',
+  z2: 'bg-green-400',
+  z3: 'bg-yellow-400',
+  z4: 'bg-orange-400',
+  z5: 'bg-red-500',
+  hit: 'bg-red-600',
+  mixed: 'bg-purple-400',
 }
