@@ -20,17 +20,17 @@ export default async function CalendarPage() {
     .order('scheduled_date', { ascending: true })
 
   // Check Strava connection
-  const { data: stravaIntegration } = await supabase
-    .from('integrations')
-    .select('last_sync_at, sync_status')
-    .eq('service', 'strava')
-    .maybeSingle() as { data: { last_sync_at: string | null; sync_status: string } | null }
+  const { data: stravaIntegration } = await (supabase
+    .from('integrations') as any)
+    .select('id, updated_at')
+    .eq('provider', 'strava')
+    .maybeSingle()
 
   return (
     <CalendarView 
       initialWorkouts={(workouts as Workout[]) || []} 
       stravaConnected={!!stravaIntegration}
-      lastSyncAt={stravaIntegration?.last_sync_at ?? null}
+      lastSyncAt={stravaIntegration?.updated_at ?? null}
     />
   )
 }
