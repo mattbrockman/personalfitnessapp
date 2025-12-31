@@ -541,7 +541,7 @@ export function WorkoutDetailModal({ workout, onClose, onUpdate }: WorkoutDetail
                     )}
                     {workout.actual_avg_power && (
                       <div className="flex items-center gap-2 text-yellow-400">
-                        <span>Avg Power: {workout.actual_avg_power}w</span>
+                        <span>Avg Power: {workout.actual_avg_power}w{workout.actual_np ? ` / NP: ${workout.actual_np}w` : ''}</span>
                       </div>
                     )}
                     {workout.actual_elevation_ft && (
