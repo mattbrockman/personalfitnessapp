@@ -27,7 +27,15 @@ import {
   AlertCircle,
   CheckCircle,
   Camera,
+  Zap,
+  TrendingUp,
 } from 'lucide-react'
+
+// Strength training imports (Greg Nuckols evidence-based methods)
+import { RelativeIntensityBadge } from '@/components/strength/RelativeIntensityBadge'
+import { EffectiveRepsDisplay } from '@/components/strength/EffectiveRepsDisplay'
+import { ProgressionSuggestionInline } from '@/components/strength/ProgressionSuggestionCard'
+import { calculate1RM, calculateEffectiveReps, calculateRelativeIntensity } from '@/lib/strength-calculations'
 
 // Types
 interface Exercise {
@@ -418,12 +426,6 @@ function SetRow({
 
 // Superset groups
 const SUPERSET_GROUPS = ['A', 'B', 'C', 'D', 'E']
-
-// Calculate estimated 1RM using Brzycki formula
-function calculate1RM(weight: number, reps: number): number {
-  if (reps === 1) return weight
-  return Math.round(weight * (36 / (37 - reps)))
-}
 
 // Exercise Detail Modal - shows info, history, PRs
 function ExerciseDetailModal({
