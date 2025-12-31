@@ -6,6 +6,7 @@ import {
   calculateEffectiveReps,
   calculateRelativeIntensity,
 } from '@/lib/strength-calculations'
+import { calculateTrainingAge, adjustVolumeLandmarks } from '@/lib/galpin-calculations'
 import {
   WeeklyVolumeAnalysis,
   MuscleVolumeAnalysis,
@@ -37,6 +38,16 @@ export async function GET(request: NextRequest) {
 
     const weekStartStr = weekStart.toISOString().split('T')[0]
 
+    // Fetch user's training age for volume adjustment
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('training_start_date')
+      .eq('id', user.id)
+      .single() as { data: { training_start_date: string | null } | null; error: any }
+
+    const trainingAge = calculateTrainingAge(profile?.training_start_date || null)
+    const volumeMultiplier = trainingAge.volumeToleranceMultiplier
+
     // Fetch user's custom volume landmarks
     const { data: customLandmarks } = await supabase
       .from('volume_landmarks')
@@ -45,11 +56,19 @@ export async function GET(request: NextRequest) {
 
     const landmarkMap = new Map<string, VolumeLandmarks>()
     ;(customLandmarks || []).forEach((l: any) => {
+      // Adjust landmarks based on training age
+      const adjusted = adjustVolumeLandmarks(
+        l.mev_sets,
+        l.mav_low,
+        l.mav_high,
+        l.mrv_sets,
+        volumeMultiplier
+      )
       landmarkMap.set(l.muscle_group, {
-        mev: l.mev_sets,
-        mavLow: l.mav_low,
-        mavHigh: l.mav_high,
-        mrv: l.mrv_sets,
+        mev: adjusted.mev,
+        mavLow: adjusted.mavLow,
+        mavHigh: adjusted.mavHigh,
+        mrv: adjusted.mrv,
       })
     })
 
@@ -166,8 +185,19 @@ export async function GET(request: NextRequest) {
     const alerts: VolumeAlert[] = []
 
     for (const [muscleGroup, stats] of Array.from(muscleStats.entries())) {
-      // Get landmarks (user custom or defaults)
-      const landmarks = landmarkMap.get(muscleGroup) || getVolumeLandmarks(muscleGroup)
+      // Get landmarks (user custom or defaults, adjusted for training age)
+      let landmarks = landmarkMap.get(muscleGroup)
+      if (!landmarks) {
+        const defaults = getVolumeLandmarks(muscleGroup)
+        const adjusted = adjustVolumeLandmarks(
+          defaults.mev,
+          defaults.mavLow,
+          defaults.mavHigh,
+          defaults.mrv,
+          volumeMultiplier
+        )
+        landmarks = adjusted
+      }
       const volumeStatus = analyzeVolumeStatus(stats.hardSets, landmarks, muscleGroup)
 
       // Calculate average relative intensity
@@ -257,7 +287,15 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ analysis })
+    return NextResponse.json({
+      analysis,
+      training_age: {
+        years: trainingAge.trainingAgeYears,
+        months: trainingAge.trainingAgeMonths,
+        experience_level: trainingAge.experienceLevel,
+        volume_multiplier: volumeMultiplier,
+      }
+    })
   } catch (error) {
     console.error('Error in volume-analysis GET:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

@@ -51,6 +51,28 @@ export async function POST(request: NextRequest) {
       .select('name, primary_muscles, equipment, is_compound')
       .order('name')
 
+    // Fetch adaptation protocols if primary_adaptation specified (Galpin framework)
+    let adaptationProtocol: any = null
+    let secondaryProtocol: any = null
+
+    if (body.primary_adaptation) {
+      const { data: protocol } = await (adminClient as any)
+        .from('adaptation_protocols')
+        .select('*')
+        .eq('adaptation_type', body.primary_adaptation)
+        .single()
+      adaptationProtocol = protocol
+    }
+
+    if (body.secondary_adaptation) {
+      const { data: protocol } = await (adminClient as any)
+        .from('adaptation_protocols')
+        .select('*')
+        .eq('adaptation_type', body.secondary_adaptation)
+        .single()
+      secondaryProtocol = protocol
+    }
+
     // Group exercises by muscle group for the prompt
     const exercisesByMuscle: Record<string, string[]> = {}
     for (const ex of (exercises || []) as any[]) {
@@ -147,6 +169,24 @@ ${body.preferences?.vacation_dates && body.preferences.vacation_dates.length > 0
 AVAILABLE EXERCISES (use ONLY these names for strength workouts):
 ${exerciseLibraryText}
 
+${adaptationProtocol ? `
+PRIMARY ADAPTATION FOCUS: ${body.primary_adaptation}
+Evidence-based protocol for ${body.primary_adaptation}:
+- Reps: ${adaptationProtocol.rep_min}-${adaptationProtocol.rep_max}
+- Sets: ${adaptationProtocol.sets_min}-${adaptationProtocol.sets_max}
+- Rest: ${Math.round(adaptationProtocol.rest_min/60)}-${Math.round(adaptationProtocol.rest_max/60)} minutes
+- Intensity: ${adaptationProtocol.intensity_min || 'varies'}-${adaptationProtocol.intensity_max || 'varies'}% ${adaptationProtocol.intensity_unit}
+- Tempo: ${adaptationProtocol.default_tempo || 'controlled'}
+- Sessions/week: ${adaptationProtocol.sessions_per_week_min}-${adaptationProtocol.sessions_per_week_max}
+- Notes: ${adaptationProtocol.exercise_selection_notes || 'N/A'}
+
+IMPORTANT: For strength workouts, use these rep/set/rest parameters when designing exercises.
+` : ''}
+${secondaryProtocol ? `
+SECONDARY ADAPTATION: ${body.secondary_adaptation}
+Protocol: ${secondaryProtocol.rep_min}-${secondaryProtocol.rep_max} reps, ${secondaryProtocol.sets_min}-${secondaryProtocol.sets_max} sets
+Incorporate some exercises following this secondary protocol, especially for accessory work.
+` : ''}
 ${body.custom_prompt ? `ADDITIONAL INSTRUCTIONS:\n${body.custom_prompt}` : ''}
 
 Return a JSON object with this EXACT structure:

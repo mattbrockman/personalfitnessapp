@@ -224,6 +224,10 @@ export interface AIGeneratePlanRequest {
   start_date: string
   end_date?: string  // Optional for rolling plans
 
+  // Galpin 9 Adaptations (optional, enhances goal specificity)
+  primary_adaptation?: 'skill' | 'speed_power' | 'strength' | 'hypertrophy' | 'muscular_endurance' | 'anaerobic_capacity' | 'vo2max' | 'long_duration' | 'body_composition'
+  secondary_adaptation?: 'skill' | 'speed_power' | 'strength' | 'hypertrophy' | 'muscular_endurance' | 'anaerobic_capacity' | 'vo2max' | 'long_duration' | 'body_composition'
+
   // Target events
   events: Array<{
     name: string
