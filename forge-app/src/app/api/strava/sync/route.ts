@@ -93,6 +93,7 @@ export async function POST(request: Request) {
     // Process each activity
     const results = {
       synced: 0,
+      matched: 0,
       skipped: 0,
       errors: 0,
     }
@@ -115,20 +116,24 @@ export async function POST(request: Request) {
 
         // Map to our workout type
         const { category, workoutType } = mapStravaTypeToWorkoutType(activity.sport_type || activity.type)
+        const activityDate = activity.start_date_local.split('T')[0]
 
-        // Create workout
-        const workoutData = {
-          user_id: session.user.id,
-          scheduled_date: activity.start_date_local.split('T')[0],
+        // Try to find a matching planned workout on the same day
+        const { data: plannedWorkout } = await adminSupabase
+          .from('workouts')
+          .select('id, name')
+          .eq('user_id', session.user.id)
+          .eq('scheduled_date', activityDate)
+          .eq('status', 'planned')
+          .or(`workout_type.eq.${workoutType},category.eq.${category}`)
+          .single()
+
+        // Actual data from Strava
+        const actualData = {
           completed_at: activity.start_date,
-          category,
-          workout_type: workoutType,
-          name: activity.name,
-          primary_intensity: 'mixed' as const, // Will be refined when we get zones
           actual_duration_minutes: Math.round(activity.moving_time / 60),
           actual_distance_miles: activity.distance ? parseFloat(metersToMiles(activity.distance).toFixed(2)) : null,
           actual_tss: estimateTSS(activity, ftp || undefined),
-          actual_calories: activity.calories || null,
           actual_avg_hr: activity.average_heartrate || null,
           actual_max_hr: activity.max_heartrate || null,
           actual_avg_power: activity.average_watts || null,
@@ -139,11 +144,46 @@ export async function POST(request: Request) {
           external_url: `https://www.strava.com/activities/${activity.id}`,
         }
 
-        const { data: workout, error: workoutError } = await adminSupabase
-          .from('workouts')
-          .insert(workoutData)
-          .select()
-          .single()
+        let workout
+        let workoutError
+
+        if (plannedWorkout) {
+          // Update the existing planned workout with actual data
+          const { data, error } = await adminSupabase
+            .from('workouts')
+            .update({
+              ...actualData,
+              // Keep the original planned name if it exists, otherwise use Strava name
+              name: plannedWorkout.name || activity.name,
+            })
+            .eq('id', plannedWorkout.id)
+            .select()
+            .single()
+
+          workout = data
+          workoutError = error
+          if (!error) results.matched++
+        } else {
+          // Create a new workout
+          const workoutData = {
+            user_id: session.user.id,
+            scheduled_date: activityDate,
+            category,
+            workout_type: workoutType,
+            name: activity.name,
+            ...actualData,
+          }
+
+          const { data, error } = await adminSupabase
+            .from('workouts')
+            .insert(workoutData)
+            .select()
+            .single()
+
+          workout = data
+          workoutError = error
+          if (!error) results.synced++
+        }
 
         if (workoutError) {
           console.error('Error inserting workout:', workoutError)
@@ -180,8 +220,6 @@ export async function POST(request: Request) {
             console.warn('Could not get zones for activity', activity.id)
           }
         }
-
-        results.synced++
 
       } catch (activityError) {
         console.error('Error processing activity:', activity.id, activityError)
