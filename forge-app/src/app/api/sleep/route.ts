@@ -32,6 +32,8 @@ export async function GET(request: NextRequest) {
 
     const { data: sleepLogs, error } = await query
 
+    console.log('Sleep GET - user:', user.id, 'found:', sleepLogs?.length || 0, 'logs')
+
     if (error) {
       console.error('Error fetching sleep logs:', error)
       return NextResponse.json({ error: 'Failed to fetch sleep logs' }, { status: 500 })
