@@ -79,8 +79,8 @@ export async function POST(request: NextRequest) {
     } = body
 
     // Insert workout
-    const { data: workout, error: workoutError } = await adminClient
-      .from('workouts')
+    const { data: workout, error: workoutError }: any = await (adminClient
+      .from('workouts') as any)
       .insert({
         user_id: session.user.id,
         workout_type,
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
         planned_tss,
         notes,
         status: 'planned',
-      } as any)
+      })
       .select()
       .single()
 
@@ -108,9 +108,9 @@ export async function POST(request: NextRequest) {
         workout_id: workout.id,
       }))
 
-      const { error: zonesError } = await adminClient
-        .from('workout_zones')
-        .insert(zonesWithWorkoutId as any)
+      const { error: zonesError }: any = await (adminClient
+        .from('workout_zones') as any)
+        .insert(zonesWithWorkoutId)
 
       if (zonesError) {
         console.error('Error creating workout zones:', zonesError)
@@ -129,9 +129,9 @@ export async function POST(request: NextRequest) {
         notes: ex.notes,
       }))
 
-      const { data: workoutExercises, error: exError } = await adminClient
-        .from('workout_exercises')
-        .insert(exercisesWithWorkoutId as any)
+      const { data: workoutExercises, error: exError }: any = await (adminClient
+        .from('workout_exercises') as any)
+        .insert(exercisesWithWorkoutId)
         .select()
 
       if (exError) {
@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
               completed: set.completed || false,
             }))
 
-            await adminClient.from('exercise_sets').insert(setsWithIds as any)
+            await (adminClient.from('exercise_sets') as any).insert(setsWithIds)
           }
         }
       }
@@ -188,7 +188,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Verify ownership
-    const { data: existing } = await supabase
+    const { data: existing }: any = await supabase
       .from('workouts')
       .select('user_id')
       .eq('id', id)
@@ -199,12 +199,12 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Update workout
-    const { data: workout, error: updateError } = await adminClient
-      .from('workouts')
+    const { data: workout, error: updateError }: any = await (adminClient
+      .from('workouts') as any)
       .update({
         ...updates,
         updated_at: new Date().toISOString(),
-      } as any)
+      })
       .eq('id', id)
       .select()
       .single()
@@ -240,7 +240,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Verify ownership
-    const { data: existing } = await supabase
+    const { data: existing }: any = await supabase
       .from('workouts')
       .select('user_id')
       .eq('id', id)

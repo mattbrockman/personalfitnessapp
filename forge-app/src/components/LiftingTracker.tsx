@@ -188,7 +188,7 @@ function ExerciseSearchModal({
     return matchesSearch && matchesFilter
   })
 
-  const muscleGroups = [...new Set(MOCK_EXERCISES.map(e => e.primary_muscle))]
+  const muscleGroups = Array.from(new Set(MOCK_EXERCISES.map(e => e.primary_muscle)))
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/80" onClick={onClose}>

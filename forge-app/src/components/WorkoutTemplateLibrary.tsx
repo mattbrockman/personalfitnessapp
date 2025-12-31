@@ -371,7 +371,7 @@ export function WorkoutTemplateLibrary() {
   const [selectedTemplate, setSelectedTemplate] = useState<WorkoutTemplate | null>(null)
 
   // Get unique categories
-  const categories = [...new Set(templates.map(t => t.category))]
+  const categories = Array.from(new Set(templates.map(t => t.category)))
 
   // Filter templates
   const filteredTemplates = templates.filter(template => {
