@@ -52,12 +52,12 @@ export function GripStrengthModal({
 
   // Calculate percentile
   const getPercentile = (value: number): number => {
-    if (value >= percentiles.p90) return 90 + Math.min(9, (value - percentiles.p90) / 5)
-    if (value >= percentiles.p75) return 75 + (value - percentiles.p75) / (percentiles.p90 - percentiles.p75) * 15
-    if (value >= percentiles.p50) return 50 + (value - percentiles.p50) / (percentiles.p75 - percentiles.p50) * 25
-    if (value >= percentiles.p25) return 25 + (value - percentiles.p25) / (percentiles.p50 - percentiles.p25) * 25
-    if (value >= percentiles.p10) return 10 + (value - percentiles.p10) / (percentiles.p25 - percentiles.p10) * 15
-    return Math.max(1, (value / percentiles.p10) * 10)
+    if (value >= percentiles[90]) return 90 + Math.min(9, (value - percentiles[90]) / 5)
+    if (value >= percentiles[75]) return 75 + (value - percentiles[75]) / (percentiles[90] - percentiles[75]) * 15
+    if (value >= percentiles[50]) return 50 + (value - percentiles[50]) / (percentiles[75] - percentiles[50]) * 25
+    if (value >= percentiles[25]) return 25 + (value - percentiles[25]) / (percentiles[50] - percentiles[25]) * 25
+    if (value >= percentiles[10]) return 10 + (value - percentiles[10]) / (percentiles[25] - percentiles[10]) * 15
+    return Math.max(1, (value / percentiles[10]) * 10)
   }
 
   // Preview values
@@ -173,7 +173,7 @@ export function GripStrengthModal({
                     </div>
                   </div>
                   <div className="text-sm text-white/60">
-                    Reference for {sex}, age {bracket}: 50th percentile = {percentiles.p50} lbs
+                    Reference for {sex}, age {bracket}: 50th percentile = {percentiles[50]} lbs
                   </div>
                 </div>
               )}
@@ -187,11 +187,11 @@ export function GripStrengthModal({
                   <div className="text-white/40">50th</div>
                   <div className="text-white/40">75th</div>
                   <div className="text-white/40">90th</div>
-                  <div className="text-red-400">{percentiles.p10}</div>
-                  <div className="text-amber-400">{percentiles.p25}</div>
-                  <div className="text-white">{percentiles.p50}</div>
-                  <div className="text-blue-400">{percentiles.p75}</div>
-                  <div className="text-green-400">{percentiles.p90}</div>
+                  <div className="text-red-400">{percentiles[10]}</div>
+                  <div className="text-amber-400">{percentiles[25]}</div>
+                  <div className="text-white">{percentiles[50]}</div>
+                  <div className="text-blue-400">{percentiles[75]}</div>
+                  <div className="text-green-400">{percentiles[90]}</div>
                 </div>
               </div>
 

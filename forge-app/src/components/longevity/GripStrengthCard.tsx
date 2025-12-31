@@ -51,12 +51,12 @@ export function GripStrengthCard({
 
   // Calculate percentile for a value
   const getPercentile = (value: number): number => {
-    if (value >= percentiles.p90) return 90 + (value - percentiles.p90) / 10
-    if (value >= percentiles.p75) return 75 + (value - percentiles.p75) / (percentiles.p90 - percentiles.p75) * 15
-    if (value >= percentiles.p50) return 50 + (value - percentiles.p50) / (percentiles.p75 - percentiles.p50) * 25
-    if (value >= percentiles.p25) return 25 + (value - percentiles.p25) / (percentiles.p50 - percentiles.p25) * 25
-    if (value >= percentiles.p10) return 10 + (value - percentiles.p10) / (percentiles.p25 - percentiles.p10) * 15
-    return Math.max(1, (value / percentiles.p10) * 10)
+    if (value >= percentiles[90]) return 90 + (value - percentiles[90]) / 10
+    if (value >= percentiles[75]) return 75 + (value - percentiles[75]) / (percentiles[90] - percentiles[75]) * 15
+    if (value >= percentiles[50]) return 50 + (value - percentiles[50]) / (percentiles[75] - percentiles[50]) * 25
+    if (value >= percentiles[25]) return 25 + (value - percentiles[25]) / (percentiles[50] - percentiles[25]) * 25
+    if (value >= percentiles[10]) return 10 + (value - percentiles[10]) / (percentiles[25] - percentiles[10]) * 15
+    return Math.max(1, (value / percentiles[10]) * 10)
   }
 
   // Best grip (dominant hand usually stronger)
@@ -173,7 +173,7 @@ export function GripStrengthCard({
           <div className="mb-3 p-2 bg-white/5 rounded-lg text-xs">
             <div className="flex justify-between text-white/50">
               <span>Age {bracket} reference ({sex})</span>
-              <span>50th: {percentiles.p50} lbs</span>
+              <span>50th: {percentiles[50]} lbs</span>
             </div>
           </div>
         )}
