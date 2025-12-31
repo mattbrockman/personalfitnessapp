@@ -33,7 +33,9 @@ const workoutTypes = [
   { value: 'upper', label: 'Upper', icon: Dumbbell, category: 'strength' },
   { value: 'lower', label: 'Lower', icon: Dumbbell, category: 'strength' },
   { value: 'full_body', label: 'Full Body', icon: Dumbbell, category: 'strength' },
-  { value: 'yoga', label: 'Yoga', icon: Activity, category: 'other' },
+  { value: 'soccer', label: 'Soccer', icon: Activity, category: 'other' },
+  { value: 'tennis', label: 'Tennis', icon: Activity, category: 'other' },
+  { value: 'skiing', label: 'Skiing', icon: Activity, category: 'other' },
   { value: 'other', label: 'Other', icon: Activity, category: 'other' },
 ] as const
 
