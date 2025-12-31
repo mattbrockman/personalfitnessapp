@@ -16,6 +16,7 @@ import {
   Moon,
   BookOpen,
   Target,
+  Heart,
 } from 'lucide-react'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -35,7 +36,7 @@ export function Navigation({ user }: NavigationProps) {
     { href: '/lifting', label: 'Lifting', icon: Dumbbell },
     { href: '/nutrition', label: 'Nutrition', icon: Utensils },
     { href: '/sleep', label: 'Sleep', icon: Moon },
-    { href: '/journal', label: 'Journal', icon: BookOpen },
+    { href: '/longevity', label: 'Longevity', icon: Heart },
     { href: '/progress', label: 'Progress', icon: TrendingUp },
   ]
 
