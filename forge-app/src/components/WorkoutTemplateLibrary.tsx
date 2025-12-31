@@ -165,6 +165,132 @@ function TemplateCard({
   )
 }
 
+// Schedule Modal
+function ScheduleModal({
+  template,
+  onClose,
+  onSchedule,
+}: {
+  template: WorkoutTemplate
+  onClose: () => void
+  onSchedule: (date: string) => void
+}) {
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const tomorrow = new Date()
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    return tomorrow.toISOString().split('T')[0]
+  })
+  const [scheduling, setScheduling] = useState(false)
+
+  const handleSchedule = async () => {
+    setScheduling(true)
+    await onSchedule(selectedDate)
+    setScheduling(false)
+  }
+
+  // Generate quick date options
+  const today = new Date()
+  const quickDates = [
+    { label: 'Tomorrow', date: new Date(today.getTime() + 86400000) },
+    { label: 'In 2 days', date: new Date(today.getTime() + 2 * 86400000) },
+    { label: 'In 3 days', date: new Date(today.getTime() + 3 * 86400000) },
+    { label: 'Next Week', date: new Date(today.getTime() + 7 * 86400000) },
+  ]
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80" onClick={onClose}>
+      <div
+        className="bg-zinc-900 rounded-2xl w-full max-w-sm overflow-hidden border border-white/10 animate-slide-up"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="p-4 border-b border-white/10">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-lg">Schedule Workout</h3>
+            <button onClick={onClose} className="p-1 hover:bg-white/10 rounded-lg">
+              <X size={20} />
+            </button>
+          </div>
+          <p className="text-sm text-white/50 mt-1">{template.name}</p>
+        </div>
+
+        <div className="p-4 space-y-4">
+          {/* Quick date buttons */}
+          <div className="grid grid-cols-2 gap-2">
+            {quickDates.map(({ label, date }) => {
+              const dateStr = date.toISOString().split('T')[0]
+              return (
+                <button
+                  key={label}
+                  onClick={() => setSelectedDate(dateStr)}
+                  className={`py-2 px-3 rounded-lg text-sm transition-colors ${
+                    selectedDate === dateStr
+                      ? 'bg-amber-500 text-black'
+                      : 'bg-white/10 text-white/70 hover:bg-white/20'
+                  }`}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Date picker */}
+          <div>
+            <label className="text-sm text-white/40 mb-2 block">Or pick a date:</label>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={e => setSelectedDate(e.target.value)}
+              min={today.toISOString().split('T')[0]}
+              className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-amber-500/50"
+            />
+          </div>
+
+          {/* Preview */}
+          <div className="p-3 bg-white/5 rounded-lg">
+            <p className="text-sm text-white/60">
+              Scheduling for{' '}
+              <span className="text-white font-medium">
+                {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', {
+                  weekday: 'long',
+                  month: 'long',
+                  day: 'numeric',
+                })}
+              </span>
+            </p>
+          </div>
+        </div>
+
+        <div className="p-4 border-t border-white/10 flex gap-2">
+          <button
+            onClick={onClose}
+            className="flex-1 py-2.5 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSchedule}
+            disabled={scheduling}
+            className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-400 text-black font-medium rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {scheduling ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                Scheduling...
+              </>
+            ) : (
+              <>
+                <Calendar size={16} />
+                Schedule
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // Template Detail Modal
 function TemplateDetailModal({
   template,
@@ -275,6 +401,7 @@ export function WorkoutTemplateLibrary({ onStartWorkout }: WorkoutTemplateLibrar
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState<WorkoutTemplate | null>(null)
+  const [scheduleTemplate, setScheduleTemplate] = useState<WorkoutTemplate | null>(null)
 
   // Fetch templates from API
   useEffect(() => {
@@ -374,8 +501,58 @@ export function WorkoutTemplateLibrary({ onStartWorkout }: WorkoutTemplateLibrar
   }
 
   const handleSchedule = (template: WorkoutTemplate) => {
-    // Would open date picker and add to calendar
-    console.log('Scheduling template:', template.name)
+    setScheduleTemplate(template)
+    setSelectedTemplate(null) // Close detail modal if open
+  }
+
+  const scheduleWorkout = async (template: WorkoutTemplate, date: string) => {
+    try {
+      // Create exercises payload from template
+      const exercisesPayload = template.exercises.map((ex, index) => ({
+        exercise_id: ex.exercise_id,
+        order_index: index,
+        superset_group: ex.superset_group || null,
+        rest_seconds: ex.rest_seconds,
+        notes: ex.notes || '',
+        sets: Array.from({ length: ex.sets }, (_, i) => ({
+          set_type: 'working',
+          target_reps: ex.reps_max,
+          target_weight: null,
+          target_rpe: ex.rpe_target || null,
+        })),
+      }))
+
+      const res = await fetch('/api/workouts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: template.name,
+          workout_type: 'strength',
+          category: 'strength',
+          scheduled_date: date,
+          status: 'planned',
+          planned_duration_minutes: template.estimated_duration_min,
+          exercises: exercisesPayload,
+        }),
+      })
+
+      if (!res.ok) {
+        throw new Error('Failed to schedule workout')
+      }
+
+      // Increment template usage
+      await fetch('/api/workout-templates', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: template.id, increment_usage: true }),
+      })
+
+      alert(`"${template.name}" scheduled for ${new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}`)
+      setScheduleTemplate(null)
+    } catch (error) {
+      console.error('Failed to schedule workout:', error)
+      alert('Failed to schedule workout. Please try again.')
+    }
   }
 
   const handleDuplicate = async (template: WorkoutTemplate) => {
@@ -503,6 +680,15 @@ export function WorkoutTemplateLibrary({ onStartWorkout }: WorkoutTemplateLibrar
           onStartWorkout={() => handleStartWorkout(selectedTemplate)}
           onSchedule={() => handleSchedule(selectedTemplate)}
           onDuplicate={() => handleDuplicate(selectedTemplate)}
+        />
+      )}
+
+      {/* Schedule modal */}
+      {scheduleTemplate && (
+        <ScheduleModal
+          template={scheduleTemplate}
+          onClose={() => setScheduleTemplate(null)}
+          onSchedule={(date) => scheduleWorkout(scheduleTemplate, date)}
         />
       )}
     </div>
