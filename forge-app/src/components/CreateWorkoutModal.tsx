@@ -9,7 +9,6 @@ import {
   Dumbbell,
   Activity,
   Clock,
-  Gauge,
   Calendar,
   Loader2,
 } from 'lucide-react'
@@ -38,16 +37,6 @@ const workoutTypes = [
   { value: 'other', label: 'Other', icon: Activity, category: 'other' },
 ] as const
 
-const intensityZones = [
-  { value: 'z1', label: 'Z1 - Recovery', color: 'bg-blue-400' },
-  { value: 'z2', label: 'Z2 - Endurance', color: 'bg-green-400' },
-  { value: 'z3', label: 'Z3 - Tempo', color: 'bg-yellow-400' },
-  { value: 'z4', label: 'Z4 - Threshold', color: 'bg-orange-400' },
-  { value: 'z5', label: 'Z5 - VO2max', color: 'bg-red-400' },
-  { value: 'hit', label: 'HIT - High Intensity', color: 'bg-red-600' },
-  { value: 'mixed', label: 'Mixed', color: 'bg-purple-400' },
-] as const
-
 export function CreateWorkoutModal({ selectedDate, onClose, onCreated }: CreateWorkoutModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -58,8 +47,6 @@ export function CreateWorkoutModal({ selectedDate, onClose, onCreated }: CreateW
     scheduled_date: format(selectedDate, 'yyyy-MM-dd'),
     scheduled_time: '', // Empty = all day event
     planned_duration_minutes: 60,
-    planned_tss: '',
-    primary_intensity: 'z2',
     notes: '',
   })
 
@@ -75,8 +62,6 @@ export function CreateWorkoutModal({ selectedDate, onClose, onCreated }: CreateW
         body: JSON.stringify({
           ...formData,
           scheduled_time: formData.scheduled_time || null, // null = all day event
-          planned_tss: formData.planned_tss ? parseInt(formData.planned_tss) : null,
-          status: 'planned',
         }),
       })
 
@@ -222,41 +207,6 @@ export function CreateWorkoutModal({ selectedDate, onClose, onCreated }: CreateW
               </div>
             </div>
           </div>
-
-          {/* TSS (for cardio) */}
-          {formData.category === 'cardio' && (
-            <div>
-              <label className="block text-sm text-white/60 mb-1.5">Target TSS</label>
-              <div className="relative">
-                <Gauge size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
-                <input
-                  type="number"
-                  value={formData.planned_tss}
-                  onChange={e => setFormData(prev => ({ ...prev, planned_tss: e.target.value }))}
-                  placeholder="Optional"
-                  className="w-full pl-10 pr-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-amber-500/50"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Intensity Zone (not for strength) */}
-          {formData.category !== 'strength' && (
-            <div>
-              <label className="block text-sm text-white/60 mb-1.5">Target Intensity</label>
-              <select
-                value={formData.primary_intensity}
-                onChange={e => setFormData(prev => ({ ...prev, primary_intensity: e.target.value }))}
-                className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-amber-500/50"
-              >
-                {intensityZones.map(zone => (
-                  <option key={zone.value} value={zone.value} className="bg-zinc-900">
-                    {zone.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
 
           {/* Notes */}
           <div>

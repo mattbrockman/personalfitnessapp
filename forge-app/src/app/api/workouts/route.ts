@@ -70,33 +70,27 @@ export async function POST(request: NextRequest) {
       name,
       scheduled_date,
       scheduled_time,
-      description,
       planned_duration_minutes,
-      planned_tss,
       notes,
       category,
-      primary_intensity,
       workout_zones,
       exercises, // For lifting workouts
     } = body
 
-    // Insert workout
+    // Insert workout - only use fields that exist in the database
+    // Core required fields: user_id, category, workout_type
     const { data: workout, error: workoutError }: any = await (adminClient
       .from('workouts') as any)
       .insert({
         user_id: session.user.id,
+        category: category || 'other',
         workout_type: workout_type || 'other',
         name: name || null,
-        scheduled_date,
+        scheduled_date: scheduled_date || null,
         scheduled_time: scheduled_time || null,
-        description: description || null,
         planned_duration_minutes: planned_duration_minutes || null,
-        planned_tss: planned_tss || null,
         notes: notes || null,
-        category: category || 'other',
-        primary_intensity: primary_intensity || null,
         status: 'planned',
-        source: 'manual',
       })
       .select()
       .single()
