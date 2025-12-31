@@ -158,13 +158,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Build the AI prompt
-    const systemPrompt = `You are an expert strength coach creating personalized workout plans. You create effective, balanced workouts based on the user's goals, history, and constraints.
+    const systemPrompt = `You are an expert strength coach creating personalized workout plans.
+
+CRITICAL RULES (MUST FOLLOW):
+- The user's request is your PRIMARY DIRECTIVE - follow it closely
+- If user asks to focus on specific muscles/exercises, prioritize those
+- If user asks to avoid something (exercise, muscle group, movement), DO NOT include it
+- If user mentions an injury, pain, or limitation, avoid exercises that stress that area
+- User preferences take ABSOLUTE priority over generic workout optimization
 
 Guidelines:
 - Create workouts that are challenging but achievable
 - Prioritize compound movements, then isolation
 - Group exercises logically (same muscle group together, or use supersets)
-- Consider injury prevention and proper warm-up
 - Use standard rep ranges: 5-8 for strength, 8-12 for hypertrophy, 12-15 for endurance
 - Rest times: 90-180s for compound lifts, 60-90s for isolation
 
@@ -201,20 +207,25 @@ IMPORTANT: Only use exercises from the provided exercise library.`
       userRequest = 'Create a balanced strength training workout'
     }
 
-    const userPrompt = `${userRequest}
+    const userPrompt = `PRIMARY DIRECTIVE (from user):
+"${prompt || userRequest}"
 
-Duration: approximately ${duration_minutes} minutes
-Equipment available: ${equipment === 'full_gym' ? 'Full gym (barbells, dumbbells, machines, cables)' : equipment === 'dumbbells' ? 'Dumbbells only' : 'Bodyweight only'}
+Your workout MUST follow this directive. If they want to focus on something, focus on it. If they want to avoid something, avoid it entirely.
 
-User context:
+WORKOUT PARAMETERS:
+- Duration: approximately ${duration_minutes} minutes
+- Equipment: ${equipment === 'full_gym' ? 'Full gym (barbells, dumbbells, machines, cables)' : equipment === 'dumbbells' ? 'Dumbbells only' : 'Bodyweight only'}
+
+ADDITIONAL CONTEXT:
 ${contextParts.join('\n\n')}
 
-Available exercises by muscle group:
+AVAILABLE EXERCISES BY MUSCLE GROUP:
 ${Object.entries(exerciseByMuscle).map(([muscle, exs]) => `${muscle}: ${exs.join(', ')}`).join('\n')}
 
+Create a workout that DIRECTLY addresses the user's request above.
 Return your response as a JSON object with this exact structure:
 {
-  "name": "<workout name, e.g., 'Push Day A' or 'Upper Body Strength'>",
+  "name": "<workout name reflecting what user asked for>",
   "exercises": [
     {
       "exercise_name": "<exact name from the library>",
@@ -227,7 +238,7 @@ Return your response as a JSON object with this exact structure:
     }
   ],
   "estimated_duration": <minutes>,
-  "reasoning": "<1-2 sentences explaining your choices>"
+  "reasoning": "<1-2 sentences explaining how you honored the user's request>"
 }
 
 Include 4-8 exercises appropriate for the duration. Return ONLY the JSON, no other text.`
