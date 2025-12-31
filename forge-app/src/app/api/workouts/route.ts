@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
         planned_tss,
         notes,
         status: 'planned',
-      })
+      } as any)
       .select()
       .single()
 
@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
 
       const { error: zonesError } = await adminClient
         .from('workout_zones')
-        .insert(zonesWithWorkoutId)
+        .insert(zonesWithWorkoutId as any)
 
       if (zonesError) {
         console.error('Error creating workout zones:', zonesError)
@@ -131,7 +131,7 @@ export async function POST(request: NextRequest) {
 
       const { data: workoutExercises, error: exError } = await adminClient
         .from('workout_exercises')
-        .insert(exercisesWithWorkoutId)
+        .insert(exercisesWithWorkoutId as any)
         .select()
 
       if (exError) {
@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
               completed: set.completed || false,
             }))
 
-            await adminClient.from('exercise_sets').insert(setsWithIds)
+            await adminClient.from('exercise_sets').insert(setsWithIds as any)
           }
         }
       }
@@ -204,7 +204,7 @@ export async function PATCH(request: NextRequest) {
       .update({
         ...updates,
         updated_at: new Date().toISOString(),
-      })
+      } as any)
       .eq('id', id)
       .select()
       .single()
