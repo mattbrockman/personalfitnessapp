@@ -155,101 +155,127 @@ function SleepStageBar({ log }: { log: SleepLog }) {
   )
 }
 
-// Screenshot Upload Modal
+// Parsed sleep data with status
+interface ParsedSleepItem {
+  file: File
+  status: 'pending' | 'parsing' | 'success' | 'error'
+  data?: Partial<SleepLog>
+  error?: string
+}
+
+// Screenshot Upload Modal - supports batch upload
 function ScreenshotUploadModal({
   onUpload,
   onClose,
 }: {
-  onUpload: (data: Partial<SleepLog>) => void
+  onUpload: (data: Partial<SleepLog>[]) => void
   onClose: () => void
 }) {
-  const [isAnalyzing, setIsAnalyzing] = useState(false)
-  const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'))
+  const [files, setFiles] = useState<ParsedSleepItem[]>([])
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [currentIndex, setCurrentIndex] = useState(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const selectedFiles = e.target.files
+    if (!selectedFiles || selectedFiles.length === 0) return
 
-    setIsAnalyzing(true)
+    // Add all files to state as pending
+    const newFiles: ParsedSleepItem[] = Array.from(selectedFiles).map(file => ({
+      file,
+      status: 'pending' as const,
+    }))
 
-    // Simulate AI analysis
-    setTimeout(() => {
-      // In real app, would call AI API to parse Eight Sleep screenshot
-      const mockParsedData: Partial<SleepLog> = {
-        log_date: selectedDate,
-        bedtime: '22:45',
-        wake_time: '06:30',
-        total_sleep_minutes: 7 * 60 + 15,
-        time_in_bed_minutes: 7 * 60 + 45,
-        deep_sleep_minutes: 85,
-        rem_sleep_minutes: 95,
-        light_sleep_minutes: 4 * 60 + 15,
-        awake_minutes: 30,
-        sleep_score: 82,
-        hrv_avg: 48,
-        resting_hr: 52,
-        recovery_score: 76,
-        source: 'eight_sleep_screenshot',
-      }
-      
-      onUpload(mockParsedData)
-      setIsAnalyzing(false)
-      onClose()
-    }, 2500)
+    setFiles(newFiles)
   }
+
+  const processFiles = async () => {
+    if (files.length === 0) return
+
+    setIsProcessing(true)
+
+    const updatedFiles = [...files]
+
+    for (let i = 0; i < updatedFiles.length; i++) {
+      setCurrentIndex(i)
+      updatedFiles[i].status = 'parsing'
+      setFiles([...updatedFiles])
+
+      try {
+        const formData = new FormData()
+        formData.append('file', updatedFiles[i].file)
+
+        const response = await fetch('/api/sleep/parse-screenshot', {
+          method: 'POST',
+          body: formData,
+        })
+
+        if (response.ok) {
+          const result = await response.json()
+          updatedFiles[i].status = 'success'
+          updatedFiles[i].data = result.parsed
+        } else {
+          const errorData = await response.json()
+          updatedFiles[i].status = 'error'
+          updatedFiles[i].error = errorData.error || 'Failed to parse'
+        }
+      } catch (error) {
+        updatedFiles[i].status = 'error'
+        updatedFiles[i].error = 'Network error'
+      }
+
+      setFiles([...updatedFiles])
+    }
+
+    setIsProcessing(false)
+  }
+
+  const handleSaveAll = () => {
+    const successfulData = files
+      .filter(f => f.status === 'success' && f.data?.log_date)
+      .map(f => f.data as Partial<SleepLog>)
+
+    if (successfulData.length > 0) {
+      onUpload(successfulData)
+    }
+    onClose()
+  }
+
+  const successCount = files.filter(f => f.status === 'success').length
+  const errorCount = files.filter(f => f.status === 'error').length
+  const allDone = files.length > 0 && files.every(f => f.status === 'success' || f.status === 'error')
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80" onClick={onClose}>
-      <div 
-        className="bg-zinc-900 rounded-2xl w-full max-w-md overflow-hidden border border-white/10 animate-slide-up"
+      <div
+        className="bg-zinc-900 rounded-2xl w-full max-w-lg overflow-hidden border border-white/10 animate-slide-up max-h-[80vh] flex flex-col"
         onClick={e => e.stopPropagation()}
       >
         <div className="p-4 border-b border-white/10 flex items-center justify-between">
-          <h3 className="font-semibold">Upload Sleep Screenshot</h3>
+          <h3 className="font-semibold">Upload Sleep Screenshots</h3>
           <button onClick={onClose} className="p-1 hover:bg-white/10 rounded-lg">
             <X size={20} />
           </button>
         </div>
 
-        <div className="p-6">
-          {isAnalyzing ? (
-            <div className="text-center py-8">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-violet-500/20 flex items-center justify-center animate-pulse">
-                <Sparkles size={32} className="text-violet-400" />
-              </div>
-              <p className="font-medium">Analyzing screenshot...</p>
-              <p className="text-sm text-white/50 mt-1">
-                AI is extracting sleep data from your Eight Sleep screenshot
-              </p>
-            </div>
-          ) : (
+        <div className="p-6 overflow-y-auto flex-1">
+          {files.length === 0 ? (
             <>
-              {/* Date selector */}
-              <div className="mb-4">
-                <label className="block text-sm text-white/60 mb-2">Sleep Date</label>
-                <input
-                  type="date"
-                  value={selectedDate}
-                  onChange={e => setSelectedDate(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white focus:outline-none focus:border-amber-500/50"
-                />
-              </div>
-
               {/* Upload area */}
-              <div 
+              <div
                 onClick={() => fileInputRef.current?.click()}
                 className="border-2 border-dashed border-white/20 rounded-xl p-8 text-center cursor-pointer hover:border-violet-500/50 transition-colors"
               >
                 <Upload size={48} className="mx-auto text-white/40 mb-4" />
-                <p className="font-medium">Upload Eight Sleep screenshot</p>
-                <p className="text-sm text-white/50 mt-1">PNG, JPG, or HEIC</p>
+                <p className="font-medium">Select Eight Sleep screenshots</p>
+                <p className="text-sm text-white/50 mt-1">Select multiple images at once</p>
               </div>
 
               <input
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
+                multiple
                 onChange={handleFileSelect}
                 className="hidden"
               />
@@ -257,9 +283,123 @@ function ScreenshotUploadModal({
               <div className="mt-4 p-3 bg-violet-500/10 rounded-lg">
                 <p className="text-xs text-violet-400 flex items-center gap-2">
                   <Sparkles size={14} />
-                  AI will extract: sleep score, stages, HRV, heart rate, and more
+                  AI will extract: sleep score, stages, HRV, heart rate, date, and more
                 </p>
               </div>
+            </>
+          ) : (
+            <>
+              {/* File list with status */}
+              <div className="space-y-2 mb-4">
+                {files.map((item, index) => (
+                  <div
+                    key={index}
+                    className={`p-3 rounded-lg flex items-center gap-3 ${
+                      item.status === 'success' ? 'bg-emerald-500/10' :
+                      item.status === 'error' ? 'bg-red-500/10' :
+                      item.status === 'parsing' ? 'bg-violet-500/10' :
+                      'bg-white/5'
+                    }`}
+                  >
+                    {item.status === 'pending' && <Clock size={16} className="text-white/40" />}
+                    {item.status === 'parsing' && <Loader2 size={16} className="text-violet-400 animate-spin" />}
+                    {item.status === 'success' && <Sparkles size={16} className="text-emerald-400" />}
+                    {item.status === 'error' && <X size={16} className="text-red-400" />}
+
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm truncate">{item.file.name}</p>
+                      {item.status === 'success' && item.data?.log_date && (
+                        <p className="text-xs text-emerald-400">
+                          {item.data.log_date} • Score: {item.data.sleep_score || 'N/A'}
+                        </p>
+                      )}
+                      {item.status === 'error' && (
+                        <p className="text-xs text-red-400">{item.error}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Progress indicator */}
+              {isProcessing && (
+                <div className="mb-4">
+                  <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-violet-500 transition-all duration-300"
+                      style={{ width: `${((currentIndex + 1) / files.length) * 100}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-white/50 mt-1 text-center">
+                    Processing {currentIndex + 1} of {files.length}...
+                  </p>
+                </div>
+              )}
+
+              {/* Summary */}
+              {allDone && (
+                <div className="p-3 bg-white/5 rounded-lg mb-4">
+                  <p className="text-sm">
+                    <span className="text-emerald-400">{successCount} parsed successfully</span>
+                    {errorCount > 0 && <span className="text-red-400"> • {errorCount} failed</span>}
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Action buttons */}
+        <div className="p-4 border-t border-white/10 flex gap-3">
+          {files.length === 0 ? (
+            <button
+              onClick={onClose}
+              className="flex-1 py-2.5 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
+            >
+              Cancel
+            </button>
+          ) : !allDone ? (
+            <>
+              <button
+                onClick={() => setFiles([])}
+                disabled={isProcessing}
+                className="flex-1 py-2.5 bg-white/10 hover:bg-white/20 rounded-lg transition-colors disabled:opacity-50"
+              >
+                Clear
+              </button>
+              <button
+                onClick={processFiles}
+                disabled={isProcessing}
+                className="flex-1 py-2.5 bg-violet-500 hover:bg-violet-400 text-white font-medium rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 size={16} className="animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={16} />
+                    Analyze {files.length} Screenshots
+                  </>
+                )}
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => setFiles([])}
+                className="flex-1 py-2.5 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
+              >
+                Upload More
+              </button>
+              <button
+                onClick={handleSaveAll}
+                disabled={successCount === 0}
+                className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-400 text-black font-medium rounded-lg transition-colors disabled:opacity-50"
+              >
+                Save {successCount} Entries
+              </button>
             </>
           )}
         </div>
@@ -465,6 +605,7 @@ export function SleepTracker() {
     ? Math.round(weeklyLogs.reduce((sum, log) => sum + (log.total_sleep_minutes || 0), 0) / weeklyLogs.length)
     : 0
 
+  // Handle single sleep log (from manual entry)
   const handleAddSleepLog = async (data: Partial<SleepLog>) => {
     const logDate = data.log_date || format(selectedDate, 'yyyy-MM-dd')
 
@@ -494,6 +635,37 @@ export function SleepTracker() {
       }
     } catch (error) {
       console.error('Error saving sleep log:', error)
+    }
+  }
+
+  // Handle batch sleep logs (from screenshot upload)
+  const handleBatchUpload = async (logs: Partial<SleepLog>[]) => {
+    if (logs.length === 0) return
+
+    try {
+      const response = await fetch('/api/sleep/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sleepLogs: logs }),
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        const savedLogs = result.sleepLogs || []
+
+        setSleepLogs(prev => {
+          // Merge new logs with existing, replacing duplicates by date
+          const existingDates = new Set(savedLogs.map((l: SleepLog) => l.log_date))
+          const filtered = prev.filter(log => !existingDates.has(log.log_date))
+          return [...filtered, ...savedLogs].sort((a, b) =>
+            new Date(b.log_date).getTime() - new Date(a.log_date).getTime()
+          )
+        })
+      } else {
+        console.error('Failed to save batch sleep logs')
+      }
+    } catch (error) {
+      console.error('Error saving batch sleep logs:', error)
     }
   }
 
@@ -743,7 +915,7 @@ export function SleepTracker() {
       {/* Modals */}
       {showUploadModal && (
         <ScreenshotUploadModal
-          onUpload={handleAddSleepLog}
+          onUpload={handleBatchUpload}
           onClose={() => setShowUploadModal(false)}
         />
       )}
