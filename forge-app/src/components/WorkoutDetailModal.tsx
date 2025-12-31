@@ -66,7 +66,13 @@ export function WorkoutDetailModal({ workout, onClose, onUpdate }: WorkoutDetail
     name: workout.name || '',
     scheduled_date: workout.scheduled_date || '',
     scheduled_time: workout.scheduled_time || '',
-    planned_duration_minutes: workout.planned_duration_minutes || 60,
+    planned_duration_minutes: workout.planned_duration_minutes || 0,
+    actual_duration_minutes: workout.actual_duration_minutes || 0,
+    actual_distance_miles: workout.actual_distance_miles || 0,
+    actual_avg_hr: workout.actual_avg_hr || 0,
+    actual_max_hr: workout.actual_max_hr || 0,
+    actual_avg_power: workout.actual_avg_power || 0,
+    actual_np: workout.actual_np || 0,
     notes: workout.notes || '',
   })
 
@@ -398,15 +404,87 @@ export function WorkoutDetailModal({ workout, onClose, onUpdate }: WorkoutDetail
               </div>
             </div>
 
-            {/* Duration */}
+            {/* Planned Duration */}
             <div>
               <label className="block text-sm text-white/60 mb-1.5">Planned Duration (minutes)</label>
               <input
                 type="number"
-                value={formData.planned_duration_minutes}
+                value={formData.planned_duration_minutes || ''}
                 onChange={e => setFormData(prev => ({ ...prev, planned_duration_minutes: parseInt(e.target.value) || 0 }))}
                 className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-amber-500/50"
               />
+            </div>
+
+            {/* Actual Metrics Section */}
+            <div className="border-t border-white/10 pt-4 mt-4">
+              <p className="text-sm text-white/60 mb-3">Actual Metrics</p>
+
+              {/* Actual Duration & Distance */}
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div>
+                  <label className="block text-xs text-white/40 mb-1">Duration (min)</label>
+                  <input
+                    type="number"
+                    value={formData.actual_duration_minutes || ''}
+                    onChange={e => setFormData(prev => ({ ...prev, actual_duration_minutes: parseInt(e.target.value) || 0 }))}
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-white/40 mb-1">Distance (mi)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.actual_distance_miles || ''}
+                    onChange={e => setFormData(prev => ({ ...prev, actual_distance_miles: parseFloat(e.target.value) || 0 }))}
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500/50"
+                  />
+                </div>
+              </div>
+
+              {/* HR */}
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div>
+                  <label className="block text-xs text-white/40 mb-1">Avg HR (bpm)</label>
+                  <input
+                    type="number"
+                    value={formData.actual_avg_hr || ''}
+                    onChange={e => setFormData(prev => ({ ...prev, actual_avg_hr: parseInt(e.target.value) || 0 }))}
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-white/40 mb-1">Max HR (bpm)</label>
+                  <input
+                    type="number"
+                    value={formData.actual_max_hr || ''}
+                    onChange={e => setFormData(prev => ({ ...prev, actual_max_hr: parseInt(e.target.value) || 0 }))}
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500/50"
+                  />
+                </div>
+              </div>
+
+              {/* Power */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-white/40 mb-1">Avg Power (w)</label>
+                  <input
+                    type="number"
+                    value={formData.actual_avg_power || ''}
+                    onChange={e => setFormData(prev => ({ ...prev, actual_avg_power: parseInt(e.target.value) || 0 }))}
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500/50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-white/40 mb-1">NP (w)</label>
+                  <input
+                    type="number"
+                    value={formData.actual_np || ''}
+                    onChange={e => setFormData(prev => ({ ...prev, actual_np: parseInt(e.target.value) || 0 }))}
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500/50"
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Notes */}
