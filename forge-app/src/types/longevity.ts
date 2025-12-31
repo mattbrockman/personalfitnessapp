@@ -236,6 +236,7 @@ export interface SupplementLog {
 // ============================================================================
 
 export type DecathlonCategory = 'strength' | 'cardio' | 'mobility' | 'balance' | 'functional' | 'cognitive'
+export type GoalCategory = DecathlonCategory // Alias for convenience
 
 export interface CentenarianGoal {
   id: string
