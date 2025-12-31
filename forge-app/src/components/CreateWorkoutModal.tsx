@@ -9,7 +9,6 @@ import {
   Dumbbell,
   Activity,
   Clock,
-  Route,
   Gauge,
   Calendar,
   Loader2,
@@ -59,7 +58,6 @@ export function CreateWorkoutModal({ selectedDate, onClose, onCreated }: CreateW
     scheduled_date: format(selectedDate, 'yyyy-MM-dd'),
     scheduled_time: '', // Empty = all day event
     planned_duration_minutes: 60,
-    planned_distance_miles: '',
     planned_tss: '',
     primary_intensity: 'z2',
     notes: '',
@@ -77,7 +75,6 @@ export function CreateWorkoutModal({ selectedDate, onClose, onCreated }: CreateW
         body: JSON.stringify({
           ...formData,
           scheduled_time: formData.scheduled_time || null, // null = all day event
-          planned_distance_miles: formData.planned_distance_miles ? parseFloat(formData.planned_distance_miles) : null,
           planned_tss: formData.planned_tss ? parseInt(formData.planned_tss) : null,
           status: 'planned',
         }),
@@ -226,35 +223,19 @@ export function CreateWorkoutModal({ selectedDate, onClose, onCreated }: CreateW
             </div>
           </div>
 
-          {/* Distance & TSS (for cardio) */}
+          {/* TSS (for cardio) */}
           {formData.category === 'cardio' && (
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm text-white/60 mb-1.5">Distance (mi)</label>
-                <div className="relative">
-                  <Route size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={formData.planned_distance_miles}
-                    onChange={e => setFormData(prev => ({ ...prev, planned_distance_miles: e.target.value }))}
-                    placeholder="Optional"
-                    className="w-full pl-10 pr-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-amber-500/50"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm text-white/60 mb-1.5">Target TSS</label>
-                <div className="relative">
-                  <Gauge size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
-                  <input
-                    type="number"
-                    value={formData.planned_tss}
-                    onChange={e => setFormData(prev => ({ ...prev, planned_tss: e.target.value }))}
-                    placeholder="Optional"
-                    className="w-full pl-10 pr-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-amber-500/50"
-                  />
-                </div>
+            <div>
+              <label className="block text-sm text-white/60 mb-1.5">Target TSS</label>
+              <div className="relative">
+                <Gauge size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
+                <input
+                  type="number"
+                  value={formData.planned_tss}
+                  onChange={e => setFormData(prev => ({ ...prev, planned_tss: e.target.value }))}
+                  placeholder="Optional"
+                  className="w-full pl-10 pr-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-amber-500/50"
+                />
               </div>
             </div>
           )}
