@@ -146,12 +146,16 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
       }
 
       if (response.ok) {
-        const { synced = 0, matched = 0, skipped = 0, total = 0 } = data
+        const { synced = 0, matched = 0, skipped = 0, errors = 0, total = 0, lastError } = data
         if (total === 0) {
           alert('No activities found in Strava for the last 60 days')
+        } else if (errors > 0 && synced === 0 && matched === 0) {
+          alert(`Failed to sync: ${errors} errors. Last error: ${lastError || 'Unknown'}`)
         } else {
-          alert(`Synced ${synced} new, matched ${matched} planned, skipped ${skipped} existing (${total} total)`)
-          window.location.reload()
+          alert(`Synced ${synced} new, matched ${matched} planned, skipped ${skipped} existing, ${errors} errors (${total} total)`)
+          if (synced > 0 || matched > 0) {
+            window.location.reload()
+          }
         }
       } else {
         alert(`Sync error (${response.status}): ${data.error || JSON.stringify(data)}`)

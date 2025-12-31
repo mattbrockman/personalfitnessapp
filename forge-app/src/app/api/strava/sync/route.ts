@@ -78,7 +78,13 @@ export async function POST(request: Request) {
     const ftp = profile?.ftp_watts
 
     // Process each activity
-    const results = {
+    const results: {
+      synced: number
+      matched: number
+      skipped: number
+      errors: number
+      lastError?: string
+    } = {
       synced: 0,
       matched: 0,
       skipped: 0,
@@ -87,13 +93,13 @@ export async function POST(request: Request) {
 
     for (const activity of activities) {
       try {
-        // Check if already imported
+        // Check if already imported by looking for Strava URL in notes
+        const stravaUrl = `strava.com/activities/${activity.id}`
         const { data: existing } = await adminSupabase
           .from('workouts')
           .select('id')
           .eq('user_id', session.user.id)
-          .eq('source', 'strava')
-          .eq('external_id', activity.id.toString())
+          .ilike('notes', `%${stravaUrl}%`)
           .single()
 
         if (existing) {
@@ -115,20 +121,24 @@ export async function POST(request: Request) {
           .or(`workout_type.eq.${workoutType},category.eq.${category}`)
           .single()
 
-        // Actual data from Strava
+        // Actual data from Strava - only use columns that exist in database
+        const durationMinutes = Math.round(activity.moving_time / 60)
+        const distanceMiles = activity.distance ? metersToMiles(activity.distance).toFixed(2) : null
+
+        // Build notes with Strava details
+        const noteParts = [
+          `Strava: ${activity.name}`,
+          `Duration: ${durationMinutes} min`,
+          distanceMiles ? `Distance: ${distanceMiles} mi` : null,
+          activity.average_heartrate ? `Avg HR: ${Math.round(activity.average_heartrate)} bpm` : null,
+          activity.average_watts ? `Avg Power: ${Math.round(activity.average_watts)}w` : null,
+          `https://www.strava.com/activities/${activity.id}`,
+        ].filter(Boolean).join(' | ')
+
         const actualData = {
-          completed_at: activity.start_date,
-          actual_duration_minutes: Math.round(activity.moving_time / 60),
-          actual_distance_miles: activity.distance ? parseFloat(metersToMiles(activity.distance).toFixed(2)) : null,
-          actual_tss: estimateTSS(activity, ftp || undefined),
-          actual_avg_hr: activity.average_heartrate || null,
-          actual_max_hr: activity.max_heartrate || null,
-          actual_avg_power: activity.average_watts || null,
-          actual_elevation_ft: activity.total_elevation_gain ? Math.round(metersToFeet(activity.total_elevation_gain)) : null,
           status: 'completed' as const,
-          source: 'strava' as const,
-          external_id: activity.id.toString(),
-          external_url: `https://www.strava.com/activities/${activity.id}`,
+          planned_duration_minutes: durationMinutes,
+          notes: noteParts,
         }
 
         let workout
@@ -175,42 +185,14 @@ export async function POST(request: Request) {
         if (workoutError) {
           console.error('Error inserting workout:', workoutError)
           results.errors++
+          results.lastError = workoutError.message
           continue
         }
 
-        // Try to get zone data
-        if (activity.has_heartrate || activity.device_watts) {
-          try {
-            const zones = await getStravaActivityZones(accessToken, activity.id)
-            
-            for (const zone of zones) {
-              const zoneType = zone.type === 'heartrate' ? 'heart_rate' : 'power'
-              
-              const zoneData = {
-                workout_id: workout.id,
-                zone_type: zoneType,
-                zone_1_seconds: zone.distribution_buckets[0]?.time || 0,
-                zone_2_seconds: zone.distribution_buckets[1]?.time || 0,
-                zone_3_seconds: zone.distribution_buckets[2]?.time || 0,
-                zone_4_seconds: zone.distribution_buckets[3]?.time || 0,
-                zone_5_seconds: zone.distribution_buckets[4]?.time || 0,
-                zone_6_seconds: zone.distribution_buckets[5]?.time || 0,
-                zone_7_seconds: zone.distribution_buckets[6]?.time || 0,
-              }
-
-              await adminSupabase
-                .from('workout_zones')
-                .insert(zoneData)
-            }
-          } catch (zoneError) {
-            // Zones are optional, don't fail the whole sync
-            console.warn('Could not get zones for activity', activity.id)
-          }
-        }
-
-      } catch (activityError) {
+      } catch (activityError: any) {
         console.error('Error processing activity:', activity.id, activityError)
         results.errors++
+        results.lastError = activityError?.message || String(activityError)
       }
     }
 
