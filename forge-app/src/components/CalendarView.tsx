@@ -35,6 +35,9 @@ import {
   Zap,
   CalendarDays,
   CalendarRange,
+  XCircle,
+  AlertTriangle,
+  CheckCircle,
 } from 'lucide-react'
 import { Workout } from '@/types/database'
 import { CreateWorkoutModal } from './CreateWorkoutModal'
@@ -48,10 +51,39 @@ interface CalendarViewProps {
   lastSyncAt: string | null
 }
 
-const categoryColors = {
+// Category colors - WHAT type of workout
+const categoryColors: Record<string, { bg: string; light: string; text: string; border: string }> = {
   cardio: { bg: 'bg-sky-500', light: 'bg-sky-500/20', text: 'text-sky-400', border: 'border-sky-500/30' },
   strength: { bg: 'bg-violet-500', light: 'bg-violet-500/20', text: 'text-violet-400', border: 'border-violet-500/30' },
-  other: { bg: 'bg-emerald-500', light: 'bg-emerald-500/20', text: 'text-emerald-400', border: 'border-emerald-500/30' },
+  other: { bg: 'bg-amber-500', light: 'bg-amber-500/20', text: 'text-amber-400', border: 'border-amber-500/30' },
+}
+
+// Status icon helper - HOW the workout went
+const getStatusIcon = (workout: Workout) => {
+  const { status, scheduled_date, planned_duration_minutes, actual_duration_minutes } = workout
+  const isPast = new Date(scheduled_date) < new Date(new Date().toDateString()) // Compare dates only
+
+  if (!isPast && status === 'planned') return null // Future planned - no icon
+
+  if (status === 'completed') {
+    const planned = planned_duration_minutes || 0
+    const actual = actual_duration_minutes || 0
+    const ratio = planned > 0 ? actual / planned : 1
+
+    if (ratio >= 0.95) return { Icon: CheckCircle, color: 'text-emerald-400' } // Green check
+    if (ratio >= 0.80) return { Icon: AlertTriangle, color: 'text-yellow-400' } // Yellow caution
+    return { Icon: AlertTriangle, color: 'text-red-400' } // Red warning (way off plan)
+  }
+
+  if (isPast && status === 'planned') {
+    return { Icon: XCircle, color: 'text-red-400' } // Red X - missed
+  }
+
+  if (status === 'skipped') {
+    return { Icon: XCircle, color: 'text-gray-400' } // Gray X - intentionally skipped
+  }
+
+  return null
 }
 
 const intensityZones = {
@@ -349,17 +381,15 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
                 {/* Workouts */}
                 <div className="space-y-1.5">
                   {dayWorkouts.slice(0, maxWorkoutsToShow).map(workout => {
-                    const colors = categoryColors[workout.category]
+                    const colors = categoryColors[workout.category] || categoryColors.other
                     const Icon = getWorkoutIcon(workout.workout_type)
-                    const zone = workout.primary_intensity ? intensityZones[workout.primary_intensity] : null
+                    const statusIcon = getStatusIcon(workout)
 
                     return (
                       <div
                         key={workout.id}
                         onClick={() => setSelectedWorkout(workout)}
-                        className={`rounded-lg overflow-hidden cursor-pointer border ${colors.border} hover:translate-y-[-1px] transition-all ${
-                          workout.status === 'completed' ? 'opacity-80' : ''
-                        }`}
+                        className={`rounded-lg overflow-hidden cursor-pointer border ${colors.border} hover:translate-y-[-1px] transition-all`}
                       >
                         <div className={`h-1 ${colors.bg}`} />
                         <div className="p-2 bg-zinc-800/90">
@@ -369,17 +399,19 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-1">
-                                {workout.status === 'completed' && (
-                                  <CheckCircle2 size={10} className="text-emerald-400 flex-shrink-0" />
+                                {statusIcon && (
+                                  <statusIcon.Icon size={10} className={`${statusIcon.color} flex-shrink-0`} />
                                 )}
                                 <span className="text-xs font-medium truncate">
                                   {workout.name || workout.workout_type}
                                 </span>
                               </div>
                               <div className="flex items-center gap-2 mt-0.5 text-[10px] text-white/40">
-                                {workout.actual_duration_minutes && (
-                                  <span>{Math.floor(workout.actual_duration_minutes / 60)}:{String(workout.actual_duration_minutes % 60).padStart(2, '0')}</span>
-                                )}
+                                {workout.status === 'completed' && workout.actual_duration_minutes ? (
+                                  <span>{workout.actual_duration_minutes}m</span>
+                                ) : workout.planned_duration_minutes ? (
+                                  <span>{workout.planned_duration_minutes}m planned</span>
+                                ) : null}
                                 {workout.actual_distance_miles && (
                                   <span>{workout.actual_distance_miles}mi</span>
                                 )}

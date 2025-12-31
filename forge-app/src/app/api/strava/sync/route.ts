@@ -121,24 +121,17 @@ export async function POST(request: Request) {
           .or(`workout_type.eq.${workoutType},category.eq.${category}`)
           .single()
 
-        // Actual data from Strava - only use columns that exist in database
-        const durationMinutes = Math.round(activity.moving_time / 60)
-        const distanceMiles = activity.distance ? metersToMiles(activity.distance).toFixed(2) : null
-
-        // Build notes with Strava details
-        const noteParts = [
-          `Strava: ${activity.name}`,
-          `Duration: ${durationMinutes} min`,
-          distanceMiles ? `Distance: ${distanceMiles} mi` : null,
-          activity.average_heartrate ? `Avg HR: ${Math.round(activity.average_heartrate)} bpm` : null,
-          activity.average_watts ? `Avg Power: ${Math.round(activity.average_watts)}w` : null,
-          `https://www.strava.com/activities/${activity.id}`,
-        ].filter(Boolean).join(' | ')
-
+        // Actual data from Strava - populate proper columns
         const actualData = {
           status: 'completed' as const,
-          planned_duration_minutes: durationMinutes,
-          notes: noteParts,
+          completed_at: activity.start_date,
+          actual_duration_minutes: Math.round(activity.moving_time / 60),
+          actual_distance_miles: activity.distance ? parseFloat(metersToMiles(activity.distance).toFixed(2)) : null,
+          actual_avg_hr: activity.average_heartrate ? Math.round(activity.average_heartrate) : null,
+          actual_max_hr: activity.max_heartrate ? Math.round(activity.max_heartrate) : null,
+          actual_avg_power: activity.average_watts ? Math.round(activity.average_watts) : null,
+          actual_elevation_ft: activity.total_elevation_gain ? Math.round(metersToFeet(activity.total_elevation_gain)) : null,
+          notes: `Strava: ${activity.name} | https://www.strava.com/activities/${activity.id}`,
         }
 
         let workout
@@ -187,6 +180,32 @@ export async function POST(request: Request) {
           results.errors++
           results.lastError = workoutError.message
           continue
+        }
+
+        // Fetch and store zone data if available
+        if (workout && (activity.has_heartrate || activity.device_watts)) {
+          try {
+            const zones = await getStravaActivityZones(accessToken, activity.id)
+            for (const zone of zones) {
+              const zoneType = zone.type === 'heartrate' ? 'heart_rate' : 'power'
+              await adminSupabase
+                .from('workout_zones')
+                .insert({
+                  workout_id: workout.id,
+                  zone_type: zoneType,
+                  zone_1_seconds: zone.distribution_buckets[0]?.time || 0,
+                  zone_2_seconds: zone.distribution_buckets[1]?.time || 0,
+                  zone_3_seconds: zone.distribution_buckets[2]?.time || 0,
+                  zone_4_seconds: zone.distribution_buckets[3]?.time || 0,
+                  zone_5_seconds: zone.distribution_buckets[4]?.time || 0,
+                  zone_6_seconds: zone.distribution_buckets[5]?.time || 0,
+                  zone_7_seconds: zone.distribution_buckets[6]?.time || 0,
+                })
+            }
+          } catch (zoneError) {
+            // Zone data is optional - don't fail the sync
+            console.warn('Could not fetch zones for activity', activity.id, zoneError)
+          }
         }
 
       } catch (activityError: any) {

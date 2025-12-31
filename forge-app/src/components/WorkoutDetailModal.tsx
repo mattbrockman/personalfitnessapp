@@ -25,10 +25,10 @@ interface WorkoutDetailModalProps {
   onUpdate: () => void
 }
 
-const categoryColors = {
+const categoryColors: Record<string, { bg: string; light: string; text: string; border: string }> = {
   cardio: { bg: 'bg-sky-500', light: 'bg-sky-500/20', text: 'text-sky-400', border: 'border-sky-500/30' },
   strength: { bg: 'bg-violet-500', light: 'bg-violet-500/20', text: 'text-violet-400', border: 'border-violet-500/30' },
-  other: { bg: 'bg-emerald-500', light: 'bg-emerald-500/20', text: 'text-emerald-400', border: 'border-emerald-500/30' },
+  other: { bg: 'bg-amber-500', light: 'bg-amber-500/20', text: 'text-amber-400', border: 'border-amber-500/30' },
 }
 
 const workoutIcons: Record<string, any> = {
@@ -529,8 +529,24 @@ export function WorkoutDetailModal({ workout, onClose, onUpdate }: WorkoutDetail
                       <span className="text-emerald-400">{formatDuration(workout.actual_duration_minutes || 0)}</span>
                     </div>
                     {workout.actual_distance_miles && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-emerald-400">{workout.actual_distance_miles} mi</span>
+                      <div className="flex items-center gap-2 text-emerald-400">
+                        <span>{workout.actual_distance_miles} mi</span>
+                      </div>
+                    )}
+                    {workout.actual_avg_hr && (
+                      <div className="flex items-center gap-2 text-red-400">
+                        <span>Avg HR: {workout.actual_avg_hr} bpm</span>
+                        {workout.actual_max_hr && <span className="text-white/40">/ Max: {workout.actual_max_hr}</span>}
+                      </div>
+                    )}
+                    {workout.actual_avg_power && (
+                      <div className="flex items-center gap-2 text-yellow-400">
+                        <span>Avg Power: {workout.actual_avg_power}w</span>
+                      </div>
+                    )}
+                    {workout.actual_elevation_ft && (
+                      <div className="flex items-center gap-2 text-white/60">
+                        <span>Elevation: {workout.actual_elevation_ft} ft</span>
                       </div>
                     )}
                   </div>
