@@ -78,14 +78,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'log_date is required' }, { status: 400 })
     }
 
+    // Convert "HH:MM" times to full timestamps if needed
+    let bedtimeValue = null
+    let wakeTimeValue = null
+
+    if (bedtime && typeof bedtime === 'string' && bedtime.match(/^\d{2}:\d{2}$/)) {
+      bedtimeValue = `${log_date}T${bedtime}:00`
+    } else if (bedtime) {
+      bedtimeValue = bedtime
+    }
+
+    if (wake_time && typeof wake_time === 'string' && wake_time.match(/^\d{2}:\d{2}$/)) {
+      wakeTimeValue = `${log_date}T${wake_time}:00`
+    } else if (wake_time) {
+      wakeTimeValue = wake_time
+    }
+
     // Upsert - update if exists for this date, insert if not
     const { data: sleepLog, error } = await (supabase as any)
       .from('sleep_logs')
       .upsert({
         user_id: user.id,
         log_date,
-        bedtime,
-        wake_time,
+        bedtime: bedtimeValue,
+        wake_time: wakeTimeValue,
         total_sleep_minutes,
         time_in_bed_minutes,
         deep_sleep_minutes,
