@@ -26,7 +26,7 @@ import {
   GripVertical,
 } from 'lucide-react'
 import { SuggestedWorkout } from '@/types/training-plan'
-import { format, parseISO, addDays } from 'date-fns'
+import { format, parseISO, addDays, startOfWeek } from 'date-fns'
 
 interface BulkScheduleModalProps {
   workouts: SuggestedWorkout[]
@@ -184,7 +184,18 @@ export function BulkScheduleModal({
     }, {} as Record<string, SuggestedWorkout[]>)
   }, [localWorkouts])
 
-  const sortedDates = useMemo(() => Object.keys(workoutsByDate).sort(), [workoutsByDate])
+  // Generate full week (Monday-Sunday) based on the workouts
+  const weekDates = useMemo(() => {
+    if (localWorkouts.length === 0) return []
+
+    // Find the earliest date and get its week start (Monday)
+    const dates = localWorkouts.map(w => parseISO(w.suggested_date))
+    const earliestDate = dates.reduce((min, d) => d < min ? d : min, dates[0])
+    const weekStart = startOfWeek(earliestDate, { weekStartsOn: 1 }) // Monday
+
+    // Generate all 7 days
+    return Array.from({ length: 7 }, (_, i) => format(addDays(weekStart, i), 'yyyy-MM-dd'))
+  }, [localWorkouts])
 
   // Get active workout for drag overlay
   const activeWorkout = useMemo(() => {
@@ -382,18 +393,27 @@ export function BulkScheduleModal({
           onDragCancel={handleDragCancel}
         >
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {sortedDates.map(date => (
-              <DroppableDayContainer key={date} date={date}>
-                {workoutsByDate[date].map(workout => (
-                  <DraggableWorkoutItem
-                    key={workout.id}
-                    workout={workout}
-                    isSelected={selectedIds.has(workout.id)}
-                    onToggle={() => toggleWorkout(workout.id)}
-                  />
-                ))}
-              </DroppableDayContainer>
-            ))}
+            {weekDates.map(date => {
+              const dayWorkouts = workoutsByDate[date] || []
+              return (
+                <DroppableDayContainer key={date} date={date}>
+                  {dayWorkouts.length > 0 ? (
+                    dayWorkouts.map(workout => (
+                      <DraggableWorkoutItem
+                        key={workout.id}
+                        workout={workout}
+                        isSelected={selectedIds.has(workout.id)}
+                        onToggle={() => toggleWorkout(workout.id)}
+                      />
+                    ))
+                  ) : (
+                    <div className="text-center py-4 text-white/30 text-sm">
+                      Rest day — drag workouts here
+                    </div>
+                  )}
+                </DroppableDayContainer>
+              )
+            })}
           </div>
 
           {/* Drag overlay */}
