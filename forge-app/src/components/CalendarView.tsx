@@ -1,25 +1,27 @@
 'use client'
 
 import { useState } from 'react'
-import { 
-  format, 
-  startOfMonth, 
-  endOfMonth, 
-  startOfWeek, 
+import {
+  format,
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
   endOfWeek,
   eachDayOfInterval,
   isSameMonth,
   isSameDay,
   addMonths,
   subMonths,
+  addWeeks,
+  subWeeks,
   isToday,
 } from 'date-fns'
-import { 
-  ChevronLeft, 
-  ChevronRight, 
-  Plus, 
-  Bike, 
-  Dumbbell, 
+import {
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  Bike,
+  Dumbbell,
   Activity,
   Footprints,
   Waves,
@@ -31,8 +33,13 @@ import {
   Loader2,
   Link as LinkIcon,
   Zap,
+  CalendarDays,
+  CalendarRange,
 } from 'lucide-react'
 import { Workout } from '@/types/database'
+import { CreateWorkoutModal } from './CreateWorkoutModal'
+import { WeeklySummaryBar } from './WeeklySummaryBar'
+import { AIChatBubble } from './AIChatBubble'
 
 interface CalendarViewProps {
   initialWorkouts: Workout[]
@@ -64,18 +71,50 @@ const workoutIcons: Record<string, any> = {
   default: Activity,
 }
 
+type ViewMode = 'month' | 'week'
+
 export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [workouts, setWorkouts] = useState<Workout[]>(initialWorkouts)
   const [isSyncing, setIsSyncing] = useState(false)
   const [selectedWorkout, setSelectedWorkout] = useState<Workout | null>(null)
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [createModalDate, setCreateModalDate] = useState<Date>(new Date())
+  const [viewMode, setViewMode] = useState<ViewMode>('month')
 
-  // Generate calendar days
+  // Generate calendar days based on view mode
   const monthStart = startOfMonth(currentDate)
   const monthEnd = endOfMonth(currentDate)
-  const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 })
-  const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 })
+  const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 })
+  const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 })
+
+  const calendarStart = viewMode === 'month' ? startOfWeek(monthStart, { weekStartsOn: 1 }) : weekStart
+  const calendarEnd = viewMode === 'month' ? endOfWeek(monthEnd, { weekStartsOn: 1 }) : weekEnd
   const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd })
+
+  // Navigation functions
+  const navigatePrevious = () => {
+    if (viewMode === 'month') {
+      setCurrentDate(subMonths(currentDate, 1))
+    } else {
+      setCurrentDate(subWeeks(currentDate, 1))
+    }
+  }
+
+  const navigateNext = () => {
+    if (viewMode === 'month') {
+      setCurrentDate(addMonths(currentDate, 1))
+    } else {
+      setCurrentDate(addWeeks(currentDate, 1))
+    }
+  }
+
+  const getHeaderTitle = () => {
+    if (viewMode === 'month') {
+      return format(currentDate, 'MMMM yyyy')
+    }
+    return `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d, yyyy')}`
+  }
 
   // Group workouts by date
   const workoutsByDate = workouts.reduce((acc, workout) => {
@@ -111,34 +150,66 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
     return workoutIcons[type] || workoutIcons.default
   }
 
+  const openCreateModal = (date: Date) => {
+    setCreateModalDate(date)
+    setShowCreateModal(true)
+  }
+
+  const handleWorkoutCreated = () => {
+    // Refresh the page to get updated workouts
+    window.location.reload()
+  }
+
   return (
     <div className="p-4 lg:p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <button 
-              onClick={() => setCurrentDate(subMonths(currentDate, 1))}
+            <button
+              onClick={navigatePrevious}
               className="p-2 hover:bg-white/5 rounded-lg transition-colors"
             >
               <ChevronLeft size={20} />
             </button>
-            <h1 className="text-2xl font-display font-semibold min-w-[200px] text-center">
-              {format(currentDate, 'MMMM yyyy')}
+            <h1 className="text-2xl font-display font-semibold min-w-[280px] text-center">
+              {getHeaderTitle()}
             </h1>
-            <button 
-              onClick={() => setCurrentDate(addMonths(currentDate, 1))}
+            <button
+              onClick={navigateNext}
               className="p-2 hover:bg-white/5 rounded-lg transition-colors"
             >
               <ChevronRight size={20} />
             </button>
           </div>
-          <button 
+          <button
             onClick={() => setCurrentDate(new Date())}
             className="px-3 py-1.5 glass rounded-lg text-sm hover:bg-white/10 transition-colors"
           >
             Today
           </button>
+
+          {/* View toggle */}
+          <div className="flex items-center glass rounded-lg p-1">
+            <button
+              onClick={() => setViewMode('month')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-colors ${
+                viewMode === 'month' ? 'bg-white/10 text-white' : 'text-white/50 hover:text-white/80'
+              }`}
+            >
+              <CalendarDays size={16} />
+              Month
+            </button>
+            <button
+              onClick={() => setViewMode('week')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-colors ${
+                viewMode === 'week' ? 'bg-white/10 text-white' : 'text-white/50 hover:text-white/80'
+              }`}
+            >
+              <CalendarRange size={16} />
+              Week
+            </button>
+          </div>
         </div>
 
         <div className="flex items-center gap-3">
@@ -201,6 +272,15 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
         </div>
       </div>
 
+      {/* Weekly Summary Bar */}
+      <WeeklySummaryBar
+        currentDate={currentDate}
+        workouts={workouts}
+        trainingPhase="base"
+        targetTSS={500}
+        targetHours={10}
+      />
+
       {/* Calendar grid */}
       <div className="border border-white/10 rounded-xl overflow-hidden">
         {/* Day headers */}
@@ -220,11 +300,14 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
             const isCurrentMonth = isSameMonth(day, currentDate)
             const isCurrentDay = isToday(day)
 
+            // In week view, show all workouts; in month view, limit to 3
+            const maxWorkoutsToShow = viewMode === 'week' ? 10 : 3
+
             return (
               <div
                 key={idx}
-                className={`min-h-[140px] p-2 border-b border-r border-white/5 transition-colors hover:bg-white/[0.02] ${
-                  !isCurrentMonth ? 'bg-white/[0.01]' : ''
+                className={`${viewMode === 'week' ? 'min-h-[300px]' : 'min-h-[140px]'} p-2 border-b border-r border-white/5 transition-colors hover:bg-white/[0.02] ${
+                  !isCurrentMonth && viewMode === 'month' ? 'bg-white/[0.01]' : ''
                 }`}
               >
                 {/* Day number */}
@@ -238,14 +321,17 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
                   }`}>
                     {format(day, 'd')}
                   </span>
-                  <button className="p-1 hover:bg-white/10 rounded opacity-0 hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); openCreateModal(day); }}
+                    className="p-1 hover:bg-white/10 rounded opacity-0 hover:opacity-100 transition-opacity"
+                  >
                     <Plus size={14} className="text-white/40" />
                   </button>
                 </div>
 
                 {/* Workouts */}
                 <div className="space-y-1.5">
-                  {dayWorkouts.slice(0, 3).map(workout => {
+                  {dayWorkouts.slice(0, maxWorkoutsToShow).map(workout => {
                     const colors = categoryColors[workout.category]
                     const Icon = getWorkoutIcon(workout.workout_type)
                     const zone = workout.primary_intensity ? intensityZones[workout.primary_intensity] : null
@@ -293,14 +379,17 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
                     )
                   })}
 
-                  {dayWorkouts.length > 3 && (
+                  {dayWorkouts.length > maxWorkoutsToShow && (
                     <button className="w-full text-[10px] text-white/40 hover:text-white/60 py-1">
-                      +{dayWorkouts.length - 3} more
+                      +{dayWorkouts.length - maxWorkoutsToShow} more
                     </button>
                   )}
 
                   {dayWorkouts.length === 0 && isCurrentMonth && (
-                    <button className="w-full py-3 border border-dashed border-white/10 rounded-lg text-white/20 hover:text-white/40 hover:border-white/20 transition-all text-xs flex items-center justify-center gap-1 opacity-0 hover:opacity-100">
+                    <button
+                      onClick={() => openCreateModal(day)}
+                      className="w-full py-3 border border-dashed border-white/10 rounded-lg text-white/20 hover:text-white/40 hover:border-white/20 transition-all text-xs flex items-center justify-center gap-1 opacity-0 hover:opacity-100"
+                    >
                       <Plus size={12} />
                     </button>
                   )}
@@ -313,11 +402,31 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
 
       {/* Workout detail modal */}
       {selectedWorkout && (
-        <WorkoutModal 
-          workout={selectedWorkout} 
-          onClose={() => setSelectedWorkout(null)} 
+        <WorkoutModal
+          workout={selectedWorkout}
+          onClose={() => setSelectedWorkout(null)}
         />
       )}
+
+      {/* Create workout modal */}
+      {showCreateModal && (
+        <CreateWorkoutModal
+          selectedDate={createModalDate}
+          onClose={() => setShowCreateModal(false)}
+          onCreated={handleWorkoutCreated}
+        />
+      )}
+
+      {/* AI Chat Bubble */}
+      <AIChatBubble
+        workoutContext={{
+          weeklyTSS: workouts
+            .filter(w => w.status === 'completed')
+            .reduce((sum, w) => sum + (w.actual_tss || 0), 0),
+          completedWorkouts: workouts.filter(w => w.status === 'completed').length,
+          plannedWorkouts: workouts.filter(w => w.status === 'planned').length,
+        }}
+      />
     </div>
   )
 }
