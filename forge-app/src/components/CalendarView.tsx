@@ -69,8 +69,14 @@ const getStatusIcon = (workout: Workout) => {
   if (status === 'completed') {
     const planned = planned_duration_minutes || 0
     const actual = actual_duration_minutes || 0
-    const ratio = planned > 0 ? actual / planned : 1
 
+    // Unplanned workouts (no planned duration) - always green check
+    if (planned === 0) {
+      return { Icon: CheckCircle, color: 'text-emerald-400' }
+    }
+
+    // Planned workouts - compare actual vs planned
+    const ratio = actual / planned
     if (ratio >= 0.95) return { Icon: CheckCircle, color: 'text-emerald-400' } // Green check
     if (ratio >= 0.80) return { Icon: AlertTriangle, color: 'text-yellow-400' } // Yellow caution
     return { Icon: AlertTriangle, color: 'text-red-400' } // Red warning (way off plan)
