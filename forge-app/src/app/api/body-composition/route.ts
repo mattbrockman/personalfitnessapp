@@ -16,8 +16,8 @@ export async function GET(request: NextRequest) {
     const endDate = searchParams.get('end_date')
     const limit = searchParams.get('limit')
 
-    let query = supabase
-      .from('body_composition_logs')
+    let query = (supabase
+      .from('body_composition_logs') as any)
       .select('*')
       .eq('user_id', session.user.id)
       .order('log_date', { ascending: false })
@@ -154,8 +154,8 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Verify ownership
-    const { data: existing } = await supabase
-      .from('body_composition_logs')
+    const { data: existing }: any = await (supabase
+      .from('body_composition_logs') as any)
       .select('user_id')
       .eq('id', id)
       .single()
@@ -220,8 +220,8 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Verify ownership
-    const { data: existing } = await supabase
-      .from('body_composition_logs')
+    const { data: existing }: any = await (supabase
+      .from('body_composition_logs') as any)
       .select('user_id')
       .eq('id', id)
       .single()
