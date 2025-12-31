@@ -51,10 +51,15 @@ const feelingOptions = [
 
 export function WorkoutDetailModal({ workout, onClose, onUpdate }: WorkoutDetailModalProps) {
   const [isEditing, setIsEditing] = useState(false)
-  const [isCompleting, setIsCompleting] = useState(false)
+  const [showFullCompletion, setShowFullCompletion] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Quick complete duration (editable on main view)
+  const [quickDuration, setQuickDuration] = useState(
+    workout.actual_duration_minutes || workout.planned_duration_minutes || 60
+  )
 
   // Form state for editing
   const [formData, setFormData] = useState({
@@ -65,7 +70,7 @@ export function WorkoutDetailModal({ workout, onClose, onUpdate }: WorkoutDetail
     notes: workout.notes || '',
   })
 
-  // Form state for completing
+  // Form state for full completion (with feeling/RPE)
   const [completionData, setCompletionData] = useState({
     actual_duration_minutes: workout.actual_duration_minutes || workout.planned_duration_minutes || 60,
     perceived_exertion: workout.perceived_exertion || 5,
@@ -104,7 +109,39 @@ export function WorkoutDetailModal({ workout, onClose, onUpdate }: WorkoutDetail
     }
   }
 
-  const handleComplete = async () => {
+  // Quick complete - one click with current duration
+  const handleQuickComplete = async (duration?: number) => {
+    setIsSaving(true)
+    setError(null)
+
+    try {
+      const response = await fetch('/api/workouts', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: workout.id,
+          status: 'completed',
+          completed_at: new Date().toISOString(),
+          actual_duration_minutes: duration ?? quickDuration,
+        }),
+      })
+
+      if (response.ok) {
+        onUpdate()
+        onClose()
+      } else {
+        const data = await response.json()
+        setError(data.details || data.error || 'Failed to complete workout')
+      }
+    } catch (err) {
+      setError('Network error. Please try again.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  // Full complete with feeling/RPE
+  const handleFullComplete = async () => {
     setIsSaving(true)
     setError(null)
 
@@ -167,8 +204,8 @@ export function WorkoutDetailModal({ workout, onClose, onUpdate }: WorkoutDetail
     return h > 0 ? `${h}h ${m}m` : `${m}m`
   }
 
-  // Render completion form
-  if (isCompleting) {
+  // Render full completion form (with feeling/RPE)
+  if (showFullCompletion) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80" onClick={onClose}>
         <div
@@ -270,13 +307,13 @@ export function WorkoutDetailModal({ workout, onClose, onUpdate }: WorkoutDetail
             <div className="flex gap-3 pt-2">
               <button
                 type="button"
-                onClick={() => setIsCompleting(false)}
+                onClick={() => setShowFullCompletion(false)}
                 className="flex-1 py-2.5 bg-white/5 hover:bg-white/10 rounded-lg text-sm transition-colors"
               >
                 Back
               </button>
               <button
-                onClick={handleComplete}
+                onClick={handleFullComplete}
                 disabled={isSaving}
                 className="flex-1 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-white font-medium rounded-lg text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
@@ -540,6 +577,51 @@ export function WorkoutDetailModal({ workout, onClose, onUpdate }: WorkoutDetail
             </div>
           )}
 
+          {/* Quick Complete Section (for planned workouts) */}
+          {workout.status !== 'completed' && (
+            <div className="glass rounded-xl p-4 space-y-3">
+              <p className="text-xs text-white/40">Quick Complete</p>
+              <div className="flex items-center gap-3">
+                <div className="flex-1">
+                  <label className="text-xs text-white/40 mb-1 block">Duration (min)</label>
+                  <input
+                    type="number"
+                    value={quickDuration}
+                    onChange={e => setQuickDuration(parseInt(e.target.value) || 0)}
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-emerald-500/50"
+                  />
+                </div>
+                <button
+                  onClick={() => handleQuickComplete()}
+                  disabled={isSaving}
+                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-white font-medium rounded-lg text-sm transition-colors disabled:opacity-50 flex items-center gap-2 h-[42px] mt-5"
+                >
+                  {isSaving ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <CheckCircle2 size={16} />
+                  )}
+                  Complete
+                </button>
+              </div>
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => handleQuickComplete(workout.planned_duration_minutes || 60)}
+                  disabled={isSaving}
+                  className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
+                >
+                  Complete as planned ({formatDuration(workout.planned_duration_minutes || 0)})
+                </button>
+                <button
+                  onClick={() => setShowFullCompletion(true)}
+                  className="text-xs text-white/40 hover:text-white/60 transition-colors"
+                >
+                  More options...
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Action buttons */}
           <div className="flex gap-3 pt-2">
             <button
@@ -556,15 +638,12 @@ export function WorkoutDetailModal({ workout, onClose, onUpdate }: WorkoutDetail
               <Edit3 size={16} />
               Edit
             </button>
-            {workout.status !== 'completed' && (
-              <button
-                onClick={() => setIsCompleting(true)}
-                className="flex-1 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-white font-medium rounded-lg text-sm transition-colors flex items-center justify-center gap-2"
-              >
-                <CheckCircle2 size={16} />
-                Complete
-              </button>
-            )}
+            <button
+              onClick={onClose}
+              className="flex-1 py-2.5 bg-white/5 hover:bg-white/10 rounded-lg text-sm transition-colors"
+            >
+              Close
+            </button>
           </div>
         </div>
       </div>
