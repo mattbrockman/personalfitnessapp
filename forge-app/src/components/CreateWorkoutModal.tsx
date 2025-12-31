@@ -259,21 +259,23 @@ export function CreateWorkoutModal({ selectedDate, onClose, onCreated }: CreateW
             </div>
           )}
 
-          {/* Intensity Zone */}
-          <div>
-            <label className="block text-sm text-white/60 mb-1.5">Target Intensity</label>
-            <select
-              value={formData.primary_intensity}
-              onChange={e => setFormData(prev => ({ ...prev, primary_intensity: e.target.value }))}
-              className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-amber-500/50"
-            >
-              {intensityZones.map(zone => (
-                <option key={zone.value} value={zone.value} className="bg-zinc-900">
-                  {zone.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Intensity Zone (not for strength) */}
+          {formData.category !== 'strength' && (
+            <div>
+              <label className="block text-sm text-white/60 mb-1.5">Target Intensity</label>
+              <select
+                value={formData.primary_intensity}
+                onChange={e => setFormData(prev => ({ ...prev, primary_intensity: e.target.value }))}
+                className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-amber-500/50"
+              >
+                {intensityZones.map(zone => (
+                  <option key={zone.value} value={zone.value} className="bg-zinc-900">
+                    {zone.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Notes */}
           <div>
