@@ -99,6 +99,7 @@ export interface Database {
           actual_avg_hr: number | null
           actual_max_hr: number | null
           actual_avg_power: number | null
+          actual_np: number | null
           actual_elevation_ft: number | null
           status: 'planned' | 'in_progress' | 'completed' | 'skipped'
           source: 'manual' | 'strava' | 'trainerroad' | 'zwift' | 'apple_health' | 'strong' | 'garmin' | 'wahoo' | 'peloton'
