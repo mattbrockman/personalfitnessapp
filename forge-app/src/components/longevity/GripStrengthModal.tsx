@@ -202,12 +202,12 @@ export function GripStrengthModal({
                   <div className="space-y-2">
                     {recentReadings.map((reading, i) => (
                       <div
-                        key={reading.id || i}
+                        key={i}
                         className="flex items-center justify-between p-3 bg-white/5 rounded-lg"
                       >
                         <div>
                           <p className="font-medium">
-                            L: {reading.left_lbs} / R: {reading.right_lbs} lbs
+                            L: {reading.left} / R: {reading.right} lbs
                           </p>
                           <p className="text-xs text-white/40">
                             {format(parseISO(reading.date), 'MMM d, yyyy')}

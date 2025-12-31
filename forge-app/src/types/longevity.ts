@@ -464,31 +464,11 @@ export interface MovementScreen {
 // ============================================================================
 
 export interface MEDCompliance {
-  cardio: {
-    target_minutes: number
-    actual_minutes: number
-    met: boolean
-  }
-  strength: {
-    target_sessions: number
-    actual_sessions: number
-    met: boolean
-  }
-  sleep: {
-    target_hours: number
-    avg_hours: number
-    met: boolean
-  }
-  protein: {
-    target_days: number
-    days_met: number
-    met: boolean
-  }
-  stability: {
-    target_sessions: number
-    actual_sessions: number
-    met: boolean
-  }
+  cardioMinutes: number
+  strengthSessions: number
+  avgSleepHours: number
+  proteinDays: number
+  stabilitySessions: number
 }
 
 // ============================================================================

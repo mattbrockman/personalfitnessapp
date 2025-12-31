@@ -94,7 +94,7 @@ export function LongevityDashboard({ user, profile }: LongevityDashboardProps) {
   const age = profile?.date_of_birth
     ? Math.floor((Date.now() - new Date(profile.date_of_birth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
     : 35 // Default age
-  const sex = (profile?.biological_sex as 'male' | 'female') || 'male'
+  const sex = ((profile as any)?.biological_sex as 'male' | 'female') || 'male'
 
   // Fetch all data
   const fetchData = async () => {

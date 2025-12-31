@@ -237,19 +237,19 @@ export function getVO2maxPercentile(
 
   // Interpolate percentile
   let percentile: number
-  if (vo2max >= percentiles.p95) {
-    percentile = 95 + (vo2max - percentiles.p95) / (percentiles.p95 - percentiles.p75) * 4
+  if (vo2max >= percentiles[90]) {
+    percentile = 90 + (vo2max - percentiles[90]) / 10
     percentile = Math.min(99, percentile)
-  } else if (vo2max >= percentiles.p75) {
-    percentile = 75 + (vo2max - percentiles.p75) / (percentiles.p95 - percentiles.p75) * 20
-  } else if (vo2max >= percentiles.p50) {
-    percentile = 50 + (vo2max - percentiles.p50) / (percentiles.p75 - percentiles.p50) * 25
-  } else if (vo2max >= percentiles.p25) {
-    percentile = 25 + (vo2max - percentiles.p25) / (percentiles.p50 - percentiles.p25) * 25
-  } else if (vo2max >= percentiles.p5) {
-    percentile = 5 + (vo2max - percentiles.p5) / (percentiles.p25 - percentiles.p5) * 20
+  } else if (vo2max >= percentiles[75]) {
+    percentile = 75 + (vo2max - percentiles[75]) / (percentiles[90] - percentiles[75]) * 15
+  } else if (vo2max >= percentiles[50]) {
+    percentile = 50 + (vo2max - percentiles[50]) / (percentiles[75] - percentiles[50]) * 25
+  } else if (vo2max >= percentiles[25]) {
+    percentile = 25 + (vo2max - percentiles[25]) / (percentiles[50] - percentiles[25]) * 25
+  } else if (vo2max >= percentiles[10]) {
+    percentile = 10 + (vo2max - percentiles[10]) / (percentiles[25] - percentiles[10]) * 15
   } else {
-    percentile = (vo2max / percentiles.p5) * 5
+    percentile = (vo2max / percentiles[10]) * 10
     percentile = Math.max(1, percentile)
   }
 
@@ -301,7 +301,7 @@ function calculateFitnessAge(
   let closestDiff = Infinity
 
   for (const bracket of brackets) {
-    const p50 = VO2MAX_PERCENTILES[sex][bracket].p50
+    const p50 = VO2MAX_PERCENTILES[sex][bracket][50]
     const diff = Math.abs(p50 - vo2max)
     if (diff < closestDiff) {
       closestDiff = diff
@@ -314,13 +314,13 @@ function calculateFitnessAge(
   let fitnessAge = (start + end) / 2
 
   // Fine-tune based on actual p50 value
-  const p50 = VO2MAX_PERCENTILES[sex][closestBracket].p50
+  const p50 = VO2MAX_PERCENTILES[sex][closestBracket][50]
   const bracketIndex = brackets.indexOf(closestBracket)
 
   if (vo2max > p50 && bracketIndex > 0) {
     // Better than average for this bracket, interpolate toward younger
     const prevBracket = brackets[bracketIndex - 1]
-    const prevP50 = VO2MAX_PERCENTILES[sex][prevBracket].p50
+    const prevP50 = VO2MAX_PERCENTILES[sex][prevBracket][50]
     const [prevStart, prevEnd] = prevBracket.split('-').map(Number)
     const prevMid = (prevStart + prevEnd) / 2
     const currMid = (start + end) / 2
@@ -330,7 +330,7 @@ function calculateFitnessAge(
   } else if (vo2max < p50 && bracketIndex < brackets.length - 1) {
     // Worse than average, interpolate toward older
     const nextBracket = brackets[bracketIndex + 1]
-    const nextP50 = VO2MAX_PERCENTILES[sex][nextBracket].p50
+    const nextP50 = VO2MAX_PERCENTILES[sex][nextBracket][50]
     const [nextStart, nextEnd] = nextBracket.split('-').map(Number)
     const nextMid = (nextStart + nextEnd) / 2
     const currMid = (start + end) / 2
@@ -381,16 +381,16 @@ export function calculateTargetVO2max(
 
   // Get VO2max for target percentile
   let targetVO2max: number
-  if (targetPercentile >= 95) {
-    targetVO2max = percentiles.p95
+  if (targetPercentile >= 90) {
+    targetVO2max = percentiles[90] + (targetPercentile - 90) / 10 * 5 // Extrapolate above 90th
   } else if (targetPercentile >= 75) {
-    targetVO2max = percentiles.p75 + (targetPercentile - 75) / 20 * (percentiles.p95 - percentiles.p75)
+    targetVO2max = percentiles[75] + (targetPercentile - 75) / 15 * (percentiles[90] - percentiles[75])
   } else if (targetPercentile >= 50) {
-    targetVO2max = percentiles.p50 + (targetPercentile - 50) / 25 * (percentiles.p75 - percentiles.p50)
+    targetVO2max = percentiles[50] + (targetPercentile - 50) / 25 * (percentiles[75] - percentiles[50])
   } else if (targetPercentile >= 25) {
-    targetVO2max = percentiles.p25 + (targetPercentile - 25) / 25 * (percentiles.p50 - percentiles.p25)
+    targetVO2max = percentiles[25] + (targetPercentile - 25) / 25 * (percentiles[50] - percentiles[25])
   } else {
-    targetVO2max = percentiles.p5 + (targetPercentile - 5) / 20 * (percentiles.p25 - percentiles.p5)
+    targetVO2max = percentiles[10] + (targetPercentile - 10) / 15 * (percentiles[25] - percentiles[10])
   }
 
   // Account for expected decline
