@@ -17,6 +17,15 @@ interface GenerateWorkoutRequest {
 // POST /api/ai/generate-workout - Generate a workout using AI
 export async function POST(request: NextRequest) {
   try {
+    // Check for API key
+    if (!process.env.ANTHROPIC_API_KEY) {
+      console.error('ANTHROPIC_API_KEY is not configured')
+      return NextResponse.json(
+        { error: 'AI service not configured. Please contact support.' },
+        { status: 503 }
+      )
+    }
+
     const supabase = await createClient()
     const adminClient = createAdminClient()
 
@@ -27,6 +36,8 @@ export async function POST(request: NextRequest) {
 
     const body: GenerateWorkoutRequest = await request.json()
     const { muscle_focus, duration_minutes = 45, equipment = 'full_gym', prompt } = body
+
+    console.log('AI Workout Generation request:', { muscle_focus, duration_minutes, equipment, hasPrompt: !!prompt })
 
     // Gather context for the AI
 
@@ -56,11 +67,24 @@ export async function POST(request: NextRequest) {
     const injuries = injuriesData as any[] | null
 
     // 3. Get exercise library
-    const { data: exercisesData } = await adminClient
+    const { data: exercisesData, error: exercisesError } = await adminClient
       .from('exercises')
       .select('id, name, primary_muscles, secondary_muscles, equipment')
       .order('name')
     const exercises = exercisesData as any[] | null
+
+    if (exercisesError) {
+      console.error('Error fetching exercises:', exercisesError)
+    }
+
+    console.log('Fetched exercises count:', exercises?.length || 0)
+
+    if (!exercises || exercises.length === 0) {
+      return NextResponse.json(
+        { error: 'No exercises available. Please add exercises to the library first.' },
+        { status: 400 }
+      )
+    }
 
     // 4. Get recent sleep/recovery if available
     const yesterday = new Date()
@@ -208,6 +232,8 @@ Return your response as a JSON object with this exact structure:
 
 Include 4-8 exercises appropriate for the duration. Return ONLY the JSON, no other text.`
 
+    console.log('Calling Claude API with muscle groups:', Object.keys(exerciseByMuscle))
+
     // Call Claude API
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
@@ -220,6 +246,8 @@ Include 4-8 exercises appropriate for the duration. Return ONLY the JSON, no oth
         },
       ],
     })
+
+    console.log('Claude API response received, stop_reason:', response.stop_reason)
 
     // Extract text response
     const textContent = response.content.find(c => c.type === 'text')
@@ -285,14 +313,24 @@ Include 4-8 exercises appropriate for the duration. Return ONLY the JSON, no oth
     console.error('AI workout generation error:', error)
 
     if (error instanceof Anthropic.APIError) {
+      console.error('Anthropic API error:', error.status, error.message)
+      if (error.status === 401) {
+        return NextResponse.json(
+          { error: 'AI service authentication failed. Please check API key configuration.' },
+          { status: 503 }
+        )
+      }
       return NextResponse.json(
-        { error: 'AI service temporarily unavailable. Please try again.' },
+        { error: `AI service error: ${error.message}` },
         { status: 503 }
       )
     }
 
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    console.error('Error details:', errorMessage)
+
     return NextResponse.json(
-      { error: 'Failed to generate workout. Please try again.' },
+      { error: `Failed to generate workout: ${errorMessage}` },
       { status: 500 }
     )
   }
