@@ -641,6 +641,10 @@ export function TrainingPlanView() {
           workouts={bulkScheduleWorkouts}
           onSchedule={handleBulkSchedule}
           onClose={() => setBulkScheduleWorkouts(null)}
+          onUpdateWorkoutDate={async (workoutId, newDate) => {
+            const dayOfWeek = format(new Date(newDate), 'EEEE').toLowerCase()
+            await handleMoveWorkout(workoutId, newDate, dayOfWeek)
+          }}
         />
       )}
 

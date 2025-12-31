@@ -1,6 +1,19 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
+import {
+  DndContext,
+  DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
+  closestCenter,
+  useSensor,
+  useSensors,
+  PointerSensor,
+  TouchSensor,
+  useDroppable,
+  useDraggable,
+} from '@dnd-kit/core'
 import {
   X,
   CalendarPlus,
@@ -10,39 +23,222 @@ import {
   Dumbbell,
   Bike,
   Clock,
+  GripVertical,
 } from 'lucide-react'
 import { SuggestedWorkout } from '@/types/training-plan'
-import { format } from 'date-fns'
+import { format, parseISO, addDays } from 'date-fns'
 
 interface BulkScheduleModalProps {
   workouts: SuggestedWorkout[]
   onSchedule: (workoutIds: string[]) => Promise<void>
   onClose: () => void
+  onUpdateWorkoutDate?: (workoutId: string, newDate: string) => Promise<void>
+}
+
+// Draggable workout item component
+function DraggableWorkoutItem({
+  workout,
+  isSelected,
+  onToggle,
+}: {
+  workout: SuggestedWorkout
+  isSelected: boolean
+  onToggle: () => void
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: workout.id,
+    data: { workout },
+  })
+
+  const style = {
+    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-2 p-3 rounded-lg transition-colors ${
+        isSelected
+          ? 'bg-amber-500/10 border border-amber-500/30'
+          : 'bg-white/5 border border-transparent hover:bg-white/10'
+      }`}
+    >
+      <div
+        {...listeners}
+        {...attributes}
+        className="cursor-grab active:cursor-grabbing p-1 -ml-1 text-white/30 hover:text-white/60 touch-none"
+      >
+        <GripVertical size={16} />
+      </div>
+      <label className="flex items-center gap-3 flex-1 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={isSelected}
+          onChange={onToggle}
+          className="w-4 h-4 rounded border-white/20 bg-white/5 text-amber-500 focus:ring-amber-500/50"
+        />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            {workout.category === 'strength' ? (
+              <Dumbbell size={14} className="text-amber-400" />
+            ) : (
+              <Bike size={14} className="text-blue-400" />
+            )}
+            <span className="font-medium truncate">{workout.name}</span>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-white/50 mt-0.5">
+            <span className="capitalize">{workout.workout_type}</span>
+            {workout.planned_duration_minutes && (
+              <>
+                <span>•</span>
+                <span>{workout.planned_duration_minutes}min</span>
+              </>
+            )}
+            {workout.primary_intensity && (
+              <>
+                <span>•</span>
+                <span className="uppercase">{workout.primary_intensity}</span>
+              </>
+            )}
+          </div>
+        </div>
+      </label>
+    </div>
+  )
+}
+
+// Droppable day container component
+function DroppableDayContainer({
+  date,
+  children,
+  isOver,
+}: {
+  date: string
+  children: React.ReactNode
+  isOver?: boolean
+}) {
+  const { setNodeRef, isOver: dropIsOver } = useDroppable({
+    id: `day-${date}`,
+    data: { date },
+  })
+
+  const showHighlight = isOver || dropIsOver
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`transition-all ${showHighlight ? 'ring-2 ring-amber-400/50 ring-offset-2 ring-offset-[#1a1a2e] rounded-lg' : ''}`}
+    >
+      <p className="text-xs text-white/50 font-medium mb-2">
+        {format(parseISO(date), 'EEEE, MMM d')}
+      </p>
+      <div className={`space-y-2 min-h-[60px] p-2 -m-2 rounded-lg ${showHighlight ? 'bg-amber-500/5' : ''}`}>
+        {children}
+      </div>
+    </div>
+  )
 }
 
 export function BulkScheduleModal({
-  workouts,
+  workouts: initialWorkouts,
   onSchedule,
   onClose,
+  onUpdateWorkoutDate,
 }: BulkScheduleModalProps) {
+  // Local state for workouts (to track date changes)
+  const [localWorkouts, setLocalWorkouts] = useState<SuggestedWorkout[]>(initialWorkouts)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(
-    new Set(workouts.map(w => w.id))
+    new Set(initialWorkouts.map(w => w.id))
   )
   const [isScheduling, setIsScheduling] = useState(false)
   const [result, setResult] = useState<{
     scheduled: number
     failed: number
   } | null>(null)
+  const [activeId, setActiveId] = useState<string | null>(null)
+
+  // Configure sensors for drag
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200,
+        tolerance: 5,
+      },
+    })
+  )
 
   // Group workouts by date
-  const workoutsByDate = workouts.reduce((acc, workout) => {
-    const date = workout.suggested_date
-    if (!acc[date]) acc[date] = []
-    acc[date].push(workout)
-    return acc
-  }, {} as Record<string, SuggestedWorkout[]>)
+  const workoutsByDate = useMemo(() => {
+    return localWorkouts.reduce((acc, workout) => {
+      const date = workout.suggested_date
+      if (!acc[date]) acc[date] = []
+      acc[date].push(workout)
+      return acc
+    }, {} as Record<string, SuggestedWorkout[]>)
+  }, [localWorkouts])
 
-  const sortedDates = Object.keys(workoutsByDate).sort()
+  const sortedDates = useMemo(() => Object.keys(workoutsByDate).sort(), [workoutsByDate])
+
+  // Get active workout for drag overlay
+  const activeWorkout = useMemo(() => {
+    if (!activeId) return null
+    return localWorkouts.find(w => w.id === activeId) || null
+  }, [activeId, localWorkouts])
+
+  // Drag handlers
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string)
+  }
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event
+    setActiveId(null)
+
+    if (!over) return
+
+    const workoutId = active.id as string
+    const overId = over.id as string
+
+    // Check if dropped on a day container
+    if (overId.startsWith('day-')) {
+      const newDate = overId.replace('day-', '')
+      const workout = localWorkouts.find(w => w.id === workoutId)
+
+      if (workout && workout.suggested_date !== newDate) {
+        // Update local state immediately
+        setLocalWorkouts(prev =>
+          prev.map(w =>
+            w.id === workoutId ? { ...w, suggested_date: newDate } : w
+          )
+        )
+
+        // Persist to server if callback provided
+        if (onUpdateWorkoutDate) {
+          try {
+            await onUpdateWorkoutDate(workoutId, newDate)
+          } catch (err) {
+            // Rollback on error
+            setLocalWorkouts(prev =>
+              prev.map(w =>
+                w.id === workoutId ? { ...w, suggested_date: workout.suggested_date } : w
+              )
+            )
+          }
+        }
+      }
+    }
+  }
+
+  const handleDragCancel = () => {
+    setActiveId(null)
+  }
 
   // Toggle selection
   const toggleWorkout = (id: string) => {
@@ -58,15 +254,15 @@ export function BulkScheduleModal({
   }
 
   const toggleAll = () => {
-    if (selectedIds.size === workouts.length) {
+    if (selectedIds.size === localWorkouts.length) {
       setSelectedIds(new Set())
     } else {
-      setSelectedIds(new Set(workouts.map(w => w.id)))
+      setSelectedIds(new Set(localWorkouts.map(w => w.id)))
     }
   }
 
   // Calculate totals
-  const selectedWorkouts = workouts.filter(w => selectedIds.has(w.id))
+  const selectedWorkouts = localWorkouts.filter(w => selectedIds.has(w.id))
   const totalDuration = selectedWorkouts.reduce(
     (acc, w) => acc + (w.planned_duration_minutes || 0),
     0
@@ -125,7 +321,7 @@ export function BulkScheduleModal({
             <div>
               <h2 className="text-lg font-semibold">Schedule Workouts</h2>
               <p className="text-sm text-white/50">
-                {workouts.length} workout{workouts.length !== 1 ? 's' : ''} available
+                {localWorkouts.length} workout{localWorkouts.length !== 1 ? 's' : ''} available
               </p>
             </div>
           </div>
@@ -144,7 +340,7 @@ export function BulkScheduleModal({
               onClick={toggleAll}
               className="text-amber-400 hover:text-amber-300"
             >
-              {selectedIds.size === workouts.length ? 'Deselect All' : 'Select All'}
+              {selectedIds.size === localWorkouts.length ? 'Deselect All' : 'Select All'}
             </button>
             <span className="text-white/60">
               {selectedIds.size} selected
@@ -177,60 +373,45 @@ export function BulkScheduleModal({
           </div>
         </div>
 
-        {/* Workout list */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {sortedDates.map(date => (
-            <div key={date}>
-              <p className="text-xs text-white/50 font-medium mb-2">
-                {format(new Date(date), 'EEEE, MMM d')}
-              </p>
-              <div className="space-y-2">
+        {/* Workout list with drag-and-drop */}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onDragCancel={handleDragCancel}
+        >
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {sortedDates.map(date => (
+              <DroppableDayContainer key={date} date={date}>
                 {workoutsByDate[date].map(workout => (
-                  <label
+                  <DraggableWorkoutItem
                     key={workout.id}
-                    className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
-                      selectedIds.has(workout.id)
-                        ? 'bg-amber-500/10 border border-amber-500/30'
-                        : 'bg-white/5 border border-transparent hover:bg-white/10'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={selectedIds.has(workout.id)}
-                      onChange={() => toggleWorkout(workout.id)}
-                      className="w-4 h-4 rounded border-white/20 bg-white/5 text-amber-500 focus:ring-amber-500/50"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        {workout.category === 'strength' ? (
-                          <Dumbbell size={14} className="text-amber-400" />
-                        ) : (
-                          <Bike size={14} className="text-blue-400" />
-                        )}
-                        <span className="font-medium truncate">{workout.name}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-xs text-white/50 mt-0.5">
-                        <span className="capitalize">{workout.workout_type}</span>
-                        {workout.planned_duration_minutes && (
-                          <>
-                            <span>•</span>
-                            <span>{workout.planned_duration_minutes}min</span>
-                          </>
-                        )}
-                        {workout.primary_intensity && (
-                          <>
-                            <span>•</span>
-                            <span className="uppercase">{workout.primary_intensity}</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </label>
+                    workout={workout}
+                    isSelected={selectedIds.has(workout.id)}
+                    onToggle={() => toggleWorkout(workout.id)}
+                  />
                 ))}
+              </DroppableDayContainer>
+            ))}
+          </div>
+
+          {/* Drag overlay */}
+          <DragOverlay>
+            {activeWorkout ? (
+              <div className="opacity-90 bg-[#1a1a2e] rounded-lg p-3 shadow-xl border border-amber-500/30">
+                <div className="flex items-center gap-2">
+                  {activeWorkout.category === 'strength' ? (
+                    <Dumbbell size={14} className="text-amber-400" />
+                  ) : (
+                    <Bike size={14} className="text-blue-400" />
+                  )}
+                  <span className="font-medium">{activeWorkout.name}</span>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
 
         {/* Footer */}
         <div className="p-4 border-t border-white/10 flex justify-end gap-3">
