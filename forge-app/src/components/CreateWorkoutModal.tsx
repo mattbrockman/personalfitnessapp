@@ -49,6 +49,7 @@ const intensityZones = [
 
 export function CreateWorkoutModal({ selectedDate, onClose, onCreated }: CreateWorkoutModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     name: '',
     category: 'cardio' as 'cardio' | 'strength' | 'other',
@@ -65,6 +66,7 @@ export function CreateWorkoutModal({ selectedDate, onClose, onCreated }: CreateW
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
+    setError(null)
 
     try {
       const response = await fetch('/api/workouts', {
@@ -82,11 +84,13 @@ export function CreateWorkoutModal({ selectedDate, onClose, onCreated }: CreateW
         onCreated()
         onClose()
       } else {
-        const error = await response.json()
-        console.error('Failed to create workout:', error)
+        const errorData = await response.json()
+        console.error('Failed to create workout:', errorData)
+        setError(errorData.error || 'Failed to create workout. Please try again.')
       }
-    } catch (error) {
-      console.error('Error creating workout:', error)
+    } catch (err) {
+      console.error('Error creating workout:', err)
+      setError('Network error. Please check your connection.')
     } finally {
       setIsSubmitting(false)
     }
@@ -270,6 +274,13 @@ export function CreateWorkoutModal({ selectedDate, onClose, onCreated }: CreateW
               className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-amber-500/50 resize-none"
             />
           </div>
+
+          {/* Error message */}
+          {error && (
+            <div className="p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-400 text-sm">
+              {error}
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex gap-3 pt-2">

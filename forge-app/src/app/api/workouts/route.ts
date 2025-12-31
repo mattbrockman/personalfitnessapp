@@ -73,7 +73,10 @@ export async function POST(request: NextRequest) {
       description,
       planned_duration_minutes,
       planned_tss,
+      planned_distance_miles,
       notes,
+      category,
+      primary_intensity,
       workout_zones,
       exercises, // For lifting workouts
     } = body
@@ -90,7 +93,10 @@ export async function POST(request: NextRequest) {
         description,
         planned_duration_minutes,
         planned_tss,
+        planned_distance_miles,
         notes,
+        category: category || 'other',
+        primary_intensity: primary_intensity || 'mixed',
         status: 'planned',
       })
       .select()
