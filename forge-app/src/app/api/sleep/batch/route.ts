@@ -17,16 +17,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'sleepLogs array is required' }, { status: 400 })
     }
 
-    // Validate all logs have required fields
-    for (const log of sleepLogs) {
-      if (!log.log_date) {
-        return NextResponse.json({ error: 'Each log must have a log_date' }, { status: 400 })
-      }
+    // Filter out logs without log_date and deduplicate by date
+    const validLogs = sleepLogs.filter(log => log.log_date)
+
+    if (validLogs.length === 0) {
+      return NextResponse.json({
+        error: 'No valid sleep logs to save (all missing log_date)',
+        skipped: sleepLogs.length
+      }, { status: 400 })
     }
+
+    // Deduplicate by log_date (keep first occurrence)
+    const seenDates = new Set<string>()
+    const deduplicatedLogs = validLogs.filter(log => {
+      if (seenDates.has(log.log_date)) {
+        return false
+      }
+      seenDates.add(log.log_date)
+      return true
+    })
+
+    console.log(`Batch save: ${sleepLogs.length} total, ${validLogs.length} valid, ${deduplicatedLogs.length} after dedup`)
 
     // Add user_id and timestamps to all logs
     // Also convert bedtime/wake_time from "HH:MM" to full timestamps
-    const logsWithUserId = sleepLogs.map(log => {
+    const logsWithUserId = deduplicatedLogs.map(log => {
       const logDate = log.log_date
 
       // Convert "HH:MM" times to full timestamps

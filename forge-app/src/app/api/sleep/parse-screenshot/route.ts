@@ -50,31 +50,46 @@ export async function POST(request: NextRequest) {
             },
             {
               type: 'text',
-              text: `Analyze this Eight Sleep app screenshot and extract the sleep data. Return a JSON object with ONLY these fields (use null for any data not visible):
+              text: `This is a screenshot from the Eight Sleep app showing sleep data. Extract ALL visible data.
 
+Eight Sleep screenshots typically show:
+- DATE: Look for text like "Dec 30", "December 30", "Mon, Dec 30", or similar at the top
+- SLEEP SCORE: A large number (0-100) usually in a circle, labeled "Sleep Score" or "Sleep Fitness"
+- TOTAL SLEEP: Shows as "Xh Ym" format (e.g., "7h 15m")
+- BEDTIME: Time went to bed (e.g., "10:45 PM" or "22:45")
+- WAKE TIME: Time woke up (e.g., "6:30 AM" or "06:30")
+- SLEEP STAGES: Deep, REM, Light sleep shown as "Xh Ym" or bars
+- HRV: Heart Rate Variability in milliseconds (ms)
+- RESTING HR: Heart rate in bpm
+- RECOVERY: Percentage (%)
+
+Return a JSON object:
 {
-  "log_date": "YYYY-MM-DD",  // The date shown on the screenshot (the night of sleep)
-  "bedtime": "HH:MM",        // 24-hour format, e.g., "22:45"
-  "wake_time": "HH:MM",      // 24-hour format, e.g., "06:30"
-  "total_sleep_minutes": number,  // Total sleep time in minutes
-  "deep_sleep_minutes": number,   // Deep sleep in minutes
-  "rem_sleep_minutes": number,    // REM sleep in minutes
-  "light_sleep_minutes": number,  // Light sleep in minutes
-  "awake_minutes": number,        // Time awake in minutes
-  "sleep_score": number,          // Sleep score (0-100)
-  "hrv_avg": number,              // HRV in milliseconds
-  "resting_hr": number,           // Resting heart rate in bpm
-  "respiratory_rate": number,     // Breaths per minute (if shown)
-  "recovery_score": number        // Recovery percentage (if shown)
+  "log_date": "YYYY-MM-DD",
+  "bedtime": "HH:MM",
+  "wake_time": "HH:MM",
+  "total_sleep_minutes": number,
+  "deep_sleep_minutes": number,
+  "rem_sleep_minutes": number,
+  "light_sleep_minutes": number,
+  "awake_minutes": number,
+  "sleep_score": number,
+  "hrv_avg": number,
+  "resting_hr": number,
+  "respiratory_rate": number,
+  "recovery_score": number
 }
 
-${dateHint ? `Hint: The user indicated this might be from around ${dateHint}` : ''}
+CRITICAL INSTRUCTIONS:
+1. For the DATE: The current year is 2025. If you see "Dec 30", return "2025-12-30". If you see "Jan 2", it's likely "2026-01-02" or based on context.
+2. Convert ALL times to minutes: "7h 15m" = 435, "1h 25m" = 85, "45m" = 45
+3. Convert bedtime/wake_time to 24-hour format: "10:45 PM" = "22:45", "6:30 AM" = "06:30"
+4. The sleep score is the big number in the circle (0-100)
+5. HRV is in milliseconds (usually 20-100), HR is in bpm (usually 40-80)
+6. Return ONLY the JSON, no other text
+7. Use null ONLY if data is truly not visible
 
-Important:
-- For times like "7h 15m", convert to minutes (435)
-- For deep/REM/light sleep shown as "1h 25m", convert to minutes (85)
-- Return ONLY the JSON object, no other text
-- If you cannot determine the date from the screenshot, use null for log_date`
+${dateHint ? `Context: Screenshots are from around ${dateHint}` : 'Context: Screenshots are from late December 2025'}`
             }
           ],
         }
