@@ -30,7 +30,9 @@ const categories = [
 const workoutTypes = [
   { value: 'bike', label: 'Bike', icon: Bike, category: 'cardio' },
   { value: 'run', label: 'Run', icon: Footprints, category: 'cardio' },
-  { value: 'strength', label: 'Strength', icon: Dumbbell, category: 'strength' },
+  { value: 'upper', label: 'Upper', icon: Dumbbell, category: 'strength' },
+  { value: 'lower', label: 'Lower', icon: Dumbbell, category: 'strength' },
+  { value: 'full_body', label: 'Full Body', icon: Dumbbell, category: 'strength' },
   { value: 'yoga', label: 'Yoga', icon: Activity, category: 'other' },
   { value: 'other', label: 'Other', icon: Activity, category: 'other' },
 ] as const
