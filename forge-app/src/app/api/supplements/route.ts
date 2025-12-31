@@ -15,8 +15,7 @@ export async function GET(request: NextRequest) {
     const activeOnly = searchParams.get('active_only') === 'true'
     const category = searchParams.get('category')
 
-    let query = supabase
-      .from('supplements')
+    let query = (supabase.from('supplements') as any)
       .select('*')
       .eq('user_id', session.user.id)
       .order('name', { ascending: true })
@@ -76,8 +75,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'name is required' }, { status: 400 })
     }
 
-    const { data: supplement, error: insertError } = await adminClient
-      .from('supplements')
+    const { data: supplement, error: insertError }: any = await (adminClient
+      .from('supplements') as any)
       .insert({
         user_id: session.user.id,
         name,
@@ -132,8 +131,8 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Verify ownership
-    const { data: existing } = await supabase
-      .from('supplements')
+    const { data: existing }: any = await (supabase
+      .from('supplements') as any)
       .select('user_id')
       .eq('id', id)
       .single()
@@ -156,8 +155,8 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    const { data: supplement, error: updateError } = await adminClient
-      .from('supplements')
+    const { data: supplement, error: updateError }: any = await (adminClient
+      .from('supplements') as any)
       .update(updates)
       .eq('id', id)
       .select()
@@ -197,8 +196,8 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Verify ownership
-    const { data: existing } = await supabase
-      .from('supplements')
+    const { data: existing }: any = await (supabase
+      .from('supplements') as any)
       .select('user_id')
       .eq('id', id)
       .single()
@@ -207,8 +206,8 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Supplement not found' }, { status: 404 })
     }
 
-    const { error: deleteError } = await adminClient
-      .from('supplements')
+    const { error: deleteError } = await (adminClient
+      .from('supplements') as any)
       .delete()
       .eq('id', id)
 

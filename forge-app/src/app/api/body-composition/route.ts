@@ -91,8 +91,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Insert log (upsert to handle unique constraint per user/date)
-    const { data: log, error: insertError } = await adminClient
-      .from('body_composition_logs')
+    const { data: log, error: insertError }: any = await (adminClient
+      .from('body_composition_logs') as any)
       .upsert({
         user_id: session.user.id,
         log_date,
@@ -179,8 +179,8 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    const { data: log, error: updateError } = await adminClient
-      .from('body_composition_logs')
+    const { data: log, error: updateError }: any = await (adminClient
+      .from('body_composition_logs') as any)
       .update(updates)
       .eq('id', id)
       .select()
@@ -230,8 +230,8 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Log not found' }, { status: 404 })
     }
 
-    const { error: deleteError } = await adminClient
-      .from('body_composition_logs')
+    const { error: deleteError } = await (adminClient
+      .from('body_composition_logs') as any)
       .delete()
       .eq('id', id)
 

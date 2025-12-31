@@ -15,8 +15,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const category = searchParams.get('category')
 
-    let query = supabase
-      .from('centenarian_goals')
+    let query = (supabase.from('centenarian_goals') as any)
       .select('*')
       .eq('user_id', session.user.id)
       .order('display_order', { ascending: true })
@@ -55,8 +54,8 @@ export async function POST(request: NextRequest) {
     // Special action: initialize with defaults
     if (body.action === 'initialize_defaults') {
       // Check if user already has goals
-      const { data: existingGoals } = await supabase
-        .from('centenarian_goals')
+      const { data: existingGoals }: any = await (supabase
+        .from('centenarian_goals') as any)
         .select('id')
         .eq('user_id', session.user.id)
         .limit(1)
@@ -84,8 +83,8 @@ export async function POST(request: NextRequest) {
         display_order: index,
       }))
 
-      const { data: goals, error: insertError } = await adminClient
-        .from('centenarian_goals')
+      const { data: goals, error: insertError }: any = await (adminClient
+        .from('centenarian_goals') as any)
         .insert(defaultGoalsWithUser)
         .select()
 
@@ -122,8 +121,8 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    const { data: goal, error: insertError } = await adminClient
-      .from('centenarian_goals')
+    const { data: goal, error: insertError }: any = await (adminClient
+      .from('centenarian_goals') as any)
       .insert({
         user_id: session.user.id,
         goal_name,
@@ -176,8 +175,8 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Verify ownership
-    const { data: existing } = await supabase
-      .from('centenarian_goals')
+    const { data: existing }: any = await (supabase
+      .from('centenarian_goals') as any)
       .select('user_id')
       .eq('id', id)
       .single()
@@ -206,8 +205,8 @@ export async function PATCH(request: NextRequest) {
       updates.achieved_date = new Date().toISOString().split('T')[0]
     }
 
-    const { data: goal, error: updateError } = await adminClient
-      .from('centenarian_goals')
+    const { data: goal, error: updateError }: any = await (adminClient
+      .from('centenarian_goals') as any)
       .update(updates)
       .eq('id', id)
       .select()
@@ -245,8 +244,8 @@ export async function DELETE(request: NextRequest) {
 
     if (deleteAll) {
       // Delete all goals for user (for reset)
-      const { error: deleteError } = await adminClient
-        .from('centenarian_goals')
+      const { error: deleteError } = await (adminClient
+        .from('centenarian_goals') as any)
         .delete()
         .eq('user_id', session.user.id)
 
@@ -263,8 +262,8 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Verify ownership
-    const { data: existing } = await supabase
-      .from('centenarian_goals')
+    const { data: existing }: any = await (supabase
+      .from('centenarian_goals') as any)
       .select('user_id')
       .eq('id', id)
       .single()
@@ -273,8 +272,8 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Goal not found' }, { status: 404 })
     }
 
-    const { error: deleteError } = await adminClient
-      .from('centenarian_goals')
+    const { error: deleteError } = await (adminClient
+      .from('centenarian_goals') as any)
       .delete()
       .eq('id', id)
 

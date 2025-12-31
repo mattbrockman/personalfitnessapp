@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
-import { HealthMetric, MetricType } from '@/types/longevity'
+import { MetricType } from '@/types/longevity'
 
 // GET /api/health-metrics - List health metrics for current user
 export async function GET(request: NextRequest) {
@@ -18,8 +18,7 @@ export async function GET(request: NextRequest) {
     const endDate = searchParams.get('end_date')
     const limit = searchParams.get('limit')
 
-    let query = supabase
-      .from('health_metrics')
+    let query = (supabase.from('health_metrics') as any)
       .select('*')
       .eq('user_id', session.user.id)
       .order('metric_date', { ascending: false })
@@ -88,8 +87,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Insert metric (upsert to handle unique constraint)
-    const { data: metric, error: insertError } = await adminClient
-      .from('health_metrics')
+    const { data: metric, error: insertError }: any = await (adminClient
+      .from('health_metrics') as any)
       .upsert({
         user_id: session.user.id,
         metric_date,
@@ -139,8 +138,8 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Verify ownership
-    const { data: existing } = await supabase
-      .from('health_metrics')
+    const { data: existing }: any = await (supabase
+      .from('health_metrics') as any)
       .select('user_id')
       .eq('id', id)
       .single()
@@ -159,8 +158,8 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    const { data: metric, error: updateError } = await adminClient
-      .from('health_metrics')
+    const { data: metric, error: updateError }: any = await (adminClient
+      .from('health_metrics') as any)
       .update(updates)
       .eq('id', id)
       .select()
@@ -200,8 +199,8 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Verify ownership
-    const { data: existing } = await supabase
-      .from('health_metrics')
+    const { data: existing }: any = await (supabase
+      .from('health_metrics') as any)
       .select('user_id')
       .eq('id', id)
       .single()
@@ -210,8 +209,8 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Metric not found' }, { status: 404 })
     }
 
-    const { error: deleteError } = await adminClient
-      .from('health_metrics')
+    const { error: deleteError } = await (adminClient
+      .from('health_metrics') as any)
       .delete()
       .eq('id', id)
 

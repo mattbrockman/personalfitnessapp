@@ -18,8 +18,7 @@ export async function GET(request: NextRequest) {
     const mealContext = searchParams.get('meal_context') as MealContext | null
     const limit = searchParams.get('limit')
 
-    let query = supabase
-      .from('cgm_readings')
+    let query = (supabase.from('cgm_readings') as any)
       .select('*')
       .eq('user_id', session.user.id)
       .order('reading_time', { ascending: false })
@@ -87,8 +86,8 @@ export async function POST(request: NextRequest) {
       notes: r.notes || null,
     }))
 
-    const { data: insertedReadings, error: insertError } = await adminClient
-      .from('cgm_readings')
+    const { data: insertedReadings, error: insertError }: any = await (adminClient
+      .from('cgm_readings') as any)
       .insert(readingsToInsert)
       .select()
 
@@ -129,8 +128,8 @@ export async function DELETE(request: NextRequest) {
     // Either delete by ID or by date range
     if (id) {
       // Verify ownership
-      const { data: existing } = await supabase
-        .from('cgm_readings')
+      const { data: existing }: any = await (supabase
+        .from('cgm_readings') as any)
         .select('user_id')
         .eq('id', id)
         .single()
@@ -139,8 +138,8 @@ export async function DELETE(request: NextRequest) {
         return NextResponse.json({ error: 'Reading not found' }, { status: 404 })
       }
 
-      const { error: deleteError } = await adminClient
-        .from('cgm_readings')
+      const { error: deleteError } = await (adminClient
+        .from('cgm_readings') as any)
         .delete()
         .eq('id', id)
 
@@ -152,8 +151,8 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ success: true, deleted: 1 })
     } else if (startDate && endDate) {
       // Delete range (for bulk cleanup)
-      const { data: deleted, error: deleteError } = await adminClient
-        .from('cgm_readings')
+      const { data: deleted, error: deleteError }: any = await (adminClient
+        .from('cgm_readings') as any)
         .delete()
         .eq('user_id', session.user.id)
         .gte('reading_time', startDate)
@@ -176,4 +175,3 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
-
