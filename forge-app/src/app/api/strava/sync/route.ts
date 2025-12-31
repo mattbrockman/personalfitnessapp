@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     .from('integrations')
     .select('*')
     .eq('user_id', session.user.id)
-    .eq('service', 'strava')
+    .eq('provider', 'strava')
     .single()
 
   if (integrationError || !integration) {
@@ -239,7 +239,7 @@ export async function GET() {
     .from('integrations') as any)
     .select('id, service')
     .eq('user_id', session.user.id)
-    .eq('service', 'strava')
+    .eq('provider', 'strava')
     .single()
 
   if (!integration) {

@@ -50,13 +50,13 @@ export async function GET(request: Request) {
       .from('integrations') as any)
       .select('id')
       .eq('user_id', session.user.id)
-      .eq('service', 'strava')
+      .eq('provider', 'strava')
       .single()
 
-    // Only use columns that definitely exist in the database
+    // Only use columns that exist in the database
     const integrationData = {
       user_id: session.user.id,
-      service: 'strava',
+      provider: 'strava',
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token,
     }
