@@ -54,7 +54,7 @@ const METRIC_CONFIG: Record<string, {
     icon: TrendingUp,
     unit: '',
     getValue: (log) => log.sleep_score ?? null,
-    formatValue: (v) => `${v}`,
+    formatValue: (v) => `${Math.round(v)}`,
   },
   duration: {
     label: 'Total Sleep',
@@ -62,7 +62,7 @@ const METRIC_CONFIG: Record<string, {
     icon: Clock,
     unit: '',
     getValue: (log) => log.total_sleep_minutes ?? null,
-    formatValue: (v) => `${Math.floor(v / 60)}h ${v % 60}m`,
+    formatValue: (v) => `${Math.floor(Math.round(v) / 60)}h ${Math.round(v) % 60}m`,
   },
   hrv: {
     label: 'HRV',
@@ -70,7 +70,7 @@ const METRIC_CONFIG: Record<string, {
     icon: Activity,
     unit: 'ms',
     getValue: (log) => log.hrv_avg ?? null,
-    formatValue: (v) => `${v} ms`,
+    formatValue: (v) => `${Math.round(v)} ms`,
   },
   hr: {
     label: 'Resting Heart Rate',
@@ -78,7 +78,7 @@ const METRIC_CONFIG: Record<string, {
     icon: Heart,
     unit: 'bpm',
     getValue: (log) => log.resting_hr ?? null,
-    formatValue: (v) => `${v} bpm`,
+    formatValue: (v) => `${Math.round(v)} bpm`,
   },
   respiratory: {
     label: 'Respiratory Rate',
@@ -211,7 +211,13 @@ function MetricChart({
               axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
               tickLine={false}
               domain={metricKey === 'bedtime' ? [21, 27] : metricKey === 'wake_time' ? [5, 10] : ['auto', 'auto']}
-              tickFormatter={metricKey === 'bedtime' || metricKey === 'wake_time' ? (v) => config.formatValue(v) : undefined}
+              ticks={metricKey === 'bedtime' ? [21, 22, 23, 24, 25, 26, 27] : metricKey === 'wake_time' ? [5, 6, 7, 8, 9, 10] : undefined}
+              tickFormatter={metricKey === 'bedtime' || metricKey === 'wake_time' ? (v) => {
+                const hours = v >= 24 ? v - 24 : v
+                const period = hours >= 12 && hours < 24 ? 'PM' : 'AM'
+                const displayH = hours > 12 ? hours - 12 : hours === 0 ? 12 : hours
+                return `${displayH} ${period}`
+              } : undefined}
             />
             <Tooltip content={<CustomTooltip metricKey={metricKey} />} />
             <ReferenceLine y={average} stroke={config.color} strokeDasharray="3 3" strokeOpacity={0.5} />
