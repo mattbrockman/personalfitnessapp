@@ -21,20 +21,8 @@ import {
 } from 'lucide-react'
 import { Workout } from '@/types/database'
 
-// Extended workout type that includes exercises from suggested_workouts
-type WorkoutWithExercises = Workout & {
-  exercises?: {
-    exercise_name: string
-    sets: number
-    reps_min: number
-    reps_max: number
-    rest_seconds?: number
-    notes?: string
-  }[]
-}
-
 interface WorkoutDetailModalProps {
-  workout: WorkoutWithExercises
+  workout: Workout
   onClose: () => void
   onUpdate: () => void
 }
