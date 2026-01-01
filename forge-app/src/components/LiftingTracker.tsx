@@ -30,7 +30,10 @@ import {
   Zap,
   TrendingUp,
   ArrowLeftRight,
+  Info,
 } from 'lucide-react'
+import { useDebounce } from '@/hooks/useDebounce'
+import { EquipmentIcon } from '@/lib/equipment-icons'
 
 // Strength training imports (Greg Nuckols evidence-based methods)
 import { RelativeIntensityBadge } from '@/components/strength/RelativeIntensityBadge'
@@ -60,6 +63,10 @@ interface SetData {
   actual_weight: number | null
   actual_rir: string | null
   completed: boolean
+  // Time-based sets (for exercises like wall sit, plank, etc.)
+  is_timed?: boolean
+  target_duration?: number | null // Target duration in seconds
+  actual_duration?: number | null // Actual duration in seconds
 }
 
 interface PreviousSetData {
@@ -201,22 +208,39 @@ function ExerciseSearchModal({
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [muscleGroups, setMuscleGroups] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
+  const [isSearching, setIsSearching] = useState(false) // Subtle indicator for search updates
+  const [detailExercise, setDetailExercise] = useState<Exercise | null>(null) // For detail popup
+  const [showCreateExercise, setShowCreateExercise] = useState(false) // For AI exercise creation
   const inputRef = useRef<HTMLInputElement>(null)
 
+  // Debounce search term to prevent flickering on every keystroke
+  const debouncedSearch = useDebounce(search, 300)
+
+  // Initial load
   useEffect(() => {
     inputRef.current?.focus()
     fetchExercises()
   }, [])
 
+  // Fetch on debounced search or filter change
   useEffect(() => {
-    fetchExercises()
-  }, [search, filter])
+    // Skip initial render (handled by first useEffect)
+    if (debouncedSearch !== '' || filter !== null) {
+      fetchExercises()
+    }
+  }, [debouncedSearch, filter])
 
   const fetchExercises = async () => {
-    setLoading(true)
+    // Only show full loading spinner on initial load, not search updates
+    if (exercises.length === 0) {
+      setLoading(true)
+    } else {
+      setIsSearching(true) // Show subtle indicator instead of hiding list
+    }
+
     try {
       const params = new URLSearchParams()
-      if (search) params.set('search', search)
+      if (debouncedSearch) params.set('search', debouncedSearch)
       if (filter) params.set('muscle_group', filter)
       params.set('limit', '50')
 
@@ -236,6 +260,7 @@ function ExerciseSearchModal({
       console.error('Failed to fetch exercises:', error)
     } finally {
       setLoading(false)
+      setIsSearching(false)
     }
   }
 
@@ -304,32 +329,396 @@ function ExerciseSearchModal({
         <div className="overflow-y-auto max-h-[50vh]">
           {loading ? (
             <div className="p-8 text-center text-white/40">Loading exercises...</div>
-          ) : exercises.length > 0 ? (
-            exercises.map(exercise => (
-              <button
-                key={exercise.id}
-                onClick={() => {
-                  onSelect(exercise)
-                  onClose()
-                }}
-                className="w-full px-4 py-3 flex items-center gap-3 hover:bg-white/5 transition-colors text-left"
-              >
-                <div className="w-10 h-10 rounded-lg bg-violet-500/20 flex items-center justify-center">
-                  <Dumbbell size={18} className="text-violet-400" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium">{exercise.name}</p>
-                  <p className="text-sm text-white/50 capitalize">{exercise.primary_muscle?.replace('_', ' ')} • {exercise.equipment}</p>
-                </div>
-                <ChevronRight size={18} className="text-white/30" />
-              </button>
-            ))
           ) : (
-            <div className="p-8 text-center text-white/40">
-              No exercises found
-            </div>
+            <>
+              {/* Subtle searching indicator - doesn't hide results */}
+              {isSearching && (
+                <div className="px-4 py-2 text-xs text-white/40 flex items-center gap-2 border-b border-white/5">
+                  <Loader2 size={12} className="animate-spin" />
+                  Searching...
+                </div>
+              )}
+              {exercises.length > 0 ? (
+                exercises.map(exercise => (
+                  <div
+                    key={exercise.id}
+                    className="w-full px-4 py-3 flex items-center gap-3 hover:bg-white/5 transition-colors"
+                  >
+                    {/* Icon - clickable to view details */}
+                    <button
+                      onClick={() => setDetailExercise(exercise)}
+                      className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center hover:bg-white/15 transition-colors"
+                      title="View details"
+                    >
+                      <EquipmentIcon equipment={exercise.equipment} size={18} />
+                    </button>
+
+                    {/* Name/info - clickable to view details */}
+                    <button
+                      onClick={() => setDetailExercise(exercise)}
+                      className="flex-1 min-w-0 text-left hover:text-amber-400 transition-colors"
+                    >
+                      <p className="font-medium">{exercise.name}</p>
+                      <p className="text-sm text-white/50 capitalize">{exercise.primary_muscle?.replace('_', ' ')} • {exercise.equipment}</p>
+                    </button>
+
+                    {/* Add button - adds exercise to workout */}
+                    <button
+                      onClick={() => {
+                        onSelect(exercise)
+                        onClose()
+                      }}
+                      className="px-3 py-1.5 bg-amber-500/20 text-amber-400 rounded-lg hover:bg-amber-500/30 transition-colors text-sm font-medium shrink-0"
+                    >
+                      Add
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <div className="p-8 text-center">
+                  <p className="text-white/40 mb-4">No exercises found for "{debouncedSearch}"</p>
+                  <button
+                    onClick={() => setShowCreateExercise(true)}
+                    className="px-4 py-2 bg-amber-500/20 text-amber-400 rounded-lg hover:bg-amber-500/30 transition-colors inline-flex items-center gap-2"
+                  >
+                    <Plus size={18} />
+                    Create "{debouncedSearch}"
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
+
+        {/* Exercise Detail Popup */}
+        {detailExercise && (
+          <ExerciseSearchDetailPopup
+            exercise={detailExercise}
+            onClose={() => setDetailExercise(null)}
+            onAdd={() => {
+              onSelect(detailExercise)
+              setDetailExercise(null)
+              onClose()
+            }}
+          />
+        )}
+
+        {/* AI Exercise Creation Modal */}
+        {showCreateExercise && (
+          <CreateExerciseModal
+            initialName={debouncedSearch}
+            onClose={() => setShowCreateExercise(false)}
+            onCreated={(exercise) => {
+              onSelect(exercise)
+              setShowCreateExercise(false)
+              onClose()
+            }}
+          />
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Simple detail popup for exercise search
+function ExerciseSearchDetailPopup({
+  exercise,
+  onClose,
+  onAdd,
+}: {
+  exercise: Exercise
+  onClose: () => void
+  onAdd: () => void
+}) {
+  return (
+    <div
+      className="absolute inset-0 bg-zinc-900 z-10 overflow-y-auto animate-slide-up"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="p-4">
+        {/* Header */}
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center">
+              <EquipmentIcon equipment={exercise.equipment} size={24} />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold">{exercise.name}</h3>
+              <p className="text-sm text-white/50 capitalize">
+                {exercise.primary_muscle?.replace('_', ' ')} • {exercise.equipment}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+          >
+            <X size={20} className="text-white/60" />
+          </button>
+        </div>
+
+        {/* Thumbnail/GIF */}
+        {(exercise.video_url || exercise.thumbnail_url) && (
+          <div className="mb-4 rounded-xl overflow-hidden bg-black/30 aspect-video">
+            <img
+              src={exercise.video_url || exercise.thumbnail_url || ''}
+              alt={exercise.name}
+              className="w-full h-full object-contain"
+            />
+          </div>
+        )}
+
+        {/* Cues */}
+        {exercise.cues && exercise.cues.length > 0 && (
+          <div className="mb-4">
+            <h4 className="text-sm font-medium text-white/70 mb-2">Coaching Cues</h4>
+            <ul className="space-y-1">
+              {exercise.cues.map((cue, i) => (
+                <li key={i} className="text-sm text-white/60 flex items-start gap-2">
+                  <span className="text-amber-400 mt-0.5">•</span>
+                  {cue}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Add button */}
+        <button
+          onClick={onAdd}
+          className="w-full py-3 bg-amber-500 text-black font-semibold rounded-xl hover:bg-amber-400 transition-colors"
+        >
+          Add to Workout
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// AI Exercise Creation Modal
+function CreateExerciseModal({
+  initialName,
+  onClose,
+  onCreated,
+}: {
+  initialName: string
+  onClose: () => void
+  onCreated: (exercise: Exercise) => void
+}) {
+  const [name, setName] = useState(initialName)
+  const [generating, setGenerating] = useState(false)
+  const [generatedExercise, setGeneratedExercise] = useState<Partial<Exercise> | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  // Equipment options
+  const EQUIPMENT_OPTIONS = [
+    { value: 'barbell', label: 'Barbell' },
+    { value: 'dumbbell', label: 'Dumbbell' },
+    { value: 'bodyweight', label: 'Bodyweight' },
+    { value: 'cable', label: 'Cable' },
+    { value: 'machine', label: 'Machine' },
+    { value: 'kettlebell', label: 'Kettlebell' },
+    { value: 'bands', label: 'Resistance Bands' },
+    { value: 'medicine_ball', label: 'Medicine Ball' },
+  ]
+
+  const generateExercise = async () => {
+    if (!name.trim()) return
+
+    setGenerating(true)
+    setError(null)
+
+    try {
+      const res = await fetch('/api/exercises/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim() }),
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to generate exercise')
+      }
+
+      const data = await res.json()
+      setGeneratedExercise(data.exercise)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate exercise')
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  const saveExercise = async () => {
+    if (!generatedExercise) return
+
+    setSaving(true)
+    setError(null)
+
+    try {
+      const res = await fetch('/api/exercises', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(generatedExercise),
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to save exercise')
+      }
+
+      const data = await res.json()
+      onCreated(data.exercise)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save exercise')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div
+      className="absolute inset-0 bg-zinc-900 z-20 overflow-y-auto animate-slide-up"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="p-4">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold">Create Exercise</h3>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+          >
+            <X size={20} className="text-white/60" />
+          </button>
+        </div>
+
+        {!generatedExercise ? (
+          <>
+            {/* Name Input */}
+            <div className="mb-4">
+              <label className="block text-sm text-white/60 mb-1">Exercise Name</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g., Wall Sit"
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-amber-500/50"
+              />
+            </div>
+
+            {/* Generate Button */}
+            <button
+              onClick={generateExercise}
+              disabled={generating || !name.trim()}
+              className="w-full py-3 bg-amber-500 text-black font-semibold rounded-xl hover:bg-amber-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {generating ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" />
+                  Generating with AI...
+                </>
+              ) : (
+                <>
+                  <Zap size={18} />
+                  Generate Exercise Details
+                </>
+              )}
+            </button>
+
+            <p className="text-xs text-white/40 text-center mt-3">
+              AI will suggest muscle groups, equipment, and coaching cues
+            </p>
+          </>
+        ) : (
+          <>
+            {/* Generated Exercise Preview */}
+            <div className="space-y-4">
+              {/* Name */}
+              <div>
+                <label className="block text-sm text-white/60 mb-1">Name</label>
+                <input
+                  type="text"
+                  value={generatedExercise.name || ''}
+                  onChange={(e) => setGeneratedExercise({ ...generatedExercise, name: e.target.value })}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white"
+                />
+              </div>
+
+              {/* Primary Muscle */}
+              <div>
+                <label className="block text-sm text-white/60 mb-1">Primary Muscle</label>
+                <input
+                  type="text"
+                  value={generatedExercise.primary_muscle || ''}
+                  onChange={(e) => setGeneratedExercise({ ...generatedExercise, primary_muscle: e.target.value })}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white"
+                />
+              </div>
+
+              {/* Equipment */}
+              <div>
+                <label className="block text-sm text-white/60 mb-1">Equipment</label>
+                <select
+                  value={generatedExercise.equipment || ''}
+                  onChange={(e) => setGeneratedExercise({ ...generatedExercise, equipment: e.target.value })}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white"
+                >
+                  {EQUIPMENT_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Cues */}
+              {generatedExercise.cues && generatedExercise.cues.length > 0 && (
+                <div>
+                  <label className="block text-sm text-white/60 mb-1">Coaching Cues</label>
+                  <ul className="space-y-1 text-sm text-white/70">
+                    {generatedExercise.cues.map((cue, i) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <span className="text-amber-400">•</span>
+                        {cue}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setGeneratedExercise(null)}
+                className="flex-1 py-3 bg-white/10 text-white font-medium rounded-xl hover:bg-white/20 transition-colors"
+              >
+                Edit Details
+              </button>
+              <button
+                onClick={saveExercise}
+                disabled={saving}
+                className="flex-1 py-3 bg-amber-500 text-black font-semibold rounded-xl hover:bg-amber-400 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save & Add'
+                )}
+              </button>
+            </div>
+          </>
+        )}
+
+        {/* Error */}
+        {error && (
+          <div className="mt-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-400 text-sm">
+            {error}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -352,6 +741,30 @@ function SetRow({
   onDelete: () => void
 }) {
   const setType = SET_TYPES.find(t => t.value === set.set_type)
+  const [timerRunning, setTimerRunning] = useState(false)
+  const [timerSeconds, setTimerSeconds] = useState(0)
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Timer effect
+  useEffect(() => {
+    if (timerRunning) {
+      timerRef.current = setInterval(() => {
+        setTimerSeconds(s => s + 1)
+      }, 1000)
+    } else if (timerRef.current) {
+      clearInterval(timerRef.current)
+    }
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current)
+    }
+  }, [timerRunning])
+
+  // Format seconds as mm:ss
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins}:${secs.toString().padStart(2, '0')}`
+  }
 
   // Format date for previous set display
   const formatPrevDate = (dateStr: string) => {
@@ -359,13 +772,125 @@ function SetRow({
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   }
 
+  // Toggle timer
+  const toggleTimer = () => {
+    if (timerRunning) {
+      // Stop timer and save duration
+      setTimerRunning(false)
+      onUpdate({ actual_duration: timerSeconds })
+    } else {
+      // Start timer
+      setTimerRunning(true)
+    }
+  }
+
+  // Reset timer
+  const resetTimer = () => {
+    setTimerRunning(false)
+    setTimerSeconds(0)
+    onUpdate({ actual_duration: null })
+  }
+
+  // Render timed set row
+  if (set.is_timed) {
+    return (
+      <div className={`flex items-center gap-2 py-2 ${set.completed ? 'opacity-60' : ''}`}>
+        {/* Set number/type + toggle back to reps */}
+        <div className="w-10 text-center flex items-center justify-center gap-0.5">
+          <span className={`text-sm font-medium ${setType?.color || 'text-white'}`}>
+            {set.set_type === 'warmup' ? 'W' : set.set_number}
+          </span>
+          {/* Small toggle to switch back to rep-based */}
+          <button
+            onClick={() => onUpdate({ is_timed: false })}
+            className="p-0.5 text-amber-400 hover:text-white transition-colors"
+            title="Switch to rep-based set"
+          >
+            <Dumbbell size={10} />
+          </button>
+        </div>
+
+        {/* Target duration */}
+        <div className="w-16">
+          <input
+            type="number"
+            value={set.target_duration ?? ''}
+            onChange={e => onUpdate({ target_duration: e.target.value ? Number(e.target.value) : null })}
+            placeholder="sec"
+            className="w-full bg-white/5 border border-white/10 rounded px-2 py-1.5 text-center text-sm focus:outline-none focus:border-amber-500/50"
+          />
+        </div>
+
+        {/* Timer display */}
+        <div className="flex-1 flex items-center gap-2">
+          <div className={`text-lg font-mono tabular-nums ${timerRunning ? 'text-amber-400' : 'text-white/60'}`}>
+            {formatTime(set.actual_duration ?? timerSeconds)}
+          </div>
+
+          {/* Timer controls */}
+          <button
+            onClick={toggleTimer}
+            className={`p-2 rounded-lg transition-colors ${
+              timerRunning
+                ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+                : 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
+            }`}
+          >
+            {timerRunning ? <Pause size={16} /> : <Play size={16} />}
+          </button>
+
+          <button
+            onClick={resetTimer}
+            className="p-2 rounded-lg bg-white/10 text-white/40 hover:text-white/60 transition-colors"
+          >
+            <RotateCcw size={14} />
+          </button>
+        </div>
+
+        {/* Complete button */}
+        <button
+          onClick={onComplete}
+          className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+            set.completed
+              ? 'bg-emerald-500 text-white'
+              : 'bg-white/10 text-white/60 hover:bg-amber-500 hover:text-black'
+          }`}
+        >
+          <Check size={16} />
+        </button>
+
+        {/* Delete button */}
+        <button
+          onClick={onDelete}
+          className="w-8 h-8 rounded-lg flex items-center justify-center text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+        >
+          <X size={16} />
+        </button>
+      </div>
+    )
+  }
+
+  // Toggle between timed and rep-based set
+  const toggleTimed = () => {
+    onUpdate({ is_timed: !set.is_timed })
+  }
+
+  // Render regular (reps-based) set row
   return (
     <div className={`flex items-center gap-2 py-2 ${set.completed ? 'opacity-60' : ''}`}>
-      {/* Set number/type */}
-      <div className="w-10 text-center">
+      {/* Set number/type + timed toggle */}
+      <div className="w-10 text-center flex items-center justify-center gap-0.5">
         <span className={`text-sm font-medium ${setType?.color || 'text-white'}`}>
           {set.set_type === 'warmup' ? 'W' : set.set_number}
         </span>
+        {/* Small toggle to switch to timed set */}
+        <button
+          onClick={toggleTimed}
+          className="p-0.5 text-white/20 hover:text-amber-400 transition-colors"
+          title="Switch to timed set"
+        >
+          <Clock size={10} />
+        </button>
       </div>
 
       {/* Previous (reference) - shows lbs x reps with date */}
@@ -510,8 +1035,8 @@ function ExerciseDetailModal({
         {/* Header */}
         <div className="p-4 border-b border-white/10">
           <div className="flex items-start gap-3">
-            <div className="w-12 h-12 rounded-xl bg-violet-500/20 flex items-center justify-center">
-              <Dumbbell size={24} className="text-violet-400" />
+            <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center">
+              <EquipmentIcon equipment={exercise.equipment} size={24} />
             </div>
             <div className="flex-1">
               <h3 className="font-semibold text-lg">{exercise.name}</h3>
@@ -1182,10 +1707,10 @@ function ExerciseCard({
         )}
 
         <div
-          className="w-10 h-10 rounded-lg bg-violet-500/20 flex items-center justify-center cursor-pointer hover:bg-violet-500/30 transition-colors"
+          className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center cursor-pointer hover:bg-white/15 transition-colors"
           onClick={(e) => { e.stopPropagation(); onShowDetails(); }}
         >
-          <Dumbbell size={18} className="text-violet-400" />
+          <EquipmentIcon equipment={exercise.equipment} size={18} />
         </div>
 
         <div className="flex-1 min-w-0">
@@ -1218,6 +1743,24 @@ function ExerciseCard({
           <p className="text-sm text-white/50">
             {completedSets}/{sets.length} sets • {rest_seconds}s rest
           </p>
+        </div>
+
+        {/* Quick Superset Toggle - always visible */}
+        <div className="flex items-center gap-1 mr-2">
+          {SUPERSET_GROUPS.slice(0, 3).map(group => (
+            <button
+              key={group}
+              onClick={(e) => { e.stopPropagation(); toggleSuperset(group); }}
+              className={`w-5 h-5 rounded text-[10px] font-bold transition-colors ${
+                superset_group === group
+                  ? 'bg-amber-500 text-black'
+                  : 'bg-white/10 text-white/30 hover:bg-white/20 hover:text-white/50'
+              }`}
+              title={`Superset group ${group}`}
+            >
+              {group}
+            </button>
+          ))}
         </div>
 
         <button

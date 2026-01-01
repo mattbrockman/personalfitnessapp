@@ -10,7 +10,10 @@ import {
   Play,
   Info,
   Loader2,
+  Plus,
 } from 'lucide-react'
+import { useDebounce } from '@/hooks/useDebounce'
+import { EquipmentIcon } from '@/lib/equipment-icons'
 
 interface Exercise {
   id: string
@@ -68,9 +71,13 @@ export function ExerciseLibrary() {
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [filterOptions, setFilterOptions] = useState<FilterOptions | null>(null)
   const [loading, setLoading] = useState(true)
+  const [isSearching, setIsSearching] = useState(false) // Subtle indicator for search
   const [searchQuery, setSearchQuery] = useState('')
   const [showFilters, setShowFilters] = useState(false)
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null)
+
+  // Debounce search to prevent flickering
+  const debouncedSearch = useDebounce(searchQuery, 300)
 
   // Filter state
   const [filters, setFilters] = useState({
@@ -84,12 +91,15 @@ export function ExerciseLibrary() {
   // Fetch filter options on mount
   useEffect(() => {
     fetchFilterOptions()
+    fetchExercises()
   }, [])
 
-  // Fetch exercises when filters change
+  // Fetch exercises when debounced search or filters change
   useEffect(() => {
-    fetchExercises()
-  }, [filters, searchQuery])
+    if (debouncedSearch !== '' || Object.values(filters).some(Boolean)) {
+      fetchExercises()
+    }
+  }, [filters, debouncedSearch])
 
   const fetchFilterOptions = async () => {
     try {
@@ -104,10 +114,16 @@ export function ExerciseLibrary() {
   }
 
   const fetchExercises = useCallback(async () => {
-    setLoading(true)
+    // Only show full loading on initial load
+    if (exercises.length === 0) {
+      setLoading(true)
+    } else {
+      setIsSearching(true)
+    }
+
     try {
       const params = new URLSearchParams()
-      if (searchQuery) params.append('search', searchQuery)
+      if (debouncedSearch) params.append('search', debouncedSearch)
       if (filters.bodyPart) params.append('body_part', filters.bodyPart)
       if (filters.equipment) params.append('equipment', filters.equipment)
       if (filters.difficulty) params.append('difficulty', filters.difficulty)
@@ -124,8 +140,9 @@ export function ExerciseLibrary() {
       console.error('Failed to fetch exercises:', err)
     } finally {
       setLoading(false)
+      setIsSearching(false)
     }
-  }, [searchQuery, filters])
+  }, [debouncedSearch, filters])
 
   const clearFilters = () => {
     setFilters({
@@ -298,6 +315,14 @@ export function ExerciseLibrary() {
           <p className="text-sm text-white/30 mt-1">Try adjusting your filters</p>
         </div>
       ) : (
+        <>
+        {/* Subtle searching indicator */}
+        {isSearching && (
+          <div className="flex items-center gap-2 text-xs text-white/40 mb-4">
+            <Loader2 size={12} className="animate-spin" />
+            Searching...
+          </div>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {exercises.map((exercise) => (
             <ExerciseCard
@@ -307,6 +332,7 @@ export function ExerciseLibrary() {
             />
           ))}
         </div>
+        </>
       )}
 
       {/* Exercise Detail Modal */}
@@ -355,7 +381,7 @@ function ExerciseCard({
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-white/5">
-            <Dumbbell size={32} className="text-white/20" />
+            <EquipmentIcon equipment={exercise.equipment} size={32} className="opacity-40" />
           </div>
         )}
 
@@ -455,7 +481,7 @@ function ExerciseDetailModal({
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-white/5">
-                <Dumbbell size={48} className="text-white/20" />
+                <EquipmentIcon equipment={exercise.equipment} size={48} className="opacity-40" />
               </div>
             )}
             {/* Badge for static vs animated */}
