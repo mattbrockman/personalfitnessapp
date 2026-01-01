@@ -1801,12 +1801,13 @@ function ExerciseCard({
     // If weight is being updated, propagate to subsequent sets that don't have a weight yet
     if (updates.actual_weight !== undefined) {
       const setIndex = sets.findIndex(s => s.id === setId)
+      const weightValue = updates.actual_weight ?? null
       onUpdate({
         sets: sets.map((s, i) => {
           if (s.id === setId) return { ...s, ...updates }
           // Propagate weight to subsequent sets without an actual weight
           if (i > setIndex && s.actual_weight === null && !s.completed) {
-            return { ...s, actual_weight: updates.actual_weight }
+            return { ...s, actual_weight: weightValue }
           }
           return s
         })
