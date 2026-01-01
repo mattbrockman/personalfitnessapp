@@ -328,17 +328,21 @@ async function handleAddWorkout(
   console.log('add_workout input:', JSON.stringify(input, null, 2))
   console.log('exercises count:', input.exercises?.length || 0)
 
-  // Get user's active training plan
-  const { data: profile, error: profileFetchError } = await supabase
-    .from('profiles')
-    .select('active_program_id')
-    .eq('id', userId)
+  // Get user's active training plan directly from training_plans table
+  // (profiles.active_program_id column may not exist)
+  const { data: activePlan, error: planFetchError } = await supabase
+    .from('training_plans')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('status', 'active')
+    .order('created_at', { ascending: false })
+    .limit(1)
     .single()
 
-  console.log('[add_workout] profile fetch:', { profile, error: profileFetchError?.message })
+  console.log('[add_workout] active plan fetch:', { activePlan, error: planFetchError?.message })
 
-  const planId = profile?.active_program_id
-  console.log('[add_workout] active_program_id:', planId)
+  const planId = activePlan?.id
+  console.log('[add_workout] active plan id:', planId)
 
   if (planId) {
     console.log('[add_workout] PATH A: Adding to existing plan', planId)
@@ -376,6 +380,7 @@ async function handleAddWorkout(
   // No active plan - create a training plan first, then add as suggested workout
   // This ensures exercises are properly stored
   console.log('[add_workout] PATH B: No active plan, creating new plan...')
+  const today = format(new Date(), 'yyyy-MM-dd')
   const { data: newPlan, error: planError } = await supabase
     .from('training_plans')
     .insert({
@@ -383,6 +388,7 @@ async function handleAddWorkout(
       name: 'My Training Plan',
       goal: 'General fitness',
       status: 'active',
+      start_date: today,
     })
     .select('id')
     .single()
@@ -415,17 +421,6 @@ async function handleAddWorkout(
       message: `Added "${input.name}" on ${input.date}`,
       data: newWorkout,
     }
-  }
-
-  // CRITICAL: Update profile with active plan BEFORE inserting workout
-  // This fixes race condition where fetches happen before profile is updated
-  const { error: profileError } = await supabase
-    .from('profiles')
-    .update({ active_program_id: newPlan.id })
-    .eq('id', userId)
-
-  if (profileError) {
-    console.error('Failed to update profile active_program_id:', profileError)
   }
 
   console.log('[add_workout] PATH B SUCCESS: Created plan', newPlan.id)

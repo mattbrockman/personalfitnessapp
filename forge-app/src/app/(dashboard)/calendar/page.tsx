@@ -26,19 +26,23 @@ export default async function CalendarPage() {
     .order('scheduled_date', { ascending: true })
 
   // Fetch suggested workouts from active plan
+  // Look up active plan directly from training_plans table
   let suggestedWorkouts: any[] = []
   if (user) {
-    const { data: profile } = await (adminClient as any)
-      .from('profiles')
-      .select('active_program_id')
-      .eq('id', user.id)
+    const { data: activePlan } = await (adminClient as any)
+      .from('training_plans')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(1)
       .single()
 
-    if (profile?.active_program_id) {
+    if (activePlan?.id) {
       const { data: sw } = await (adminClient as any)
         .from('suggested_workouts')
         .select('*')
-        .eq('plan_id', profile.active_program_id)
+        .eq('plan_id', activePlan.id)
         .gte('suggested_date', startStr)
         .lte('suggested_date', endStr)
         .order('suggested_date', { ascending: true })

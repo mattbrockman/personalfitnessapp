@@ -47,21 +47,25 @@ export async function GET(request: NextRequest) {
     }
 
     // Also fetch suggested workouts from user's active plan
+    // Look up active plan directly from training_plans table
     const adminClient = createAdminClient()
-    const { data: profile } = await (adminClient as any)
-      .from('profiles')
-      .select('active_program_id')
-      .eq('id', session.user.id)
+    const { data: activePlan } = await (adminClient as any)
+      .from('training_plans')
+      .select('id')
+      .eq('user_id', session.user.id)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(1)
       .single()
 
-    console.log('[/api/workouts] profile.active_program_id:', profile?.active_program_id)
+    console.log('[/api/workouts] active plan id:', activePlan?.id)
 
     let suggestedWorkouts: any[] = []
-    if (profile?.active_program_id) {
+    if (activePlan?.id) {
       let swQuery = (adminClient as any)
         .from('suggested_workouts')
         .select('*')
-        .eq('plan_id', profile.active_program_id)
+        .eq('plan_id', activePlan.id)
         .order('suggested_date', { ascending: false })
 
       if (startDate) {
