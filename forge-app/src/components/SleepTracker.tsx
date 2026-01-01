@@ -1,11 +1,9 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Moon,
   Sun,
-  Upload,
-  Camera,
   ChevronLeft,
   ChevronRight,
   TrendingUp,
@@ -16,14 +14,13 @@ import {
   Wind,
   Zap,
   Clock,
-  Sparkles,
   Plus,
   X,
-  Calendar,
   Loader2,
 } from 'lucide-react'
 import { format, subDays, addDays, isToday, startOfWeek, eachDayOfInterval, isSameDay } from 'date-fns'
 import EightSleepConnect from './EightSleepConnect'
+import { SleepTrendModal, SleepMetricType } from './SleepTrendModal'
 
 // Types
 interface SleepLog {
@@ -42,7 +39,7 @@ interface SleepLog {
   resting_hr?: number
   respiratory_rate?: number
   recovery_score?: number
-  source: string // manual, eight_sleep_screenshot, eight_sleep_junction, apple_health, whoop, oura, etc.
+  source: string // manual, eight_sleep_direct, apple_health, whoop, oura, etc.
   screenshot_url?: string
   ai_parsed_data?: any
   notes?: string
@@ -172,297 +169,6 @@ function SleepStageBar({ log }: { log: SleepLog }) {
         <div className="flex items-center gap-1.5">
           <div className="w-2 h-2 rounded-full bg-white/20" />
           <span className="text-white/60">Awake {log.awake_minutes}m</span>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// Parsed sleep data with status
-interface ParsedSleepItem {
-  file: File
-  status: 'pending' | 'parsing' | 'success' | 'error'
-  data?: Partial<SleepLog>
-  error?: string
-  extraction_quality?: string
-}
-
-// Screenshot Upload Modal - supports batch upload
-function ScreenshotUploadModal({
-  onUpload,
-  onClose,
-}: {
-  onUpload: (data: Partial<SleepLog>[]) => void
-  onClose: () => void
-}) {
-  const [files, setFiles] = useState<ParsedSleepItem[]>([])
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [currentIndex, setCurrentIndex] = useState(0)
-  const [dateOverride, setDateOverride] = useState<string>('')
-  const fileInputRef = useRef<HTMLInputElement>(null)
-
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = e.target.files
-    if (!selectedFiles || selectedFiles.length === 0) return
-
-    // Add all files to state as pending
-    const newFiles: ParsedSleepItem[] = Array.from(selectedFiles).map(file => ({
-      file,
-      status: 'pending' as const,
-    }))
-
-    setFiles(newFiles)
-  }
-
-  const processFiles = async () => {
-    if (files.length === 0) return
-
-    setIsProcessing(true)
-
-    const updatedFiles = [...files]
-
-    for (let i = 0; i < updatedFiles.length; i++) {
-      setCurrentIndex(i)
-      updatedFiles[i].status = 'parsing'
-      setFiles([...updatedFiles])
-
-      try {
-        const formData = new FormData()
-        formData.append('file', updatedFiles[i].file)
-        if (dateOverride) {
-          formData.append('date', dateOverride)
-        }
-
-        const response = await fetch('/api/sleep/parse-screenshot', {
-          method: 'POST',
-          body: formData,
-        })
-
-        if (response.ok) {
-          const result = await response.json()
-          updatedFiles[i].status = 'success'
-          updatedFiles[i].data = result.parsed
-          // Apply date override if parsed data is missing date
-          if (dateOverride && !updatedFiles[i].data?.log_date) {
-            updatedFiles[i].data = { ...updatedFiles[i].data, log_date: dateOverride }
-          }
-          updatedFiles[i].extraction_quality = result.extraction_quality
-        } else {
-          const errorData = await response.json()
-          updatedFiles[i].status = 'error'
-          updatedFiles[i].error = errorData.error || 'Failed to parse'
-        }
-      } catch (error) {
-        updatedFiles[i].status = 'error'
-        updatedFiles[i].error = 'Network error'
-      }
-
-      setFiles([...updatedFiles])
-    }
-
-    setIsProcessing(false)
-  }
-
-  const handleSaveAll = () => {
-    const successfulData = files
-      .filter(f => f.status === 'success' && f.data?.log_date)
-      .map(f => f.data as Partial<SleepLog>)
-
-    if (successfulData.length > 0) {
-      onUpload(successfulData)
-    }
-    onClose()
-  }
-
-  const successCount = files.filter(f => f.status === 'success' && f.data?.log_date).length
-  const errorCount = files.filter(f => f.status === 'error').length
-  const allDone = files.length > 0 && files.every(f => f.status === 'success' || f.status === 'error')
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80" onClick={onClose}>
-      <div
-        className="bg-zinc-900 rounded-2xl w-full max-w-lg overflow-hidden border border-white/10 animate-slide-up max-h-[80vh] flex flex-col"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="p-4 border-b border-white/10 flex items-center justify-between">
-          <h3 className="font-semibold">Upload Sleep Screenshots</h3>
-          <button onClick={onClose} className="p-1 hover:bg-white/10 rounded-lg">
-            <X size={20} />
-          </button>
-        </div>
-
-        <div className="p-6 overflow-y-auto flex-1">
-          {files.length === 0 ? (
-            <>
-              {/* Upload area */}
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-white/20 rounded-xl p-8 text-center cursor-pointer hover:border-violet-500/50 transition-colors"
-              >
-                <Upload size={48} className="mx-auto text-white/40 mb-4" />
-                <p className="font-medium">Select Eight Sleep screenshots</p>
-                <p className="text-sm text-white/50 mt-1">Select multiple images at once</p>
-              </div>
-
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={handleFileSelect}
-                className="hidden"
-              />
-
-              <div className="mt-4 p-3 bg-violet-500/10 rounded-lg">
-                <p className="text-xs text-violet-400 flex items-center gap-2">
-                  <Sparkles size={14} />
-                  AI will extract: sleep score, stages, HRV, heart rate, date, and more
-                </p>
-              </div>
-
-              <div className="mt-4">
-                <label className="text-sm text-white/60 block mb-2">
-                  Date override (optional - use if screenshots don&apos;t show date)
-                </label>
-                <input
-                  type="date"
-                  value={dateOverride}
-                  onChange={(e) => setDateOverride(e.target.value)}
-                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white"
-                />
-              </div>
-            </>
-          ) : (
-            <>
-              {/* File list with status */}
-              <div className="space-y-2 mb-4">
-                {files.map((item, index) => (
-                  <div
-                    key={index}
-                    className={`p-3 rounded-lg flex items-center gap-3 ${
-                      item.status === 'success' ? 'bg-emerald-500/10' :
-                      item.status === 'error' ? 'bg-red-500/10' :
-                      item.status === 'parsing' ? 'bg-violet-500/10' :
-                      'bg-white/5'
-                    }`}
-                  >
-                    {item.status === 'pending' && <Clock size={16} className="text-white/40" />}
-                    {item.status === 'parsing' && <Loader2 size={16} className="text-violet-400 animate-spin" />}
-                    {item.status === 'success' && <Sparkles size={16} className="text-emerald-400" />}
-                    {item.status === 'error' && <X size={16} className="text-red-400" />}
-
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm truncate">{item.file.name}</p>
-                      {item.status === 'success' && item.data?.log_date && (
-                        <div className="text-xs">
-                          <p className="text-emerald-400">
-                            {item.data.log_date} • Score: {item.data.sleep_score || 'N/A'}
-                            {item.data.total_sleep_minutes && ` • ${Math.floor(item.data.total_sleep_minutes / 60)}h ${item.data.total_sleep_minutes % 60}m`}
-                          </p>
-                          {item.extraction_quality && (
-                            <p className="text-white/40">{item.extraction_quality}</p>
-                          )}
-                        </div>
-                      )}
-                      {item.status === 'success' && !item.data?.log_date && (
-                        <p className="text-xs text-amber-400">No date found in image</p>
-                      )}
-                      {item.status === 'error' && (
-                        <p className="text-xs text-red-400">{item.error}</p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Progress indicator */}
-              {isProcessing && (
-                <div className="mb-4">
-                  <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-violet-500 transition-all duration-300"
-                      style={{ width: `${((currentIndex + 1) / files.length) * 100}%` }}
-                    />
-                  </div>
-                  <p className="text-xs text-white/50 mt-1 text-center">
-                    Processing {currentIndex + 1} of {files.length}...
-                  </p>
-                </div>
-              )}
-
-              {/* Summary */}
-              {allDone && (
-                <div className="p-3 bg-white/5 rounded-lg mb-4">
-                  {(() => {
-                    const withDates = files.filter(f => f.status === 'success' && f.data?.log_date).length
-                    const noDates = files.filter(f => f.status === 'success' && !f.data?.log_date).length
-                    return (
-                      <div className="text-sm space-y-1">
-                        <p className="text-emerald-400">{withDates} ready to save</p>
-                        {noDates > 0 && <p className="text-amber-400">{noDates} missing date (won&apos;t be saved)</p>}
-                        {errorCount > 0 && <p className="text-red-400">{errorCount} failed to parse</p>}
-                      </div>
-                    )
-                  })()}
-                </div>
-              )}
-            </>
-          )}
-        </div>
-
-        {/* Action buttons */}
-        <div className="p-4 border-t border-white/10 flex gap-3">
-          {files.length === 0 ? (
-            <button
-              onClick={onClose}
-              className="flex-1 py-2.5 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
-            >
-              Cancel
-            </button>
-          ) : !allDone ? (
-            <>
-              <button
-                onClick={() => setFiles([])}
-                disabled={isProcessing}
-                className="flex-1 py-2.5 bg-white/10 hover:bg-white/20 rounded-lg transition-colors disabled:opacity-50"
-              >
-                Clear
-              </button>
-              <button
-                onClick={processFiles}
-                disabled={isProcessing}
-                className="flex-1 py-2.5 bg-violet-500 hover:bg-violet-400 text-white font-medium rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {isProcessing ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles size={16} />
-                    Analyze {files.length} Screenshots
-                  </>
-                )}
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                onClick={() => setFiles([])}
-                className="flex-1 py-2.5 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
-              >
-                Upload More
-              </button>
-              <button
-                onClick={handleSaveAll}
-                disabled={successCount === 0}
-                className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-400 text-black font-medium rounded-lg transition-colors disabled:opacity-50"
-              >
-                Save {successCount} Entries
-              </button>
-            </>
-          )}
         </div>
       </div>
     </div>
@@ -616,8 +322,8 @@ function ManualEntryModal({
 export function SleepTracker() {
   const [sleepLogs, setSleepLogs] = useState<SleepLog[]>([])
   const [selectedDate, setSelectedDate] = useState(new Date())
-  const [showUploadModal, setShowUploadModal] = useState(false)
   const [showManualModal, setShowManualModal] = useState(false)
+  const [showTrendModal, setShowTrendModal] = useState<SleepMetricType | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [syncMessage, setSyncMessage] = useState<string | null>(null)
 
@@ -709,37 +415,6 @@ export function SleepTracker() {
     }
   }
 
-  // Handle batch sleep logs (from screenshot upload)
-  const handleBatchUpload = async (logs: Partial<SleepLog>[]) => {
-    if (logs.length === 0) return
-
-    try {
-      const response = await fetch('/api/sleep/batch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sleepLogs: logs }),
-      })
-
-      if (response.ok) {
-        const result = await response.json()
-        const savedLogs = result.sleepLogs || []
-
-        setSleepLogs(prev => {
-          // Merge new logs with existing, replacing duplicates by date
-          const existingDates = new Set(savedLogs.map((l: SleepLog) => l.log_date))
-          const filtered = prev.filter(log => !existingDates.has(log.log_date))
-          return [...filtered, ...savedLogs].sort((a, b) =>
-            new Date(b.log_date).getTime() - new Date(a.log_date).getTime()
-          )
-        })
-      } else {
-        console.error('Failed to save batch sleep logs')
-      }
-    } catch (error) {
-      console.error('Error saving batch sleep logs:', error)
-    }
-  }
-
   if (isLoading) {
     return (
       <div className="p-4 lg:p-6 flex items-center justify-center min-h-[400px]">
@@ -761,11 +436,11 @@ export function SleepTracker() {
         </div>
         <div className="flex gap-2">
           <button
-            onClick={() => setShowUploadModal(true)}
+            onClick={() => setShowTrendModal('all')}
             className="px-4 py-2 bg-violet-500 hover:bg-violet-400 text-white rounded-lg transition-colors flex items-center gap-2"
           >
-            <Upload size={18} />
-            Screenshot
+            <TrendingUp size={18} />
+            Trends
           </button>
           <button
             onClick={() => setShowManualModal(true)}
@@ -849,11 +524,21 @@ export function SleepTracker() {
           {/* Main stats card */}
           <div className="glass rounded-xl p-6">
             <div className="flex items-center gap-6">
-              <SleepScoreRing score={selectedLog.sleep_score || 0} />
-              
+              <button
+                onClick={() => setShowTrendModal('score')}
+                className="hover:scale-105 transition-transform cursor-pointer"
+                title="View score trend"
+              >
+                <SleepScoreRing score={selectedLog.sleep_score || 0} />
+              </button>
+
               <div className="flex-1 space-y-3">
                 {/* Duration */}
-                <div className="flex items-center justify-between">
+                <button
+                  onClick={() => setShowTrendModal('duration')}
+                  className="w-full flex items-center justify-between hover:bg-white/5 rounded-lg px-2 py-1 -mx-2 transition-colors cursor-pointer"
+                  title="View duration trend"
+                >
                   <div className="flex items-center gap-2">
                     <Clock size={16} className="text-white/40" />
                     <span className="text-white/60">Total Sleep</span>
@@ -861,32 +546,44 @@ export function SleepTracker() {
                   <span className="font-medium">
                     {formatMinutesToTime(selectedLog.total_sleep_minutes || 0)}
                   </span>
-                </div>
+                </button>
 
                 {/* Bedtime/Wake */}
-                <div className="flex items-center justify-between">
+                <button
+                  onClick={() => setShowTrendModal('bedtime')}
+                  className="w-full flex items-center justify-between hover:bg-white/5 rounded-lg px-2 py-1 -mx-2 transition-colors cursor-pointer"
+                  title="View bedtime trend"
+                >
                   <div className="flex items-center gap-2">
                     <Moon size={16} className="text-violet-400" />
                     <span className="text-white/60">Bedtime</span>
                   </div>
                   <span className="font-medium">{formatBedWakeTime(selectedLog.bedtime)}</span>
-                </div>
-                <div className="flex items-center justify-between">
+                </button>
+                <button
+                  onClick={() => setShowTrendModal('wake_time')}
+                  className="w-full flex items-center justify-between hover:bg-white/5 rounded-lg px-2 py-1 -mx-2 transition-colors cursor-pointer"
+                  title="View wake time trend"
+                >
                   <div className="flex items-center gap-2">
                     <Sun size={16} className="text-amber-400" />
                     <span className="text-white/60">Wake</span>
                   </div>
                   <span className="font-medium">{formatBedWakeTime(selectedLog.wake_time)}</span>
-                </div>
+                </button>
               </div>
             </div>
 
             {/* Sleep stages */}
             {(selectedLog.deep_sleep_minutes || selectedLog.rem_sleep_minutes) && (
-              <div className="mt-6 pt-6 border-t border-white/10">
+              <button
+                onClick={() => setShowTrendModal('stages')}
+                className="w-full mt-6 pt-6 border-t border-white/10 hover:bg-white/5 rounded-lg transition-colors cursor-pointer text-left"
+                title="View sleep stages trend"
+              >
                 <h4 className="text-sm text-white/60 mb-3">Sleep Stages</h4>
                 <SleepStageBar log={selectedLog} />
-              </div>
+              </button>
             )}
           </div>
 
@@ -894,7 +591,11 @@ export function SleepTracker() {
           <div className="grid grid-cols-3 gap-4">
             {/* HRV */}
             {selectedLog.hrv_avg && (
-              <div className="glass rounded-xl p-4 text-center">
+              <button
+                onClick={() => setShowTrendModal('hrv')}
+                className="glass rounded-xl p-4 text-center hover:bg-white/10 transition-colors cursor-pointer"
+                title="View HRV trend"
+              >
                 <Activity size={20} className="mx-auto text-emerald-400 mb-2" />
                 <p className="text-2xl font-bold">{selectedLog.hrv_avg}</p>
                 <p className="text-xs text-white/40">HRV (ms)</p>
@@ -910,12 +611,16 @@ export function SleepTracker() {
                     vs yesterday
                   </div>
                 )}
-              </div>
+              </button>
             )}
 
             {/* Resting HR */}
             {selectedLog.resting_hr && (
-              <div className="glass rounded-xl p-4 text-center">
+              <button
+                onClick={() => setShowTrendModal('hr')}
+                className="glass rounded-xl p-4 text-center hover:bg-white/10 transition-colors cursor-pointer"
+                title="View heart rate trend"
+              >
                 <Heart size={20} className="mx-auto text-red-400 mb-2" />
                 <p className="text-2xl font-bold">{selectedLog.resting_hr}</p>
                 <p className="text-xs text-white/40">Resting HR</p>
@@ -932,7 +637,7 @@ export function SleepTracker() {
                     vs yesterday
                   </div>
                 )}
-              </div>
+              </button>
             )}
 
             {/* Recovery */}
@@ -960,15 +665,8 @@ export function SleepTracker() {
           <p className="text-white/40">No sleep data for this date</p>
           <div className="flex gap-2 justify-center mt-4">
             <button
-              onClick={() => setShowUploadModal(true)}
-              className="px-4 py-2 bg-violet-500 hover:bg-violet-400 text-white rounded-lg transition-colors text-sm flex items-center gap-2"
-            >
-              <Upload size={16} />
-              Upload Screenshot
-            </button>
-            <button
               onClick={() => setShowManualModal(true)}
-              className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors text-sm flex items-center gap-2"
+              className="px-4 py-2 bg-violet-500 hover:bg-violet-400 text-white rounded-lg transition-colors text-sm flex items-center gap-2"
             >
               <Plus size={16} />
               Log Manually
@@ -997,18 +695,19 @@ export function SleepTracker() {
       </div>
 
       {/* Modals */}
-      {showUploadModal && (
-        <ScreenshotUploadModal
-          onUpload={handleBatchUpload}
-          onClose={() => setShowUploadModal(false)}
-        />
-      )}
-
       {showManualModal && (
         <ManualEntryModal
           date={format(selectedDate, 'yyyy-MM-dd')}
           onSave={handleAddSleepLog}
           onClose={() => setShowManualModal(false)}
+        />
+      )}
+
+      {showTrendModal && (
+        <SleepTrendModal
+          metric={showTrendModal}
+          sleepLogs={sleepLogs}
+          onClose={() => setShowTrendModal(null)}
         />
       )}
     </div>
