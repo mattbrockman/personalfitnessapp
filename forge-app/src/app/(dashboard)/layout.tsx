@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Navigation } from '@/components/Navigation'
+import { AIChatBubble } from '@/components/AIChatBubble'
 
 export default async function DashboardLayout({
   children,
@@ -18,6 +19,7 @@ export default async function DashboardLayout({
     <div className="min-h-screen gradient-mesh">
       <Navigation user={session.user} />
       <main>{children}</main>
+      <AIChatBubble />
     </div>
   )
 }

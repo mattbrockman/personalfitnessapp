@@ -46,7 +46,6 @@ import { Workout } from '@/types/database'
 import { CreateWorkoutModal } from './CreateWorkoutModal'
 import { WorkoutDetailModal } from './WorkoutDetailModal'
 import { WeeklySummaryBar } from './WeeklySummaryBar'
-import { AIChatBubble } from './AIChatBubble'
 import { PhaseType, PHASE_COLORS, PHASE_LABELS, EventType, EVENT_TYPE_ICONS } from '@/types/training-plan'
 
 interface PlanData {
@@ -550,16 +549,6 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
         />
       )}
 
-      {/* AI Chat Bubble */}
-      <AIChatBubble
-        workoutContext={{
-          weeklyTSS: workouts
-            .filter(w => w.status === 'completed')
-            .reduce((sum, w) => sum + (w.actual_tss || 0), 0),
-          completedWorkouts: workouts.filter(w => w.status === 'completed').length,
-          plannedWorkouts: workouts.filter(w => w.status === 'planned').length,
-        }}
-      />
     </div>
   )
 }
