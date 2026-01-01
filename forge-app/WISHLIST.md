@@ -23,6 +23,20 @@
 - [ ] **AI Meal Photo Analysis** - Take photo of meal, AI estimates calories/macros. Options: Edamam Food Recognition, LogMeal API, or Spike Nutrition API. Could use Claude vision for initial analysis then lookup in nutrition DB.
 - [ ] **USDA FoodData Central Integration** - Use free government API for authoritative nutrition data: https://fdc.nal.usda.gov/api-guide/. 28 nutrients per food, foundation foods, branded products. Good base layer for all nutrition features.
 
+### Strength Training Features (inspired by Strong app)
+- [ ] **PR Detection & Celebration** - Auto-detect personal records (weight PR, rep PR, volume PR, estimated 1RM PR). Show confetti animation and "NEW PR!" badge. Store in exercise_prs table. Display PR history on exercise detail page.
+- [ ] **1RM Calculator & Tracking** - Calculate estimated 1RM using Brzycki formula: `1RM = weight × (36 / (37 - reps))`. Show estimated 1RM after each working set. Track progression over time with charts. Display "% of 1RM" when entering weights.
+- [ ] **Exercise Progress Charts** - Per-exercise analytics: volume over time, max weight progression, estimated 1RM trend, frequency, best sets history. Add "Stats" tab to exercise detail modal.
+- [ ] **AI Weight Suggestion for New Exercises** - When no history exists, show "Get AI Suggestion" button. AI analyzes strength in similar exercises, movement patterns, body weight to recommend conservative starting weight.
+
+### Reports & Trends (inspired by Hevy)
+- [ ] **Comprehensive Reports & Trends Section** - Build robust analytics dashboard with multiple time-based views:
+  - **Weekly:** Workouts completed vs planned, volume by muscle group, PRs achieved, streak, avg duration, comparison to previous week
+  - **Monthly:** Aggregated metrics, month-over-month charts, muscle balance pie chart, training frequency heatmap, best lifts, AI insights
+  - **Yearly (Year in Review):** Total volume lifted, PR timeline, most trained muscles, longest streak, goals achieved
+  - **Training Phase:** Period-specific reports for periodized plans (Base/Build/Peak/Recovery), phase goals progress, TSS/CTL trends, next phase recommendations
+  - Implementation: Add /reports page with tabs, use recharts, cache aggregates, optional email summaries & PDF export
+
 ## Bug Reports
 <!-- Add bug reports here -->
 
