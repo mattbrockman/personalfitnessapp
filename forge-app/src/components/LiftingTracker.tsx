@@ -45,6 +45,8 @@ interface Exercise {
   primary_muscle: string
   equipment: string
   cues?: string[]
+  video_url?: string | null
+  thumbnail_url?: string | null
 }
 
 interface SetData {
@@ -549,7 +551,7 @@ function ExerciseDetailModal({
               {(exercise.video_url || exercise.thumbnail_url) ? (
                 <div className="aspect-video bg-black rounded-lg overflow-hidden relative">
                   <img
-                    src={exercise.video_url || exercise.thumbnail_url}
+                    src={exercise.video_url || exercise.thumbnail_url || ''}
                     alt={`${exercise.name} demonstration`}
                     className="w-full h-full object-contain"
                     loading="lazy"

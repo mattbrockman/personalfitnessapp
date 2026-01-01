@@ -246,7 +246,7 @@ async function printEquipmentStats(exercises: ExerciseDBExercise[]) {
   }
 
   console.log('\n📊 Equipment Distribution:')
-  const sorted = [...equipmentCounts.entries()].sort((a, b) => b[1] - a[1])
+  const sorted = Array.from(equipmentCounts.entries()).sort((a, b) => b[1] - a[1])
   for (const [equipment, count] of sorted.slice(0, 15)) {
     const included = isEquipmentIncluded(equipment) ? '✓' : '✗'
     console.log(`   ${included} ${equipment}: ${count}`)
