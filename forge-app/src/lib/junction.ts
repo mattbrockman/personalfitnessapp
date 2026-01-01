@@ -174,29 +174,27 @@ export function mapJunctionSleepToSleepLog(sleep: SleepSummary) {
   const secondsToMinutes = (seconds: number | null) =>
     seconds ? Math.round(seconds / 60) : null
 
-  // Parse bedtime/wake time to HH:MM format
-  const parseTimeToHHMM = (isoString: string | null): string | null => {
-    if (!isoString) return null
-    try {
-      const date = new Date(isoString)
-      const hours = date.getHours().toString().padStart(2, '0')
-      const minutes = date.getMinutes().toString().padStart(2, '0')
-      return `${hours}:${minutes}`
-    } catch {
-      return null
-    }
+  // Normalize efficiency to 0-100 scale
+  // Junction may return as decimal (0-1) or percentage (0-100)
+  const normalizeEfficiency = (efficiency: number | null): number | null => {
+    if (efficiency === null || efficiency === undefined) return null
+    // If it's greater than 1, assume it's already a percentage
+    if (efficiency > 1) return Math.round(efficiency)
+    // Otherwise convert decimal to percentage
+    return Math.round(efficiency * 100)
   }
 
   return {
     log_date: sleep.calendar_date || sleep.date,
-    bedtime: sleep.bedtime_start ? `${sleep.calendar_date}T${parseTimeToHHMM(sleep.bedtime_start)}:00` : null,
-    wake_time: sleep.bedtime_stop ? `${sleep.calendar_date}T${parseTimeToHHMM(sleep.bedtime_stop)}:00` : null,
+    // Store the raw ISO timestamps - let the UI format them
+    bedtime: sleep.bedtime_start || null,
+    wake_time: sleep.bedtime_stop || null,
     total_sleep_minutes: secondsToMinutes(sleep.duration || sleep.total),
     deep_sleep_minutes: secondsToMinutes(sleep.deep),
     rem_sleep_minutes: secondsToMinutes(sleep.rem),
     light_sleep_minutes: secondsToMinutes(sleep.light),
     awake_minutes: secondsToMinutes(sleep.awake),
-    sleep_score: sleep.efficiency ? Math.round(sleep.efficiency * 100) : null,
+    sleep_score: normalizeEfficiency(sleep.efficiency),
     hrv_avg: sleep.average_hrv ? Math.round(sleep.average_hrv) : null,
     resting_hr: sleep.hr_average ? Math.round(sleep.hr_average) : null,
     respiratory_rate: sleep.respiratory_rate,

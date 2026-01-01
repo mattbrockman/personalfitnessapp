@@ -42,7 +42,7 @@ interface SleepLog {
   resting_hr?: number
   respiratory_rate?: number
   recovery_score?: number
-  source: 'manual' | 'eight_sleep_screenshot' | 'apple_health' | 'whoop' | 'oura'
+  source: string // manual, eight_sleep_screenshot, eight_sleep_junction, apple_health, whoop, oura, etc.
   screenshot_url?: string
   ai_parsed_data?: any
   notes?: string
@@ -53,6 +53,28 @@ function formatMinutesToTime(minutes: number): string {
   const hours = Math.floor(minutes / 60)
   const mins = minutes % 60
   return `${hours}h ${mins}m`
+}
+
+function formatBedWakeTime(timeString: string | undefined): string {
+  if (!timeString) return '--:--'
+  try {
+    // Handle ISO timestamp like "2025-12-28T04:01:00+00:00"
+    if (timeString.includes('T')) {
+      const date = new Date(timeString)
+      return date.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      })
+    }
+    // Handle simple time like "22:30"
+    const [hours, minutes] = timeString.split(':').map(Number)
+    const period = hours >= 12 ? 'PM' : 'AM'
+    const displayHours = hours % 12 || 12
+    return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`
+  } catch {
+    return timeString
+  }
 }
 
 function getScoreColor(score: number): string {
@@ -849,14 +871,14 @@ export function SleepTracker() {
                     <Moon size={16} className="text-violet-400" />
                     <span className="text-white/60">Bedtime</span>
                   </div>
-                  <span className="font-medium">{selectedLog.bedtime}</span>
+                  <span className="font-medium">{formatBedWakeTime(selectedLog.bedtime)}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Sun size={16} className="text-amber-400" />
                     <span className="text-white/60">Wake</span>
                   </div>
-                  <span className="font-medium">{selectedLog.wake_time}</span>
+                  <span className="font-medium">{formatBedWakeTime(selectedLog.wake_time)}</span>
                 </div>
               </div>
             </div>
