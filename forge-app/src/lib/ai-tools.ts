@@ -87,7 +87,7 @@ export const AI_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: 'add_workout',
-    description: 'Add a new workout to the schedule. REQUIRES USER CONFIRMATION before execution.',
+    description: 'Add a new workout to the schedule. This auto-executes. IMPORTANT: For strength workouts, always include the exercises array with specific exercises, sets, and reps - do not just describe them in text.',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -118,7 +118,7 @@ export const AI_TOOLS: Anthropic.Tool[] = [
         },
         exercises: {
           type: 'array',
-          description: 'List of exercises (for strength workouts)',
+          description: 'List of exercises - REQUIRED for strength workouts. Include all exercises with sets/reps.',
           items: {
             type: 'object',
             properties: {
@@ -133,7 +133,7 @@ export const AI_TOOLS: Anthropic.Tool[] = [
           },
         },
       },
-      required: ['date', 'category', 'workout_type', 'name'],
+      required: ['date', 'category', 'workout_type', 'name', 'exercises'],
     },
   },
 
@@ -348,10 +348,10 @@ export const AI_TOOLS: Anthropic.Tool[] = [
 ]
 
 // Tools that require user confirmation before execution
+// Note: add_workout auto-executes since it's non-destructive (user can delete if unwanted)
 export const TOOLS_REQUIRING_CONFIRMATION = [
   'reschedule_workout',
   'delete_workout',
-  'add_workout',
 ]
 
 // Helper to check if tool requires confirmation

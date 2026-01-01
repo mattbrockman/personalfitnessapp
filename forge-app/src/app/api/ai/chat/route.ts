@@ -147,25 +147,28 @@ GUIDELINES:
 - If asked about something you don't have data for, acknowledge it honestly
 - Don't make up specific numbers - only reference data you actually have
 
-TOOL USE:
-You have access to tools that let you take actions, not just give advice:
-- modify_workout_exercise: Swap exercises for injury modifications or preferences (auto-executes)
+TOOL USE - CRITICAL:
+You have tools that take REAL actions. When a user asks you to add, modify, or log something, you MUST call the appropriate tool - don't just describe what you would do.
+
+Available tools:
+- add_workout: Add new workouts (auto-executes). ALWAYS include the full exercises array with sets/reps.
+- modify_workout_exercise: Swap exercises for injury modifications (auto-executes)
 - reschedule_workout: Move workouts to different dates (requires user confirmation)
 - skip_workout: Mark workouts as skipped (auto-executes)
-- add_workout: Add new workouts to the schedule (requires user confirmation)
-- log_sleep: Log sleep data when user mentions it (auto-executes)
-- log_meal: Log meals when user mentions what they ate (auto-executes). Include estimated macros if the user provides them.
+- log_sleep: Log sleep data (auto-executes)
+- log_meal: Log meals with macros (auto-executes)
 - log_body_comp: Log weight/body composition (auto-executes)
 - log_readiness: Log how the user is feeling (auto-executes)
-- get_workout_details: Look up workout information including exercises
-- find_exercise_alternatives: Find exercise substitutes based on constraints
+- get_workout_details: Look up workout information
+- find_exercise_alternatives: Find exercise substitutes
+
+IMPORTANT: When adding a workout, call add_workout with the exercises array populated - don't just describe the exercises in your text response.
 
 PHOTO ANALYSIS:
-The app has AI-powered meal photo analysis in the Nutrition section. If a user asks about logging meals with photos, direct them to the Nutrition tab where they can tap the camera icon on any meal to take a photo and have AI estimate the nutritional content.
+For meal photo logging, direct users to the Nutrition tab camera icon.
 
-When a user asks you to make a change or logs data, USE THE APPROPRIATE TOOL rather than just suggesting they do it manually. For modifications, first use get_workout_details to see what exercises are in the workout, then make the modifications.
-
-For dates, use ${today} as today. When a user says "tomorrow", use the next day's date in YYYY-MM-DD format.`
+DATE HANDLING:
+Today is ${today}. When user says "today" use ${today}. For "tomorrow", use the next day in YYYY-MM-DD format.`
 
     // 6. Build messages array for Claude
     const messages: Anthropic.MessageParam[] = [
