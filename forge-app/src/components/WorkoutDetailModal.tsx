@@ -21,8 +21,20 @@ import {
 } from 'lucide-react'
 import { Workout } from '@/types/database'
 
+// Extended workout type that includes exercises from suggested_workouts
+type WorkoutWithExercises = Workout & {
+  exercises?: {
+    exercise_name: string
+    sets: number
+    reps_min: number
+    reps_max: number
+    rest_seconds?: number
+    notes?: string
+  }[]
+}
+
 interface WorkoutDetailModalProps {
-  workout: Workout
+  workout: WorkoutWithExercises
   onClose: () => void
   onUpdate: () => void
 }
@@ -639,6 +651,36 @@ export function WorkoutDetailModal({ workout, onClose, onUpdate }: WorkoutDetail
               </div>
             </div>
           </div>
+
+          {/* Exercises (for strength workouts from suggested_workouts) */}
+          {workout.exercises && workout.exercises.length > 0 && (
+            <div className="glass rounded-xl p-4">
+              <p className="text-xs text-white/40 mb-3">Exercises</p>
+              <div className="space-y-2">
+                {workout.exercises.map((ex, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between py-2 px-3 bg-white/5 rounded-lg"
+                  >
+                    <div>
+                      <span className="text-sm font-medium">{ex.exercise_name}</span>
+                      {ex.notes && (
+                        <p className="text-xs text-white/40 mt-0.5">{ex.notes}</p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <span className="text-sm text-white/70">
+                        {ex.sets} × {ex.reps_min === ex.reps_max ? ex.reps_min : `${ex.reps_min}-${ex.reps_max}`}
+                      </span>
+                      {ex.rest_seconds && (
+                        <p className="text-xs text-white/40">{ex.rest_seconds}s rest</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Notes */}
           {workout.notes && (
