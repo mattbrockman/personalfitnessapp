@@ -454,6 +454,10 @@ function CreateExerciseModal({
           </>
         ) : (
           <>
+            <p className="text-xs text-amber-400/80 text-center mb-4">
+              ✓ AI Generated — Edit any field below
+            </p>
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm text-white/60 mb-1">Name</label>
@@ -461,7 +465,7 @@ function CreateExerciseModal({
                   type="text"
                   value={generatedExercise.name || ''}
                   onChange={(e) => setGeneratedExercise({ ...generatedExercise, name: e.target.value })}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white"
+                  className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white focus:border-amber-500 focus:outline-none"
                 />
               </div>
 
@@ -471,7 +475,7 @@ function CreateExerciseModal({
                   type="text"
                   value={generatedExercise.primary_muscle || ''}
                   onChange={(e) => setGeneratedExercise({ ...generatedExercise, primary_muscle: e.target.value })}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white"
+                  className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white focus:border-amber-500 focus:outline-none"
                 />
               </div>
 
@@ -480,7 +484,7 @@ function CreateExerciseModal({
                 <select
                   value={generatedExercise.equipment || ''}
                   onChange={(e) => setGeneratedExercise({ ...generatedExercise, equipment: e.target.value })}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white"
+                  className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white focus:border-amber-500 focus:outline-none"
                 >
                   {EQUIPMENT_OPTIONS.map(opt => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -490,22 +494,27 @@ function CreateExerciseModal({
 
               {generatedExercise.cues && generatedExercise.cues.length > 0 && (
                 <div>
-                  <label className="block text-sm text-white/60 mb-1">Coaching Cues</label>
-                  <ul className="space-y-1 text-sm text-white/70">
+                  <label className="block text-sm text-white/60 mb-1">Coaching Cues (click to edit)</label>
+                  <div className="space-y-2">
                     {generatedExercise.cues.map((cue, i) => (
-                      <li key={i} className="flex items-start gap-2">
-                        <span className="text-amber-400">•</span>
-                        {cue}
-                      </li>
+                      <div key={i} className="flex items-start gap-2">
+                        <span className="text-amber-400 mt-2">•</span>
+                        <input
+                          type="text"
+                          value={cue}
+                          onChange={(e) => {
+                            const newCues = [...(generatedExercise.cues || [])]
+                            newCues[i] = e.target.value
+                            setGeneratedExercise({ ...generatedExercise, cues: newCues })
+                          }}
+                          className="flex-1 bg-white/10 border border-white/20 rounded-lg px-3 py-1.5 text-sm text-white focus:border-amber-500 focus:outline-none"
+                        />
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 </div>
               )}
             </div>
-
-            <p className="text-xs text-white/40 text-center mt-4 mb-3">
-              Edit the fields above if needed, then save
-            </p>
 
             <button
               onClick={saveExercise}
@@ -671,10 +680,12 @@ function BuilderExerciseCard({
   exercise,
   onUpdate,
   onRemove,
+  onShowDetails,
 }: {
   exercise: BuilderExercise
   onUpdate: (updates: Partial<BuilderExercise>) => void
   onRemove: () => void
+  onShowDetails: () => void
 }) {
   return (
     <div className="glass rounded-xl p-4">
@@ -683,12 +694,21 @@ function BuilderExerciseCard({
           <GripVertical size={18} />
         </button>
 
-        <div className="w-10 h-10 rounded-lg bg-violet-500/20 flex items-center justify-center flex-shrink-0">
-          <Dumbbell size={18} className="text-violet-400" />
-        </div>
+        <button
+          onClick={onShowDetails}
+          className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0 hover:bg-white/15 transition-colors"
+          title="View exercise details"
+        >
+          <EquipmentIcon equipment={exercise.exercise.equipment} size={18} />
+        </button>
 
         <div className="flex-1 min-w-0">
-          <h4 className="font-medium">{exercise.exercise.name}</h4>
+          <button
+            onClick={onShowDetails}
+            className="font-medium hover:text-amber-400 transition-colors text-left"
+          >
+            {exercise.exercise.name}
+          </button>
           <p className="text-sm text-white/50 capitalize">
             {exercise.exercise.primary_muscle?.replace('_', ' ')} • {exercise.exercise.equipment}
           </p>
@@ -772,6 +792,7 @@ export function WorkoutBuilder({
   const [showExerciseSearch, setShowExerciseSearch] = useState(false)
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [showSaveTemplate, setShowSaveTemplate] = useState(false)
+  const [detailExercise, setDetailExercise] = useState<Exercise | null>(null)
 
   const addExercise = (exercise: Exercise) => {
     const newExercise: BuilderExercise = {
@@ -865,6 +886,7 @@ export function WorkoutBuilder({
             exercise={exercise}
             onUpdate={(updates) => updateExercise(exercise.id, updates)}
             onRemove={() => removeExercise(exercise.id)}
+            onShowDetails={() => setDetailExercise(exercise.exercise)}
           />
         ))}
 
@@ -942,6 +964,60 @@ export function WorkoutBuilder({
           onSave={handleSaveTemplate}
           onClose={() => setShowSaveTemplate(false)}
         />
+      )}
+
+      {/* Exercise Detail Modal (for viewing exercise in workout) */}
+      {detailExercise && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80" onClick={() => setDetailExercise(null)}>
+          <div
+            className="bg-zinc-900 rounded-2xl w-full max-w-md p-6 border border-white/10 animate-slide-up"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center">
+                  <EquipmentIcon equipment={detailExercise.equipment} size={24} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold">{detailExercise.name}</h3>
+                  <p className="text-sm text-white/50 capitalize">
+                    {detailExercise.primary_muscle?.replace('_', ' ')} • {detailExercise.equipment}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setDetailExercise(null)}
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <X size={20} className="text-white/60" />
+              </button>
+            </div>
+
+            {/* Cues */}
+            {detailExercise.cues && detailExercise.cues.length > 0 && (
+              <div className="mb-4">
+                <h4 className="text-sm font-medium text-white/70 mb-2">Coaching Cues</h4>
+                <ul className="space-y-1">
+                  {detailExercise.cues.map((cue, i) => (
+                    <li key={i} className="text-sm text-white/60 flex items-start gap-2">
+                      <span className="text-amber-400 mt-0.5">•</span>
+                      {cue}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Close button */}
+            <button
+              onClick={() => setDetailExercise(null)}
+              className="w-full py-3 bg-white/10 text-white font-medium rounded-xl hover:bg-white/20 transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
       )}
     </div>
   )

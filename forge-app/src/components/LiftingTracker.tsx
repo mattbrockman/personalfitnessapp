@@ -647,7 +647,10 @@ function CreateExerciseModal({
           </>
         ) : (
           <>
-            {/* Generated Exercise Preview */}
+            <p className="text-xs text-amber-400/80 text-center mb-4">
+              ✓ AI Generated — Edit any field below
+            </p>
+
             <div className="space-y-4">
               {/* Name */}
               <div>
@@ -656,7 +659,7 @@ function CreateExerciseModal({
                   type="text"
                   value={generatedExercise.name || ''}
                   onChange={(e) => setGeneratedExercise({ ...generatedExercise, name: e.target.value })}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white"
+                  className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white focus:border-amber-500 focus:outline-none"
                 />
               </div>
 
@@ -667,7 +670,7 @@ function CreateExerciseModal({
                   type="text"
                   value={generatedExercise.primary_muscle || ''}
                   onChange={(e) => setGeneratedExercise({ ...generatedExercise, primary_muscle: e.target.value })}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white"
+                  className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white focus:border-amber-500 focus:outline-none"
                 />
               </div>
 
@@ -677,7 +680,7 @@ function CreateExerciseModal({
                 <select
                   value={generatedExercise.equipment || ''}
                   onChange={(e) => setGeneratedExercise({ ...generatedExercise, equipment: e.target.value })}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white"
+                  className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white focus:border-amber-500 focus:outline-none"
                 >
                   {EQUIPMENT_OPTIONS.map(opt => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -685,31 +688,35 @@ function CreateExerciseModal({
                 </select>
               </div>
 
-              {/* Cues */}
+              {/* Cues - editable */}
               {generatedExercise.cues && generatedExercise.cues.length > 0 && (
                 <div>
-                  <label className="block text-sm text-white/60 mb-1">Coaching Cues</label>
-                  <ul className="space-y-1 text-sm text-white/70">
+                  <label className="block text-sm text-white/60 mb-1">Coaching Cues (click to edit)</label>
+                  <div className="space-y-2">
                     {generatedExercise.cues.map((cue, i) => (
-                      <li key={i} className="flex items-start gap-2">
-                        <span className="text-amber-400">•</span>
-                        {cue}
-                      </li>
+                      <div key={i} className="flex items-start gap-2">
+                        <span className="text-amber-400 mt-2">•</span>
+                        <input
+                          type="text"
+                          value={cue}
+                          onChange={(e) => {
+                            const newCues = [...(generatedExercise.cues || [])]
+                            newCues[i] = e.target.value
+                            setGeneratedExercise({ ...generatedExercise, cues: newCues })
+                          }}
+                          className="flex-1 bg-white/10 border border-white/20 rounded-lg px-3 py-1.5 text-sm text-white focus:border-amber-500 focus:outline-none"
+                        />
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 </div>
               )}
             </div>
 
-            {/* Actions */}
-            <p className="text-xs text-white/40 text-center mt-4 mb-3">
-              Edit the fields above if needed, then save
-            </p>
-
             <button
               onClick={saveExercise}
               disabled={saving}
-              className="w-full py-3 bg-amber-500 text-black font-semibold rounded-xl hover:bg-amber-400 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full mt-6 py-3 bg-amber-500 text-black font-semibold rounded-xl hover:bg-amber-400 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {saving ? (
                 <>
