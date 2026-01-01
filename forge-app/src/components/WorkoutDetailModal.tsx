@@ -64,6 +64,11 @@ const feelingOptions = [
 ]
 
 export function WorkoutDetailModal({ workout, onClose, onUpdate }: WorkoutDetailModalProps) {
+  // Debug: log workout data to see if exercises are present
+  console.log('[WorkoutDetailModal] workout:', workout)
+  console.log('[WorkoutDetailModal] exercises:', workout.exercises)
+  console.log('[WorkoutDetailModal] source:', (workout as any).source)
+
   const router = useRouter()
   const [isEditing, setIsEditing] = useState(false)
   const [showFullCompletion, setShowFullCompletion] = useState(false)
