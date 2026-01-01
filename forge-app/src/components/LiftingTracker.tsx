@@ -1554,7 +1554,7 @@ export function LiftingTracker({
       </div>
 
       {/* Exercises */}
-      <div className="p-4 lg:p-6 space-y-4">
+      <div className="p-4 lg:p-6 pb-32 lg:pb-24 space-y-4">
         {exercises.map((ex, i) => (
           <ExerciseCard
             key={ex.id}
@@ -1587,8 +1587,8 @@ export function LiftingTracker({
         )}
       </div>
 
-      {/* Bottom action bar */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-zinc-900/95 backdrop-blur border-t border-white/10">
+      {/* Bottom action bar - above the bottom navigation */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 pb-20 lg:pb-4 bg-zinc-900/95 backdrop-blur border-t border-white/10 z-50">
         <div className="max-w-2xl mx-auto flex items-center gap-3">
           <button
             onClick={handleCancel}
