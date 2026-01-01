@@ -83,8 +83,11 @@ export default function JunctionConnect({
 
       const { link_token } = await response.json()
 
-      // Open Junction Link in new window
-      const linkUrl = `https://link.tryvital.io/?token=${link_token}`
+      // Open Junction Link in new window (use sandbox link for sandbox environment)
+      const isSandbox = process.env.NEXT_PUBLIC_JUNCTION_ENVIRONMENT === 'sandbox' || true // Default to sandbox
+      const linkUrl = isSandbox
+        ? `https://link.tryvital.io/?token=${link_token}&env=sandbox`
+        : `https://link.tryvital.io/?token=${link_token}`
       const popup = window.open(linkUrl, 'junction_link', 'width=500,height=700')
 
       // Poll for popup close and refresh providers
