@@ -46,6 +46,9 @@ import { Workout } from '@/types/database'
 import { CreateWorkoutModal } from './CreateWorkoutModal'
 import { WorkoutDetailModal } from './WorkoutDetailModal'
 import { WeeklySummaryBar } from './WeeklySummaryBar'
+import { WeatherBadge } from './WeatherBadge'
+import { WeatherDetailModal } from './WeatherDetailModal'
+import { WeatherDay } from '@/lib/weather'
 import { PhaseType, PHASE_COLORS, PHASE_LABELS, EventType, EVENT_TYPE_ICONS } from '@/types/training-plan'
 
 interface PlanData {
@@ -166,6 +169,21 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
   const [viewMode, setViewMode] = useState<ViewMode>('month')
   const [planData, setPlanData] = useState<PlanData | null>(null)
   const [planLoading, setPlanLoading] = useState(true)
+  const [weatherForecast, setWeatherForecast] = useState<WeatherDay[]>([])
+  const [selectedWeather, setSelectedWeather] = useState<WeatherDay | null>(null)
+
+  // Fetch weather forecast
+  const fetchWeather = useCallback(async () => {
+    try {
+      const response = await fetch('/api/weather')
+      if (response.ok) {
+        const data = await response.json()
+        setWeatherForecast(data.forecast || [])
+      }
+    } catch (error) {
+      console.error('Failed to fetch weather:', error)
+    }
+  }, [])
 
   // Fetch current week's plan data
   const fetchPlanData = useCallback(async () => {
@@ -184,6 +202,7 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
 
   useEffect(() => {
     fetchPlanData()
+    fetchWeather()
   }, [])
 
   // Generate calendar days based on view mode
@@ -229,6 +248,12 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
     }
     return acc
   }, {} as Record<string, Workout[]>)
+
+  // Create weather lookup map by date
+  const weatherByDate = weatherForecast.reduce((acc, weather) => {
+    acc[weather.date] = weather
+    return acc
+  }, {} as Record<string, WeatherDay>)
 
   const handleSync = async () => {
     setIsSyncing(true)
@@ -423,6 +448,8 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
             const dayWorkouts = workoutsByDate[dateKey] || []
             const isCurrentMonth = isSameMonth(day, currentDate)
             const isCurrentDay = isToday(day)
+            const dayWeather = weatherByDate[dateKey]
+            const showWeather = dayWeather && (isToday(day) || day > new Date())
 
             // In week view, show all workouts; in month view, limit to 3
             const maxWorkoutsToShow = viewMode === 'week' ? 10 : 3
@@ -434,7 +461,7 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
                   !isCurrentMonth && viewMode === 'month' ? 'bg-white/[0.01]' : ''
                 }`}
               >
-                {/* Day number and event marker */}
+                {/* Day number, weather, and event marker */}
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-1">
                     <span className={`text-sm font-medium w-7 h-7 flex items-center justify-center rounded-full ${
@@ -457,12 +484,22 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
                       </span>
                     ))}
                   </div>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); openCreateModal(day); }}
-                    className="p-1 hover:bg-white/10 rounded opacity-0 hover:opacity-100 transition-opacity"
-                  >
-                    <Plus size={14} className="text-white/40" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    {/* Weather badge */}
+                    {showWeather && dayWeather && (
+                      <WeatherBadge
+                        weather={dayWeather}
+                        onClick={() => setSelectedWeather(dayWeather)}
+                        size="sm"
+                      />
+                    )}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); openCreateModal(day); }}
+                      className="p-1 hover:bg-white/10 rounded opacity-0 hover:opacity-100 transition-opacity"
+                    >
+                      <Plus size={14} className="text-white/40" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Workouts */}
@@ -546,6 +583,14 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
           selectedDate={createModalDate}
           onClose={() => setShowCreateModal(false)}
           onCreated={handleWorkoutCreated}
+        />
+      )}
+
+      {/* Weather detail modal */}
+      {selectedWeather && (
+        <WeatherDetailModal
+          weather={selectedWeather}
+          onClose={() => setSelectedWeather(null)}
         />
       )}
 

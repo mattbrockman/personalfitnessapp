@@ -10,6 +10,7 @@ import {
   AIGeneratePlanResponseWithWorkouts,
 } from '@/types/training-plan'
 import { addDays, format, startOfWeek } from 'date-fns'
+import { getWeatherForecast, getWeatherSummaryForAI } from '@/lib/weather'
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -73,6 +74,27 @@ export async function POST(request: NextRequest) {
       secondaryProtocol = protocol
     }
 
+    // Fetch weather forecast if user has location set
+    let weatherSummary = ''
+    try {
+      const { data: profile } = await (adminClient as any)
+        .from('profiles')
+        .select('weather_lat, weather_lon')
+        .eq('id', session.user.id)
+        .single()
+
+      if (profile?.weather_lat && profile?.weather_lon) {
+        const forecast = await getWeatherForecast(
+          profile.weather_lat,
+          profile.weather_lon,
+          14 // 14 days forecast
+        )
+        weatherSummary = getWeatherSummaryForAI(forecast)
+      }
+    } catch (weatherError) {
+      console.log('Weather fetch failed, continuing without weather context:', weatherError)
+    }
+
     // Group exercises by muscle group for the prompt
     const exercisesByMuscle: Record<string, string[]> = {}
     for (const ex of (exercises || []) as any[]) {
@@ -119,6 +141,14 @@ PHASE CHARACTERISTICS:
 - taper: Reduced volume (40-60% hours), maintain intensity
 - recovery: Low everything (50-70% hours), active recovery
 - transition: Between goals, maintain fitness
+
+WEATHER-AWARE SCHEDULING:
+When weather forecast is provided:
+1. Avoid scheduling outdoor workouts (cycling, running) on days marked [POOR CONDITIONS]
+2. Prefer indoor alternatives (trainer rides, treadmill runs, strength training) on bad weather days
+3. Move long outdoor sessions to days with better weather when possible
+4. Consider temperature extremes - avoid outdoor workouts when temp > 95°F or < 32°F
+5. High rain probability (>60%) suggests indoor workout alternatives
 
 WORKOUT GENERATION RULES:
 1. Generate SPECIFIC workouts for each training day in the first 4 weeks
@@ -186,6 +216,11 @@ ${secondaryProtocol ? `
 SECONDARY ADAPTATION: ${body.secondary_adaptation}
 Protocol: ${secondaryProtocol.rep_min}-${secondaryProtocol.rep_max} reps, ${secondaryProtocol.sets_min}-${secondaryProtocol.sets_max} sets
 Incorporate some exercises following this secondary protocol, especially for accessory work.
+` : ''}
+${weatherSummary ? `
+${weatherSummary}
+
+IMPORTANT: Use this weather data when scheduling outdoor workouts in the first 2 weeks. Schedule outdoor rides and runs on days with good weather, and prefer indoor alternatives on bad weather days.
 ` : ''}
 ${body.custom_prompt ? `ADDITIONAL INSTRUCTIONS:\n${body.custom_prompt}` : ''}
 
