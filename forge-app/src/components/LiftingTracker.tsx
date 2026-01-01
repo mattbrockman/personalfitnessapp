@@ -339,41 +339,55 @@ function ExerciseSearchModal({
                 </div>
               )}
               {exercises.length > 0 ? (
-                exercises.map(exercise => (
-                  <div
-                    key={exercise.id}
-                    className="w-full px-4 py-3 flex items-center gap-3 hover:bg-white/5 transition-colors"
-                  >
-                    {/* Icon - clickable to view details */}
-                    <button
-                      onClick={() => setDetailExercise(exercise)}
-                      className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center hover:bg-white/15 transition-colors"
-                      title="View details"
+                <>
+                  {exercises.map(exercise => (
+                    <div
+                      key={exercise.id}
+                      className="w-full px-4 py-3 flex items-center gap-3 hover:bg-white/5 transition-colors"
                     >
-                      <EquipmentIcon equipment={exercise.equipment} size={18} />
-                    </button>
+                      {/* Icon - clickable to view details */}
+                      <button
+                        onClick={() => setDetailExercise(exercise)}
+                        className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center hover:bg-white/15 transition-colors"
+                        title="View details"
+                      >
+                        <EquipmentIcon equipment={exercise.equipment} size={18} />
+                      </button>
 
-                    {/* Name/info - clickable to view details */}
-                    <button
-                      onClick={() => setDetailExercise(exercise)}
-                      className="flex-1 min-w-0 text-left hover:text-amber-400 transition-colors"
-                    >
-                      <p className="font-medium">{exercise.name}</p>
-                      <p className="text-sm text-white/50 capitalize">{exercise.primary_muscle?.replace('_', ' ')} • {exercise.equipment}</p>
-                    </button>
+                      {/* Name/info - clickable to view details */}
+                      <button
+                        onClick={() => setDetailExercise(exercise)}
+                        className="flex-1 min-w-0 text-left hover:text-amber-400 transition-colors"
+                      >
+                        <p className="font-medium">{exercise.name}</p>
+                        <p className="text-sm text-white/50 capitalize">{exercise.primary_muscle?.replace('_', ' ')} • {exercise.equipment}</p>
+                      </button>
 
-                    {/* Add button - adds exercise to workout */}
-                    <button
-                      onClick={() => {
-                        onSelect(exercise)
-                        onClose()
-                      }}
-                      className="px-3 py-1.5 bg-amber-500/20 text-amber-400 rounded-lg hover:bg-amber-500/30 transition-colors text-sm font-medium shrink-0"
-                    >
-                      Add
-                    </button>
-                  </div>
-                ))
+                      {/* Add button - adds exercise to workout */}
+                      <button
+                        onClick={() => {
+                          onSelect(exercise)
+                          onClose()
+                        }}
+                        className="px-3 py-1.5 bg-amber-500/20 text-amber-400 rounded-lg hover:bg-amber-500/30 transition-colors text-sm font-medium shrink-0"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  ))}
+                  {/* Always show create option when searching */}
+                  {debouncedSearch && (
+                    <div className="px-4 py-3 border-t border-white/10">
+                      <button
+                        onClick={() => setShowCreateExercise(true)}
+                        className="w-full py-2 text-sm text-white/50 hover:text-amber-400 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Plus size={16} />
+                        Don't see it? Create "{debouncedSearch}"
+                      </button>
+                    </div>
+                  )}
+                </>
               ) : (
                 <div className="p-8 text-center">
                   <p className="text-white/40 mb-4">No exercises found for "{debouncedSearch}"</p>
