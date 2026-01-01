@@ -13,11 +13,23 @@ export async function GET() {
     }
 
     // Get Junction user ID from profile
-    const { data: profile } = await (supabase as any)
+    const { data: profile, error: profileError } = await (supabase as any)
       .from('profiles')
       .select('junction_user_id')
       .eq('id', user.id)
       .single()
+
+    if (profileError) {
+      console.error('Error fetching profile:', profileError)
+      // Column might not exist - check for that specific error
+      if (profileError.message?.includes('junction_user_id')) {
+        return NextResponse.json({
+          error: 'Database migration required - junction_user_id column missing',
+          providers: []
+        }, { status: 500 })
+      }
+      return NextResponse.json({ error: 'Failed to fetch profile' }, { status: 500 })
+    }
 
     if (!profile?.junction_user_id) {
       return NextResponse.json({ providers: [] })
@@ -26,7 +38,7 @@ export async function GET() {
     // Get connected providers from Junction
     const providers = await getConnectedProviders(profile.junction_user_id)
 
-    // Update local cache of connected providers
+    // Update local cache of connected providers (ignore errors)
     const providerSlugs = providers.map(p => p.slug)
     await (supabase as any)
       .from('profiles')
@@ -34,8 +46,11 @@ export async function GET() {
       .eq('id', user.id)
 
     return NextResponse.json({ providers })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error getting connected providers:', error)
-    return NextResponse.json({ error: 'Failed to get providers' }, { status: 500 })
+    return NextResponse.json({
+      error: 'Failed to get providers',
+      details: error?.message || 'Unknown error'
+    }, { status: 500 })
   }
 }

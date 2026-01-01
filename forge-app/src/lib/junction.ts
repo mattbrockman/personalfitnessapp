@@ -58,10 +58,14 @@ async function junctionFetch<T>(
 ): Promise<T> {
   const apiKey = process.env.JUNCTION_API_KEY
   if (!apiKey) {
+    console.error('JUNCTION_API_KEY not found in environment')
     throw new Error('JUNCTION_API_KEY environment variable is not set')
   }
 
-  const response = await fetch(`${JUNCTION_API_BASE}${endpoint}`, {
+  const url = `${JUNCTION_API_BASE}${endpoint}`
+  console.log(`Junction API request: ${options?.method || 'GET'} ${url}`)
+
+  const response = await fetch(url, {
     ...options,
     headers: {
       'Accept': 'application/json',
@@ -73,7 +77,7 @@ async function junctionFetch<T>(
 
   if (!response.ok) {
     const error = await response.text()
-    console.error('Junction API error:', response.status, error)
+    console.error('Junction API error:', response.status, error, 'URL:', url)
     throw new Error(`Junction API error: ${response.status} - ${error}`)
   }
 
