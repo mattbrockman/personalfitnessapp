@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   DndContext,
   DragEndEvent,
@@ -28,7 +28,10 @@ import {
 } from '@/types/training-plan'
 import { SuggestedWorkoutCard } from './SuggestedWorkoutCard'
 import { DraggableWorkoutCard, DroppableDayColumn } from './DragDropComponents'
-import { addDays, startOfWeek, format, isSameDay, parseISO, addWeeks, subWeeks } from 'date-fns'
+import { WeatherBadge } from '../WeatherBadge'
+import { WeatherDetailModal } from '../WeatherDetailModal'
+import { WeatherDay } from '@/lib/weather'
+import { addDays, startOfWeek, format, isSameDay, parseISO, addWeeks, subWeeks, isAfter } from 'date-fns'
 
 interface WeeklyWorkoutViewProps {
   planId: string
@@ -65,6 +68,28 @@ export function WeeklyWorkoutView({
 }: WeeklyWorkoutViewProps) {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
+  const [weatherForecast, setWeatherForecast] = useState<WeatherDay[]>([])
+  const [selectedWeather, setSelectedWeather] = useState<WeatherDay | null>(null)
+
+  // Fetch weather forecast
+  useEffect(() => {
+    fetch('/api/weather')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.forecast) {
+          setWeatherForecast(data.forecast)
+        }
+      })
+      .catch(err => console.error('Failed to fetch weather:', err))
+  }, [])
+
+  // Create weather lookup map by date
+  const weatherByDate = useMemo(() => {
+    return weatherForecast.reduce((acc, weather) => {
+      acc[weather.date] = weather
+      return acc
+    }, {} as Record<string, WeatherDay>)
+  }, [weatherForecast])
 
   // Configure sensors for drag
   const sensors = useSensors(
@@ -268,8 +293,12 @@ export function WeeklyWorkoutView({
             {DAYS_OF_WEEK.map((day, idx) => {
               const dayDate = addDays(currentWeekStart, idx)
               const isToday = isSameDay(dayDate, new Date())
+              const isFuture = isAfter(dayDate, new Date())
               const dayWorkouts = weekWorkouts[day.toLowerCase()] || []
               const hasWorkouts = dayWorkouts.length > 0
+              const dateKey = format(dayDate, 'yyyy-MM-dd')
+              const dayWeather = weatherByDate[dateKey]
+              const showWeather = dayWeather && (isToday || isFuture)
 
               return (
                 <DroppableDayColumn
@@ -286,11 +315,20 @@ export function WeeklyWorkoutView({
                   >
                     {/* Day header */}
                     <div className={`px-3 py-2 flex items-center justify-between ${isToday ? 'bg-amber-500/10' : 'bg-white/5'}`}>
-                      <div>
-                        <p className="text-xs text-white/50">{day.slice(0, 3)}</p>
-                        <p className={`font-semibold ${isToday ? 'text-amber-400' : ''}`}>
-                          {format(dayDate, 'd')}
-                        </p>
+                      <div className="flex items-center gap-2">
+                        <div>
+                          <p className="text-xs text-white/50">{day.slice(0, 3)}</p>
+                          <p className={`font-semibold ${isToday ? 'text-amber-400' : ''}`}>
+                            {format(dayDate, 'd')}
+                          </p>
+                        </div>
+                        {showWeather && (
+                          <WeatherBadge
+                            weather={dayWeather}
+                            onClick={() => setSelectedWeather(dayWeather)}
+                            size="sm"
+                          />
+                        )}
                       </div>
                       {onAddWorkout && (
                         <button
@@ -387,6 +425,14 @@ export function WeeklyWorkoutView({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Weather Detail Modal */}
+      {selectedWeather && (
+        <WeatherDetailModal
+          weather={selectedWeather}
+          onClose={() => setSelectedWeather(null)}
+        />
       )}
     </div>
   )

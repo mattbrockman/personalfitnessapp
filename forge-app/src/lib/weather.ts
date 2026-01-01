@@ -4,6 +4,8 @@ const OPEN_METEO_FORECAST_URL = 'https://api.open-meteo.com/v1/forecast'
 const OPEN_METEO_GEOCODING_URL = 'https://geocoding-api.open-meteo.com/v1/search'
 const US_ZIP_GEOCODING_URL = 'https://api.zippopotam.us/us'
 
+export type PrecipType = 'rain' | 'snow' | 'mix' | 'none'
+
 export interface WeatherDay {
   date: string // YYYY-MM-DD
   weatherCode: number
@@ -14,10 +16,12 @@ export interface WeatherDay {
   precipProbability: number // 0-100
   humidity: number // 0-100
   windSpeed: number // mph
+  windGusts: number // mph
   hourly: {
     time: string[] // HH:MM format
     temperature: number[] // Fahrenheit
     precipProbability: number[] // 0-100
+    precipType: PrecipType[] // rain, snow, mix, or none
   }
 }
 
@@ -75,6 +79,16 @@ function celsiusToFahrenheit(celsius: number): number {
 // Convert km/h to mph
 function kmhToMph(kmh: number): number {
   return Math.round(kmh * 0.621371)
+}
+
+// Determine precipitation type from hourly rain/snow amounts
+function getPrecipType(rainMm: number, snowCm: number): PrecipType {
+  const hasRain = rainMm > 0
+  const hasSnow = snowCm > 0
+  if (hasRain && hasSnow) return 'mix'
+  if (hasSnow) return 'snow'
+  if (hasRain) return 'rain'
+  return 'none'
 }
 
 /**
@@ -139,8 +153,8 @@ export async function getWeatherForecast(
   const params = new URLSearchParams({
     latitude: lat.toString(),
     longitude: lon.toString(),
-    daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,relative_humidity_2m_max,wind_speed_10m_max',
-    hourly: 'temperature_2m,precipitation_probability',
+    daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,relative_humidity_2m_max,wind_speed_10m_max,wind_gusts_10m_max',
+    hourly: 'temperature_2m,precipitation_probability,rain,snowfall',
     temperature_unit: 'celsius', // We'll convert to Fahrenheit
     wind_speed_unit: 'kmh',
     precipitation_unit: 'mm',
@@ -170,10 +184,17 @@ export async function getWeatherForecast(
     const dayStartIndex = i * 24
     const hourlyTemps = data.hourly.temperature_2m.slice(dayStartIndex, dayStartIndex + 24)
     const hourlyPrecip = data.hourly.precipitation_probability.slice(dayStartIndex, dayStartIndex + 24)
+    const hourlyRain = data.hourly.rain.slice(dayStartIndex, dayStartIndex + 24)
+    const hourlySnow = data.hourly.snowfall.slice(dayStartIndex, dayStartIndex + 24)
     const hourlyTimes = data.hourly.time.slice(dayStartIndex, dayStartIndex + 24).map((t: string) => {
       const date = new Date(t)
       return date.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true })
     })
+
+    // Determine precip type for each hour
+    const hourlyPrecipType: PrecipType[] = hourlyRain.map((rain: number, idx: number) =>
+      getPrecipType(rain, hourlySnow[idx])
+    )
 
     forecast.push({
       date,
@@ -185,10 +206,12 @@ export async function getWeatherForecast(
       precipProbability: data.daily.precipitation_probability_max[i] || 0,
       humidity: data.daily.relative_humidity_2m_max[i] || 0,
       windSpeed: kmhToMph(data.daily.wind_speed_10m_max[i] || 0),
+      windGusts: kmhToMph(data.daily.wind_gusts_10m_max[i] || 0),
       hourly: {
         time: hourlyTimes,
         temperature: hourlyTemps.map((t: number) => celsiusToFahrenheit(t)),
         precipProbability: hourlyPrecip,
+        precipType: hourlyPrecipType,
       },
     })
   }

@@ -2,16 +2,17 @@
 
 import { useMemo } from 'react'
 import {
-  LineChart,
+  ComposedChart,
   Line,
-  BarChart,
   Bar,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  Cell,
 } from 'recharts'
+import { PrecipType } from '@/lib/weather'
 import {
   X,
   Sun,
@@ -70,6 +71,7 @@ export function WeatherDetailModal({ weather, onClose }: WeatherDetailModalProps
       time,
       temp: weather.hourly.temperature[i],
       precip: weather.hourly.precipProbability[i],
+      precipType: weather.hourly.precipType?.[i] || 'none',
     }))
   }, [weather.hourly])
 
@@ -77,6 +79,16 @@ export function WeatherDetailModal({ weather, onClose }: WeatherDetailModalProps
   const chartData = useMemo(() => {
     return hourlyData.filter((_, i) => i % 3 === 0)
   }, [hourlyData])
+
+  // Get color for precipitation type
+  const getPrecipColor = (type: PrecipType): string => {
+    switch (type) {
+      case 'rain': return '#0ea5e9'    // sky-500 (blue)
+      case 'mix': return '#a855f7'     // purple-500
+      case 'snow': return '#e5e7eb'    // gray-200 (white)
+      default: return '#0ea5e9'
+    }
+  }
 
   const formattedDate = format(parseISO(weather.date), 'EEEE, MMMM d')
 
@@ -119,17 +131,33 @@ export function WeatherDetailModal({ weather, onClose }: WeatherDetailModalProps
           </div>
           <div className="text-center">
             <Wind size={18} className="mx-auto text-white/60 mb-1" />
-            <p className="text-lg font-semibold">{weather.windSpeed}</p>
-            <p className="text-xs text-white/40">mph</p>
+            <p className="text-lg font-semibold">{weather.windSpeed}<span className="text-white/40">/</span>{weather.windGusts}</p>
+            <p className="text-xs text-white/40">mph / gusts</p>
           </div>
         </div>
 
-        {/* Temperature Chart */}
-        <div className="p-4 border-b border-white/10">
-          <h4 className="text-sm font-medium text-white/60 mb-3">Temperature</h4>
-          <div className="h-32">
+        {/* Combined Temperature & Precipitation Chart */}
+        <div className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-sm font-medium text-white/60">Hourly Forecast</h4>
+            <div className="flex items-center gap-4 text-xs text-white/40">
+              <span className="flex items-center gap-1">
+                <span className="w-3 h-0.5 bg-amber-500 rounded"></span> Temp
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 bg-sky-500 rounded-sm"></span> Rain
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 bg-purple-500 rounded-sm"></span> Mix
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 bg-gray-200 rounded-sm"></span> Snow
+              </span>
+            </div>
+          </div>
+          <div className="h-48">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData}>
+              <ComposedChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
                 <XAxis
                   dataKey="time"
@@ -137,49 +165,20 @@ export function WeatherDetailModal({ weather, onClose }: WeatherDetailModalProps
                   axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
                   tickLine={false}
                 />
+                {/* Left Y-axis for Temperature */}
                 <YAxis
+                  yAxisId="temp"
+                  orientation="left"
                   tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }}
                   axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
                   tickLine={false}
                   tickFormatter={(v) => `${v}°`}
                   domain={['dataMin - 5', 'dataMax + 5']}
                 />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#27272a',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: '8px',
-                  }}
-                  labelStyle={{ color: 'rgba(255,255,255,0.5)' }}
-                  formatter={(value: number) => [`${value}°F`, 'Temp']}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="temp"
-                  stroke="#f59e0b"
-                  strokeWidth={2}
-                  dot={{ fill: '#f59e0b', strokeWidth: 0, r: 3 }}
-                  activeDot={{ fill: '#f59e0b', strokeWidth: 0, r: 5 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Precipitation Chart */}
-        <div className="p-4">
-          <h4 className="text-sm font-medium text-white/60 mb-3">Chance of Rain</h4>
-          <div className="h-32">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                <XAxis
-                  dataKey="time"
-                  tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }}
-                  axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
-                  tickLine={false}
-                />
+                {/* Right Y-axis for Precipitation */}
                 <YAxis
+                  yAxisId="precip"
+                  orientation="right"
                   tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 10 }}
                   axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
                   tickLine={false}
@@ -193,14 +192,34 @@ export function WeatherDetailModal({ weather, onClose }: WeatherDetailModalProps
                     borderRadius: '8px',
                   }}
                   labelStyle={{ color: 'rgba(255,255,255,0.5)' }}
-                  formatter={(value: number) => [`${value}%`, 'Rain']}
+                  formatter={(value: number, name: string) => {
+                    if (name === 'temp') return [`${value}°F`, 'Temperature']
+                    if (name === 'precip') return [`${value}%`, 'Precipitation']
+                    return [value, name]
+                  }}
                 />
+                {/* Precipitation Bars (behind) */}
                 <Bar
+                  yAxisId="precip"
                   dataKey="precip"
-                  fill="#0ea5e9"
                   radius={[4, 4, 0, 0]}
+                  opacity={0.8}
+                >
+                  {chartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={getPrecipColor(entry.precipType as PrecipType)} />
+                  ))}
+                </Bar>
+                {/* Temperature Line (in front) */}
+                <Line
+                  yAxisId="temp"
+                  type="monotone"
+                  dataKey="temp"
+                  stroke="#f59e0b"
+                  strokeWidth={2}
+                  dot={{ fill: '#f59e0b', strokeWidth: 0, r: 3 }}
+                  activeDot={{ fill: '#f59e0b', strokeWidth: 0, r: 5 }}
                 />
-              </BarChart>
+              </ComposedChart>
             </ResponsiveContainer>
           </div>
         </div>

@@ -1,15 +1,57 @@
 'use client'
 
 import { useState } from 'react'
-import { X, Loader2, Dumbbell, Bike, Zap } from 'lucide-react'
+import {
+  X,
+  Loader2,
+  Dumbbell,
+  Bike,
+  Zap,
+  Sun,
+  Cloud,
+  CloudSun,
+  CloudRain,
+  CloudDrizzle,
+  CloudSnow,
+  CloudLightning,
+  CloudFog,
+  Snowflake,
+} from 'lucide-react'
 import { SuggestedWorkout } from '@/types/training-plan'
+import { WeatherDay } from '@/lib/weather'
 import { format } from 'date-fns'
 
 interface CreateSuggestedWorkoutModalProps {
   planId: string
   date: Date
+  weather?: WeatherDay
   onCreated: (workout: SuggestedWorkout) => void
   onClose: () => void
+}
+
+// Map weather icon names to Lucide components
+const WEATHER_ICON_MAP: Record<string, typeof Sun> = {
+  'sun': Sun,
+  'cloud': Cloud,
+  'cloud-sun': CloudSun,
+  'cloud-rain': CloudRain,
+  'cloud-drizzle': CloudDrizzle,
+  'cloud-snow': CloudSnow,
+  'cloud-lightning': CloudLightning,
+  'cloud-fog': CloudFog,
+  'snowflake': Snowflake,
+}
+
+const WEATHER_ICON_COLORS: Record<string, string> = {
+  'sun': 'text-amber-400',
+  'cloud': 'text-gray-400',
+  'cloud-sun': 'text-amber-300',
+  'cloud-rain': 'text-sky-400',
+  'cloud-drizzle': 'text-sky-300',
+  'cloud-snow': 'text-blue-200',
+  'cloud-lightning': 'text-violet-400',
+  'cloud-fog': 'text-gray-400',
+  'snowflake': 'text-blue-300',
 }
 
 type Category = 'cardio' | 'strength' | 'other'
@@ -23,9 +65,13 @@ const WORKOUT_TYPES: Record<Category, string[]> = {
 export function CreateSuggestedWorkoutModal({
   planId,
   date,
+  weather,
   onCreated,
   onClose,
 }: CreateSuggestedWorkoutModalProps) {
+  // Get weather icon component
+  const WeatherIcon = weather ? WEATHER_ICON_MAP[weather.weatherIcon] || Cloud : null
+  const weatherIconColor = weather ? WEATHER_ICON_COLORS[weather.weatherIcon] || 'text-gray-400' : ''
   const [category, setCategory] = useState<Category>('strength')
   const [workoutType, setWorkoutType] = useState('upper')
   const [name, setName] = useState('')
@@ -85,9 +131,17 @@ export function CreateSuggestedWorkoutModal({
         <div className="p-4 border-b border-white/10 flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold">Add Workout</h2>
-            <p className="text-sm text-white/50">
-              {format(date, 'EEEE, MMM d')}
-            </p>
+            <div className="flex items-center gap-2 text-sm text-white/50">
+              <span>{format(date, 'EEEE, MMM d')}</span>
+              {weather && WeatherIcon && (
+                <span className="flex items-center gap-1">
+                  <span className="text-white/30">•</span>
+                  <WeatherIcon size={14} className={weatherIconColor} />
+                  <span>{weather.tempHigh}°/{weather.tempLow}°</span>
+                  <span className="text-sky-400">{weather.precipProbability}%</span>
+                </span>
+              )}
+            </div>
           </div>
           <button
             onClick={onClose}

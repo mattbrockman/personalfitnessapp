@@ -20,6 +20,7 @@ import { BulkScheduleModal } from './BulkScheduleModal'
 import { PlanTimelineHeader } from './PlanTimelineHeader'
 import { CreateSuggestedWorkoutModal } from './CreateSuggestedWorkoutModal'
 import { ConflictResolutionModal } from './ConflictResolutionModal'
+import { WeatherDay } from '@/lib/weather'
 import { startOfWeek, format } from 'date-fns'
 import {
   TrainingPlan,
@@ -54,6 +55,9 @@ export function TrainingPlanView() {
 
   // Add workout modal state
   const [addWorkoutDate, setAddWorkoutDate] = useState<Date | null>(null)
+
+  // Weather state
+  const [weatherForecast, setWeatherForecast] = useState<WeatherDay[]>([])
 
   // Conflict resolution state
   const [conflictWorkouts, setConflictWorkouts] = useState<SuggestedWorkout[] | null>(null)
@@ -126,6 +130,18 @@ export function TrainingPlanView() {
       fetchSuggestedWorkouts(plan.id)
     }
   }, [plan?.id, fetchSuggestedWorkouts])
+
+  // Fetch weather forecast
+  useEffect(() => {
+    fetch('/api/weather')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.forecast) {
+          setWeatherForecast(data.forecast)
+        }
+      })
+      .catch(err => console.error('Failed to fetch weather:', err))
+  }, [])
 
   // Handle workout edit save
   const handleSaveWorkout = async (workout: SuggestedWorkout) => {
@@ -653,6 +669,7 @@ export function TrainingPlanView() {
         <CreateSuggestedWorkoutModal
           planId={plan.id}
           date={addWorkoutDate}
+          weather={weatherForecast.find(w => w.date === format(addWorkoutDate, 'yyyy-MM-dd'))}
           onCreated={handleWorkoutCreated}
           onClose={() => setAddWorkoutDate(null)}
         />

@@ -57,7 +57,7 @@ export function WeatherBadge({ weather, onClick, size = 'sm' }: WeatherBadgeProp
       className={`flex items-center gap-1 rounded-md transition-colors hover:bg-white/10 ${
         isSmall ? 'px-1 py-0.5' : 'px-2 py-1'
       } ${onClick ? 'cursor-pointer' : 'cursor-default'}`}
-      title={`${weather.weatherDescription}\nHigh: ${weather.tempHigh}°F, Low: ${weather.tempLow}°F\n${weather.precipProbability}% chance of rain`}
+      title={`${weather.weatherDescription}\nHigh: ${weather.tempHigh}°F, Low: ${weather.tempLow}°F\n${weather.precipProbability}% chance of rain\nWind: ${weather.windSpeed}/${weather.windGusts} mph`}
     >
       <IconComponent size={isSmall ? 12 : 16} className={iconColor} />
       <span className={`text-white/70 ${isSmall ? 'text-[10px]' : 'text-xs'}`}>
