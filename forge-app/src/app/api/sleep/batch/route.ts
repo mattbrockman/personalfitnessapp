@@ -27,17 +27,25 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Deduplicate by log_date (keep first occurrence)
-    const seenDates = new Set<string>()
-    const deduplicatedLogs = validLogs.filter(log => {
-      if (seenDates.has(log.log_date)) {
-        return false
+    // Merge logs with the same date (combine data from multiple screenshots)
+    const logsByDate = new Map<string, typeof validLogs[0]>()
+    for (const log of validLogs) {
+      const existing = logsByDate.get(log.log_date)
+      if (existing) {
+        // Merge: keep non-null values from both, prefer newer values
+        logsByDate.set(log.log_date, {
+          ...existing,
+          ...Object.fromEntries(
+            Object.entries(log).filter(([_, v]) => v !== null && v !== undefined)
+          )
+        })
+      } else {
+        logsByDate.set(log.log_date, { ...log })
       }
-      seenDates.add(log.log_date)
-      return true
-    })
+    }
+    const deduplicatedLogs = Array.from(logsByDate.values())
 
-    console.log(`Batch save: ${sleepLogs.length} total, ${validLogs.length} valid, ${deduplicatedLogs.length} after dedup`)
+    console.log(`Batch save: ${sleepLogs.length} total, ${validLogs.length} valid, ${deduplicatedLogs.length} unique dates (merged)`)
 
     // Add user_id and timestamps to all logs
     // Also convert bedtime/wake_time from "HH:MM" to full timestamps

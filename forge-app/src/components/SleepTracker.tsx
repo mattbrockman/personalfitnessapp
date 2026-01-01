@@ -243,7 +243,7 @@ function ScreenshotUploadModal({
     onClose()
   }
 
-  const successCount = files.filter(f => f.status === 'success').length
+  const successCount = files.filter(f => f.status === 'success' && f.data?.log_date).length
   const errorCount = files.filter(f => f.status === 'error').length
   const allDone = files.length > 0 && files.every(f => f.status === 'success' || f.status === 'error')
 
