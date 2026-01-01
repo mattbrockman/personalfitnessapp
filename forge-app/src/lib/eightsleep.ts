@@ -155,7 +155,6 @@ export async function getSleepTrends(
     'from': startDate,
     'to': endDate,
     'include-main': 'true',
-    'include-all-sessions': 'true',
     'model-version': 'v2',
   })
 
