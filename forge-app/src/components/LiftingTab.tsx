@@ -104,14 +104,16 @@ export function LiftingTab({ workoutId }: LiftingTabProps) {
           completed: set.completed || false,
         }))
 
-        // If no sets exist, create default sets
+        // If no sets exist, create sets based on JSONB metadata or defaults
         if (sets.length === 0) {
-          for (let i = 0; i < 3; i++) {
+          const numSets = we._jsonb_sets || 3
+          const targetReps = we._jsonb_reps_max || we._jsonb_reps_min || 10
+          for (let i = 0; i < numSets; i++) {
             sets.push({
               id: `set-${Date.now()}-${i}`,
               set_number: i + 1,
               set_type: 'working',
-              target_reps: 10,
+              target_reps: targetReps,
               target_weight: null,
               target_rir: null,
               actual_reps: null,
