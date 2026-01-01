@@ -44,7 +44,7 @@ export interface AddWorkoutInput {
   name: string
   duration_minutes?: number
   description?: string
-  exercises?: {
+  exercises: {
     exercise_name: string
     sets: number
     reps_min: number
@@ -160,5 +160,4 @@ export interface AIChatResponse {
 export const TOOLS_REQUIRING_CONFIRMATION: ToolName[] = [
   'reschedule_workout',
   'delete_workout',
-  'add_workout',
 ]
