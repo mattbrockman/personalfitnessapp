@@ -87,7 +87,7 @@ export const AI_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: 'add_workout',
-    description: 'Add a new workout to the schedule. This auto-executes. IMPORTANT: For strength workouts, always include the exercises array with specific exercises, sets, and reps - do not just describe them in text.',
+    description: 'Add a new workout to the schedule. This auto-executes. For STRENGTH workouts (category="strength"), include the exercises array with specific exercises, sets, and reps. For CARDIO workouts (bike, run, swim), include duration_minutes instead - no exercises needed.',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -98,27 +98,27 @@ export const AI_TOOLS: Anthropic.Tool[] = [
         category: {
           type: 'string',
           enum: ['strength', 'cardio', 'other'],
-          description: 'Workout category',
+          description: 'Workout category: "strength" for lifting, "cardio" for endurance (bike/run/swim), "other" for flexibility/recovery',
         },
         workout_type: {
           type: 'string',
-          description: 'Specific type (e.g., "upper", "lower", "full_body", "bike", "run", "swim")',
+          description: 'Specific type. For strength: "upper", "lower", "full_body", "push", "pull". For cardio: "bike", "run", "swim". For other: "yoga", "stretch", "recovery"',
         },
         name: {
           type: 'string',
-          description: 'Workout name',
+          description: 'Workout name (e.g., "Morning Run", "Upper Body Strength", "Zone 2 Bike")',
         },
         duration_minutes: {
           type: 'number',
-          description: 'Planned duration in minutes',
+          description: 'Planned duration in minutes - important for cardio workouts',
         },
         description: {
           type: 'string',
-          description: 'Workout description',
+          description: 'Workout description or notes (e.g., "Easy recovery pace", "Focus on compound movements")',
         },
         exercises: {
           type: 'array',
-          description: 'List of exercises - REQUIRED for strength workouts. Include all exercises with sets/reps.',
+          description: 'List of exercises - include for strength workouts only. Not needed for cardio.',
           items: {
             type: 'object',
             properties: {
@@ -133,7 +133,7 @@ export const AI_TOOLS: Anthropic.Tool[] = [
           },
         },
       },
-      required: ['date', 'category', 'workout_type', 'name', 'exercises'],
+      required: ['date', 'category', 'workout_type', 'name'],
     },
   },
 

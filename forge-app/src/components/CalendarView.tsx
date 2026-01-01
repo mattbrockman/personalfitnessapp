@@ -160,17 +160,26 @@ const workoutIcons: Record<string, any> = {
 type ViewMode = 'month' | 'week'
 
 export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: CalendarViewProps) {
-  const [currentDate, setCurrentDate] = useState(new Date())
+  // Use null initially to avoid hydration mismatch, then set in useEffect
+  const [currentDate, setCurrentDate] = useState<Date | null>(null)
   const [workouts, setWorkouts] = useState<Workout[]>(initialWorkouts)
   const [isSyncing, setIsSyncing] = useState(false)
   const [selectedWorkout, setSelectedWorkout] = useState<Workout | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
-  const [createModalDate, setCreateModalDate] = useState<Date>(new Date())
+  const [createModalDate, setCreateModalDate] = useState<Date | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('month')
   const [planData, setPlanData] = useState<PlanData | null>(null)
   const [planLoading, setPlanLoading] = useState(true)
   const [weatherForecast, setWeatherForecast] = useState<WeatherDay[]>([])
   const [selectedWeather, setSelectedWeather] = useState<WeatherDay | null>(null)
+  const [mounted, setMounted] = useState(false)
+
+  // Set dates after mount to avoid hydration mismatch
+  useEffect(() => {
+    setCurrentDate(new Date())
+    setCreateModalDate(new Date())
+    setMounted(true)
+  }, [])
 
   // Fetch workouts from API
   const fetchWorkouts = useCallback(async () => {
@@ -178,9 +187,6 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
       const response = await fetch('/api/workouts')
       if (response.ok) {
         const data = await response.json()
-        console.log('[CalendarView] Fetched workouts:', data.workouts?.length)
-        const suggested = data.workouts?.filter((w: any) => w.source === 'suggested') || []
-        console.log('[CalendarView] Suggested workouts:', suggested.length, suggested.map((w: any) => ({ id: w.id, name: w.name, date: w.scheduled_date })))
         setWorkouts(data.workouts || [])
       }
     } catch (error) {
@@ -235,12 +241,24 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
   // Listen for workout updates from AI Coach (same-page updates)
   useEffect(() => {
     const handleWorkoutUpdate = () => {
+      console.log('[CalendarView] Received workout-updated event, fetching workouts...')
       fetchWorkouts()
       fetchPlanData()
     }
     window.addEventListener('workout-updated', handleWorkoutUpdate)
     return () => window.removeEventListener('workout-updated', handleWorkoutUpdate)
   }, [fetchWorkouts, fetchPlanData])
+
+  // Show loading state until mounted (avoids hydration mismatch)
+  if (!mounted || !currentDate) {
+    return (
+      <div className="p-4 lg:p-6">
+        <div className="flex items-center justify-center h-[600px]">
+          <Loader2 className="w-8 h-8 animate-spin text-white/40" />
+        </div>
+      </div>
+    )
+  }
 
   // Generate calendar days based on view mode
   const monthStart = startOfMonth(currentDate)
@@ -615,7 +633,7 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
       )}
 
       {/* Create workout modal */}
-      {showCreateModal && (
+      {showCreateModal && createModalDate && (
         <CreateWorkoutModal
           selectedDate={createModalDate}
           onClose={() => setShowCreateModal(false)}

@@ -325,8 +325,6 @@ async function handleAddWorkout(
   supabase: SupabaseClient
 ): Promise<ToolResult> {
   // Simple: insert directly into workouts table with exercises JSONB
-  console.log('[add_workout] Adding workout with', input.exercises?.length || 0, 'exercises')
-
   const { data: newWorkout, error } = await supabase
     .from('workouts')
     .insert({
@@ -345,11 +343,9 @@ async function handleAddWorkout(
     .single()
 
   if (error) {
-    console.log('[add_workout] FAILED:', error.message)
     return { success: false, message: `Failed to add workout: ${error.message}` }
   }
 
-  console.log('[add_workout] SUCCESS: id=', newWorkout.id)
   return {
     success: true,
     message: `Added "${input.name}" on ${input.date}`,

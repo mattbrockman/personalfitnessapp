@@ -128,6 +128,21 @@ export function AIChatBubble() {
       }
 
       setMessages(prev => [...prev, aiResponse])
+
+      // Signal updates for other components to refresh
+      if (data.executed_tools?.length > 0) {
+        console.log('[AIChatBubble] executed_tools:', data.executed_tools)
+        data.executed_tools.forEach((tool: { name: string; result: { success: boolean } }) => {
+          console.log('[AIChatBubble] Tool:', tool.name, 'Success:', tool.result?.success)
+          if (tool.result?.success) {
+            if (tool.name === 'add_workout' || tool.name === 'reschedule_workout' || tool.name === 'skip_workout' || tool.name === 'modify_workout_exercise') {
+              console.log('[AIChatBubble] Dispatching workout-updated event')
+              localStorage.setItem('workout-updated', Date.now().toString())
+              window.dispatchEvent(new CustomEvent('workout-updated'))
+            }
+          }
+        })
+      }
     } catch (err: any) {
       console.error('Chat error:', err)
       setError(err.message || 'Failed to get response. Please try again.')

@@ -58,7 +58,6 @@ export async function GET(request: NextRequest) {
       .limit(1)
       .single()
 
-    console.log('[/api/workouts] active plan id:', activePlan?.id)
 
     let suggestedWorkouts: any[] = []
     if (activePlan?.id) {
@@ -81,7 +80,6 @@ export async function GET(request: NextRequest) {
         scheduled_date: w.suggested_date,
         source: 'suggested',
       }))
-      console.log('[/api/workouts] suggestedWorkouts count:', suggestedWorkouts.length)
     }
 
     // Combine and return
@@ -259,6 +257,7 @@ export async function PATCH(request: NextRequest) {
       'status',
       'completed_at',
       'perceived_exertion',
+      'exercises',
     ]
 
     const updates: Record<string, any> = {}

@@ -18,6 +18,7 @@ import {
   Loader2,
   ExternalLink,
   Play,
+  Plus,
 } from 'lucide-react'
 import { Workout } from '@/types/database'
 
@@ -52,11 +53,6 @@ const feelingOptions = [
 ]
 
 export function WorkoutDetailModal({ workout, onClose, onUpdate }: WorkoutDetailModalProps) {
-  // Debug: log workout data to see if exercises are present
-  console.log('[WorkoutDetailModal] workout:', workout)
-  console.log('[WorkoutDetailModal] exercises:', workout.exercises)
-  console.log('[WorkoutDetailModal] source:', (workout as any).source)
-
   const router = useRouter()
   const [isEditing, setIsEditing] = useState(false)
   const [showFullCompletion, setShowFullCompletion] = useState(false)
@@ -65,6 +61,10 @@ export function WorkoutDetailModal({ workout, onClose, onUpdate }: WorkoutDetail
   const [error, setError] = useState<string | null>(null)
 
   const isStrengthWorkout = workout.category === 'strength'
+
+  // Debug logging
+  console.log('[WorkoutDetailModal] workout.category:', workout.category, 'isStrengthWorkout:', isStrengthWorkout)
+  console.log('[WorkoutDetailModal] workout.exercises:', workout.exercises)
 
   // Quick complete duration (editable on main view)
   const [quickDuration, setQuickDuration] = useState(
@@ -84,6 +84,7 @@ export function WorkoutDetailModal({ workout, onClose, onUpdate }: WorkoutDetail
     actual_avg_power: workout.actual_avg_power || 0,
     actual_np: workout.actual_np || 0,
     notes: workout.notes || '',
+    exercises: workout.exercises ? [...workout.exercises] : [],
   })
 
   // Form state for full completion (with feeling/RPE)
@@ -508,6 +509,115 @@ export function WorkoutDetailModal({ workout, onClose, onUpdate }: WorkoutDetail
                 className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-amber-500/50 resize-none"
               />
             </div>
+
+            {/* Exercises Editor (for strength workouts) */}
+            {isStrengthWorkout && (
+              <div className="border-t border-white/10 pt-4 mt-4">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm text-white/60">Exercises</p>
+                  <button
+                    type="button"
+                    onClick={() => setFormData(prev => ({
+                      ...prev,
+                      exercises: [
+                        ...prev.exercises,
+                        { exercise_name: '', sets: 3, reps_min: 8, reps_max: 12, rest_seconds: 90, notes: '' }
+                      ]
+                    }))}
+                    className="flex items-center gap-1 px-2 py-1 bg-violet-500/20 hover:bg-violet-500/30 text-violet-400 rounded text-xs transition-colors"
+                  >
+                    <Plus size={12} />
+                    Add Exercise
+                  </button>
+                </div>
+                <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                  {formData.exercises.map((ex, idx) => (
+                    <div key={idx} className="p-3 bg-white/5 rounded-lg space-y-2">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={ex.exercise_name}
+                          onChange={e => {
+                            const newExercises = [...formData.exercises]
+                            newExercises[idx] = { ...newExercises[idx], exercise_name: e.target.value }
+                            setFormData(prev => ({ ...prev, exercises: newExercises }))
+                          }}
+                          placeholder="Exercise name"
+                          className="flex-1 px-2 py-1.5 bg-white/5 border border-white/10 rounded text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-violet-500/50"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newExercises = formData.exercises.filter((_, i) => i !== idx)
+                            setFormData(prev => ({ ...prev, exercises: newExercises }))
+                          }}
+                          className="p-1.5 text-red-400 hover:bg-red-500/20 rounded transition-colors"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-4 gap-2">
+                        <div>
+                          <label className="text-[10px] text-white/40">Sets</label>
+                          <input
+                            type="number"
+                            value={ex.sets}
+                            onChange={e => {
+                              const newExercises = [...formData.exercises]
+                              newExercises[idx] = { ...newExercises[idx], sets: parseInt(e.target.value) || 0 }
+                              setFormData(prev => ({ ...prev, exercises: newExercises }))
+                            }}
+                            className="w-full px-2 py-1 bg-white/5 border border-white/10 rounded text-xs text-white focus:outline-none focus:border-violet-500/50"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-white/40">Min Reps</label>
+                          <input
+                            type="number"
+                            value={ex.reps_min}
+                            onChange={e => {
+                              const newExercises = [...formData.exercises]
+                              newExercises[idx] = { ...newExercises[idx], reps_min: parseInt(e.target.value) || 0 }
+                              setFormData(prev => ({ ...prev, exercises: newExercises }))
+                            }}
+                            className="w-full px-2 py-1 bg-white/5 border border-white/10 rounded text-xs text-white focus:outline-none focus:border-violet-500/50"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-white/40">Max Reps</label>
+                          <input
+                            type="number"
+                            value={ex.reps_max}
+                            onChange={e => {
+                              const newExercises = [...formData.exercises]
+                              newExercises[idx] = { ...newExercises[idx], reps_max: parseInt(e.target.value) || 0 }
+                              setFormData(prev => ({ ...prev, exercises: newExercises }))
+                            }}
+                            className="w-full px-2 py-1 bg-white/5 border border-white/10 rounded text-xs text-white focus:outline-none focus:border-violet-500/50"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-white/40">Rest (s)</label>
+                          <input
+                            type="number"
+                            value={ex.rest_seconds || 90}
+                            onChange={e => {
+                              const newExercises = [...formData.exercises]
+                              newExercises[idx] = { ...newExercises[idx], rest_seconds: parseInt(e.target.value) || 90 }
+                              setFormData(prev => ({ ...prev, exercises: newExercises }))
+                            }}
+                            className="w-full px-2 py-1 bg-white/5 border border-white/10 rounded text-xs text-white focus:outline-none focus:border-violet-500/50"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {formData.exercises.length === 0 && (
+                    <p className="text-xs text-white/30 text-center py-4">No exercises added yet</p>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Error */}
             {error && (
