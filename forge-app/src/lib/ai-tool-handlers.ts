@@ -365,18 +365,69 @@ async function handleAddWorkout(
     }
   }
 
-  // No active plan, add as regular workout
-  const { data: newWorkout, error } = await supabase
-    .from('workouts')
+  // No active plan - create a training plan first, then add as suggested workout
+  // This ensures exercises are properly stored
+  const { data: newPlan, error: planError } = await supabase
+    .from('training_plans')
     .insert({
       user_id: userId,
-      scheduled_date: input.date,
+      name: 'My Training Plan',
+      goal: 'General fitness',
+      status: 'active',
+    })
+    .select('id')
+    .single()
+
+  if (planError) {
+    // Fall back to regular workout without exercises
+    const { data: newWorkout, error } = await supabase
+      .from('workouts')
+      .insert({
+        user_id: userId,
+        scheduled_date: input.date,
+        category: input.category,
+        workout_type: input.workout_type,
+        name: input.name,
+        description: input.exercises ? `Exercises: ${input.exercises.map((e: any) => `${e.exercise_name} ${e.sets}x${e.reps_min}-${e.reps_max}`).join(', ')}` : input.description,
+        planned_duration_minutes: input.duration_minutes || 60,
+        status: 'planned',
+      })
+      .select()
+      .single()
+
+    if (error) {
+      return { success: false, message: `Failed to add workout: ${error.message}` }
+    }
+
+    return {
+      success: true,
+      message: `Added "${input.name}" on ${input.date}`,
+      data: newWorkout,
+    }
+  }
+
+  // Update profile with active plan
+  await supabase
+    .from('profiles')
+    .update({ active_program_id: newPlan.id })
+    .eq('id', userId)
+
+  // Now add as suggested workout with exercises
+  const dayOfWeek = format(new Date(input.date), 'EEEE').toLowerCase()
+
+  const { data: newWorkout, error } = await supabase
+    .from('suggested_workouts')
+    .insert({
+      plan_id: newPlan.id,
+      suggested_date: input.date,
+      day_of_week: dayOfWeek,
       category: input.category,
       workout_type: input.workout_type,
       name: input.name,
+      description: input.description || null,
       planned_duration_minutes: input.duration_minutes || 60,
       exercises: input.exercises || null,
-      status: 'planned',
+      status: 'suggested',
     })
     .select()
     .single()
