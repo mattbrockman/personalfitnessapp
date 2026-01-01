@@ -50,28 +50,35 @@ export async function POST(request: NextRequest) {
             },
             {
               type: 'text',
-              text: `Extract sleep data from this Eight Sleep app screenshot. This could be a daily report OR a monthly trend view.
+              text: `Extract sleep data from this Eight Sleep app screenshot.
 
-LOOK FOR ANY OF THESE:
-- DATE: "Dec 29, 2025", "DEC 29, 2025", "Sun, Dec 29" → use 2025 as year (2026 for Jan)
-- SLEEP SCORE: Large 0-100 number in a circle
-- TOTAL SLEEP: "6h 52m" → convert to minutes (412)
-- DEEP SLEEP: "1h 14m" or "30-DAY AVG DEEP: 1h 14m" → 74 minutes
-- REM SLEEP: "1h 59m" → 119 minutes
-- LIGHT SLEEP: duration → minutes
-- AWAKE: duration → minutes
-- BEDTIME/ASLEEP: "11:16 PM" or "30-DAY AVG ASLEEP: 11:16 PM" → "23:16"
-- WAKE TIME/AWAKE: "7:23 AM" → "07:23"
-- HRV: "47 ms" → 47
-- RESTING HR: "46 bpm" → 46
-- RESPIRATORY/BREATH RATE: "15.2 brpm" → 15.2
+LOOK FOR THESE VALUES:
 
-For trend views showing "30-DAY AVG", extract those values and use the end date shown (e.g., "Nov 29 - Dec 29, 2025" → log_date: "2025-12-29").
+1. DATE: "Monday, Dec 29" or "Dec 29, 2025" → "2025-12-29" (use 2025, or 2026 for January)
 
-Return ONLY JSON, no markdown:
-{"log_date":"2025-12-29","bedtime":"23:16","wake_time":"07:23","total_sleep_minutes":null,"deep_sleep_minutes":74,"rem_sleep_minutes":119,"light_sleep_minutes":null,"awake_minutes":null,"sleep_score":null,"hrv_avg":47,"resting_hr":46,"respiratory_rate":15.2,"recovery_score":null}
+2. SLEEP SCORE: The BIG number (like 92) with "SLEEP FITNESS SCORE" label. This is 0-100.
 
-Use null for fields not visible.`
+3. TIME SLEPT / TOTAL SLEEP: Look for "Time slept: 8h 18m" or similar → convert to minutes (8*60+18=498)
+
+4. SLEEP STAGES (convert durations to minutes):
+   - Deep: "1h 14m" → 74
+   - REM: "1h 59m" → 119
+   - Light: "3h 5m" → 185
+   - Awake: "23m" → 23
+
+5. BED/WAKE TIMES: Convert to 24-hour format
+   - "11:16 PM" → "23:16"
+   - "7:23 AM" → "07:23"
+
+6. HEALTH METRICS:
+   - HRV: "47 ms" → 47
+   - Resting HR: "46 bpm" → 46
+   - Respiratory: "15.2 brpm" → 15.2
+
+Return ONLY this JSON object (no markdown, no backticks, no explanation):
+{"log_date":"2025-12-29","bedtime":null,"wake_time":null,"total_sleep_minutes":498,"deep_sleep_minutes":74,"rem_sleep_minutes":119,"light_sleep_minutes":185,"awake_minutes":23,"sleep_score":92,"hrv_avg":47,"resting_hr":46,"respiratory_rate":15.2,"recovery_score":null}
+
+Use null ONLY for fields not visible in the image.`
             }
           ],
         }
