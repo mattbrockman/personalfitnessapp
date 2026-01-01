@@ -15,7 +15,11 @@ import {
   Clock,
   Target,
   Trash2,
+  Loader2,
+  Zap,
 } from 'lucide-react'
+import { useDebounce } from '@/hooks/useDebounce'
+import { EquipmentIcon } from '@/lib/equipment-icons'
 
 // Types
 interface Exercise {
@@ -46,7 +50,7 @@ interface WorkoutBuilderProps {
   initialName?: string
 }
 
-// Exercise Search Modal
+// Exercise Search Modal with Create option
 function ExerciseSearchModal({
   onSelect,
   onClose,
@@ -59,7 +63,12 @@ function ExerciseSearchModal({
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [muscleGroups, setMuscleGroups] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
+  const [isSearching, setIsSearching] = useState(false)
+  const [showCreateExercise, setShowCreateExercise] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // Debounce search to prevent flickering
+  const debouncedSearch = useDebounce(search, 300)
 
   useEffect(() => {
     inputRef.current?.focus()
@@ -67,14 +76,20 @@ function ExerciseSearchModal({
   }, [])
 
   useEffect(() => {
-    fetchExercises()
-  }, [search, filter])
+    if (debouncedSearch !== '' || filter !== null) {
+      fetchExercises()
+    }
+  }, [debouncedSearch, filter])
 
   const fetchExercises = async () => {
-    setLoading(true)
+    if (exercises.length === 0) {
+      setLoading(true)
+    } else {
+      setIsSearching(true)
+    }
     try {
       const params = new URLSearchParams()
-      if (search) params.set('search', search)
+      if (debouncedSearch) params.set('search', debouncedSearch)
       if (filter) params.set('muscle_group', filter)
       params.set('limit', '50')
 
@@ -82,7 +97,6 @@ function ExerciseSearchModal({
       const data = await res.json()
       setExercises(data.exercises || [])
 
-      // Extract unique muscle groups from exercises
       if (muscleGroups.length === 0 && data.exercises) {
         const groups = new Set<string>()
         data.exercises.forEach((ex: Exercise) => {
@@ -94,6 +108,7 @@ function ExerciseSearchModal({
       console.error('Failed to fetch exercises:', error)
     } finally {
       setLoading(false)
+      setIsSearching(false)
     }
   }
 
@@ -140,34 +155,290 @@ function ExerciseSearchModal({
         </div>
 
         <div className="overflow-y-auto max-h-[50vh]">
+          {isSearching && (
+            <div className="px-4 py-2 text-xs text-white/40 flex items-center gap-2 border-b border-white/5">
+              <Loader2 size={12} className="animate-spin" />
+              Searching...
+            </div>
+          )}
           {loading ? (
             <div className="p-8 text-center text-white/40">Loading exercises...</div>
           ) : exercises.length > 0 ? (
-            exercises.map(exercise => (
-              <button
-                key={exercise.id}
-                onClick={() => {
-                  onSelect(exercise)
-                  onClose()
-                }}
-                className="w-full px-4 py-3 flex items-center gap-3 hover:bg-white/5 transition-colors text-left"
-              >
-                <div className="w-10 h-10 rounded-lg bg-violet-500/20 flex items-center justify-center">
-                  <Dumbbell size={18} className="text-violet-400" />
+            <>
+              {exercises.map(exercise => (
+                <button
+                  key={exercise.id}
+                  onClick={() => {
+                    onSelect(exercise)
+                    onClose()
+                  }}
+                  className="w-full px-4 py-3 flex items-center gap-3 hover:bg-white/5 transition-colors text-left"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center">
+                    <EquipmentIcon equipment={exercise.equipment} size={18} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium">{exercise.name}</p>
+                    <p className="text-sm text-white/50 capitalize">{exercise.primary_muscle?.replace('_', ' ')} • {exercise.equipment}</p>
+                  </div>
+                  <ChevronRight size={18} className="text-white/30" />
+                </button>
+              ))}
+              {/* Always show create option when searching */}
+              {debouncedSearch && (
+                <div className="px-4 py-3 border-t border-white/10">
+                  <button
+                    onClick={() => setShowCreateExercise(true)}
+                    className="w-full py-2 text-sm text-white/50 hover:text-amber-400 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Plus size={16} />
+                    Don't see it? Create "{debouncedSearch}"
+                  </button>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium">{exercise.name}</p>
-                  <p className="text-sm text-white/50 capitalize">{exercise.primary_muscle?.replace('_', ' ')} • {exercise.equipment}</p>
-                </div>
-                <ChevronRight size={18} className="text-white/30" />
-              </button>
-            ))
+              )}
+            </>
           ) : (
-            <div className="p-8 text-center text-white/40">
-              No exercises found
+            <div className="p-8 text-center">
+              <p className="text-white/40 mb-4">No exercises found for "{debouncedSearch}"</p>
+              <button
+                onClick={() => setShowCreateExercise(true)}
+                className="px-4 py-2 bg-amber-500/20 text-amber-400 rounded-lg hover:bg-amber-500/30 transition-colors inline-flex items-center gap-2"
+              >
+                <Plus size={18} />
+                Create "{debouncedSearch}"
+              </button>
             </div>
           )}
         </div>
+
+        {/* Create Exercise Modal */}
+        {showCreateExercise && (
+          <CreateExerciseModal
+            initialName={debouncedSearch}
+            onClose={() => setShowCreateExercise(false)}
+            onCreated={(exercise) => {
+              onSelect(exercise)
+              setShowCreateExercise(false)
+              onClose()
+            }}
+          />
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Create Exercise Modal with AI generation
+function CreateExerciseModal({
+  initialName,
+  onClose,
+  onCreated,
+}: {
+  initialName: string
+  onClose: () => void
+  onCreated: (exercise: Exercise) => void
+}) {
+  const [name, setName] = useState(initialName)
+  const [generating, setGenerating] = useState(false)
+  const [generatedExercise, setGeneratedExercise] = useState<Partial<Exercise> | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  const EQUIPMENT_OPTIONS = [
+    { value: 'barbell', label: 'Barbell' },
+    { value: 'dumbbell', label: 'Dumbbell' },
+    { value: 'bodyweight', label: 'Bodyweight' },
+    { value: 'cable', label: 'Cable' },
+    { value: 'machine', label: 'Machine' },
+    { value: 'kettlebell', label: 'Kettlebell' },
+    { value: 'bands', label: 'Resistance Bands' },
+    { value: 'medicine_ball', label: 'Medicine Ball' },
+  ]
+
+  const generateExercise = async () => {
+    if (!name.trim()) return
+    setGenerating(true)
+    setError(null)
+
+    try {
+      const res = await fetch('/api/exercises/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim() }),
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to generate exercise')
+      }
+
+      const data = await res.json()
+      setGeneratedExercise(data.exercise)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate exercise')
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  const saveExercise = async () => {
+    if (!generatedExercise) return
+    setSaving(true)
+    setError(null)
+
+    try {
+      const res = await fetch('/api/exercises', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(generatedExercise),
+      })
+
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to save exercise')
+      }
+
+      const data = await res.json()
+      onCreated(data.exercise)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save exercise')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div
+      className="absolute inset-0 bg-zinc-900 z-20 overflow-y-auto animate-slide-up"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="p-4">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold">Create Exercise</h3>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+          >
+            <X size={20} className="text-white/60" />
+          </button>
+        </div>
+
+        {!generatedExercise ? (
+          <>
+            <div className="mb-4">
+              <label className="block text-sm text-white/60 mb-1">Exercise Name</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g., Wall Sit"
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-amber-500/50"
+              />
+            </div>
+
+            <button
+              onClick={generateExercise}
+              disabled={generating || !name.trim()}
+              className="w-full py-3 bg-amber-500 text-black font-semibold rounded-xl hover:bg-amber-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {generating ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" />
+                  Generating with AI...
+                </>
+              ) : (
+                <>
+                  <Zap size={18} />
+                  Generate Exercise Details
+                </>
+              )}
+            </button>
+
+            <p className="text-xs text-white/40 text-center mt-3">
+              AI will suggest muscle groups, equipment, and coaching cues
+            </p>
+          </>
+        ) : (
+          <>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm text-white/60 mb-1">Name</label>
+                <input
+                  type="text"
+                  value={generatedExercise.name || ''}
+                  onChange={(e) => setGeneratedExercise({ ...generatedExercise, name: e.target.value })}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-white/60 mb-1">Primary Muscle</label>
+                <input
+                  type="text"
+                  value={generatedExercise.primary_muscle || ''}
+                  onChange={(e) => setGeneratedExercise({ ...generatedExercise, primary_muscle: e.target.value })}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm text-white/60 mb-1">Equipment</label>
+                <select
+                  value={generatedExercise.equipment || ''}
+                  onChange={(e) => setGeneratedExercise({ ...generatedExercise, equipment: e.target.value })}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white"
+                >
+                  {EQUIPMENT_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {generatedExercise.cues && generatedExercise.cues.length > 0 && (
+                <div>
+                  <label className="block text-sm text-white/60 mb-1">Coaching Cues</label>
+                  <ul className="space-y-1 text-sm text-white/70">
+                    {generatedExercise.cues.map((cue, i) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <span className="text-amber-400">•</span>
+                        {cue}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setGeneratedExercise(null)}
+                className="flex-1 py-3 bg-white/10 text-white font-medium rounded-xl hover:bg-white/20 transition-colors"
+              >
+                Edit Details
+              </button>
+              <button
+                onClick={saveExercise}
+                disabled={saving}
+                className="flex-1 py-3 bg-amber-500 text-black font-semibold rounded-xl hover:bg-amber-400 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save & Add'
+                )}
+              </button>
+            </div>
+          </>
+        )}
+
+        {error && (
+          <div className="mt-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-400 text-sm">
+            {error}
+          </div>
+        )}
       </div>
     </div>
   )
