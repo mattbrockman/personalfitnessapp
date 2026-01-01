@@ -17,9 +17,10 @@ import {
   Plus,
   X,
   Loader2,
+  RefreshCw,
+  Link2,
 } from 'lucide-react'
 import { format, subDays, addDays, isToday, startOfWeek, eachDayOfInterval, isSameDay } from 'date-fns'
-import EightSleepConnect from './EightSleepConnect'
 import { SleepTrendModal, SleepMetricType } from './SleepTrendModal'
 
 // Types
@@ -327,6 +328,56 @@ export function SleepTracker() {
   const [isLoading, setIsLoading] = useState(true)
   const [syncMessage, setSyncMessage] = useState<string | null>(null)
 
+  // Eight Sleep state
+  const [eightSleepConnected, setEightSleepConnected] = useState(false)
+  const [eightSleepLoading, setEightSleepLoading] = useState(true)
+  const [eightSleepSyncing, setEightSleepSyncing] = useState(false)
+
+  // Check Eight Sleep status
+  useEffect(() => {
+    const checkEightSleepStatus = async () => {
+      try {
+        const response = await fetch('/api/eightsleep/auth')
+        if (response.ok) {
+          const data = await response.json()
+          setEightSleepConnected(data.connected)
+        }
+      } catch (err) {
+        console.error('Error checking Eight Sleep status:', err)
+      } finally {
+        setEightSleepLoading(false)
+      }
+    }
+    checkEightSleepStatus()
+  }, [])
+
+  // Handle Eight Sleep sync
+  const handleEightSleepSync = async () => {
+    try {
+      setEightSleepSyncing(true)
+      const response = await fetch('/api/eightsleep/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Sync failed')
+      }
+
+      const data = await response.json()
+      setSyncMessage(`Synced ${data.synced} sleep records`)
+      fetchSleepLogs()
+      setTimeout(() => setSyncMessage(null), 3000)
+    } catch (err: any) {
+      setSyncMessage(err.message || 'Sync failed')
+      setTimeout(() => setSyncMessage(null), 3000)
+    } finally {
+      setEightSleepSyncing(false)
+    }
+  }
+
   // Fetch sleep logs
   const fetchSleepLogs = async () => {
     try {
@@ -346,13 +397,6 @@ export function SleepTracker() {
   useEffect(() => {
     fetchSleepLogs()
   }, [])
-
-  // Handle sync completion
-  const handleSyncComplete = (count: number) => {
-    setSyncMessage(`Synced ${count} sleep records`)
-    fetchSleepLogs()
-    setTimeout(() => setSyncMessage(null), 3000)
-  }
 
   // Get current week
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 })
@@ -442,6 +486,33 @@ export function SleepTracker() {
             <TrendingUp size={18} />
             Trends
           </button>
+          {/* Eight Sleep Sync/Connect Button */}
+          {!eightSleepLoading && (
+            eightSleepConnected ? (
+              <button
+                onClick={handleEightSleepSync}
+                disabled={eightSleepSyncing}
+                className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50"
+                title="Sync Eight Sleep data"
+              >
+                {eightSleepSyncing ? (
+                  <Loader2 size={18} className="animate-spin" />
+                ) : (
+                  <RefreshCw size={18} />
+                )}
+                Sync
+              </button>
+            ) : (
+              <a
+                href="/settings#integrations"
+                className="px-4 py-2 bg-violet-500/20 hover:bg-violet-500/30 text-violet-400 rounded-lg transition-colors flex items-center gap-2"
+                title="Connect Eight Sleep"
+              >
+                <Link2 size={18} />
+                Connect
+              </a>
+            )
+          )}
           <button
             onClick={() => setShowManualModal(true)}
             className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors flex items-center gap-2"
@@ -452,18 +523,12 @@ export function SleepTracker() {
         </div>
       </div>
 
-      {/* Eight Sleep Connection */}
-      <div className="mb-6">
-        <EightSleepConnect
-          onSync={handleSyncComplete}
-          showSyncButton={true}
-        />
-        {syncMessage && (
-          <div className="mt-2 p-2 bg-emerald-500/20 text-emerald-400 rounded-lg text-sm text-center">
-            {syncMessage}
-          </div>
-        )}
-      </div>
+      {/* Sync Message */}
+      {syncMessage && (
+        <div className="mb-6 p-2 bg-emerald-500/20 text-emerald-400 rounded-lg text-sm text-center">
+          {syncMessage}
+        </div>
+      )}
 
       {/* Week selector */}
       <div className="glass rounded-xl p-4 mb-6">

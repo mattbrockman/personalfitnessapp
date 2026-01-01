@@ -66,10 +66,10 @@ export async function POST(request: NextRequest) {
     // Recent sleep
     const { data: recentSleep } = await (adminClient as any)
       .from('sleep_logs')
-      .select('date, sleep_score, total_sleep_minutes, hrv_avg, deep_sleep_minutes, resting_hr')
+      .select('log_date, sleep_score, total_sleep_minutes, hrv_avg, deep_sleep_minutes, resting_hr')
       .eq('user_id', user.id)
-      .gte('date', sevenDaysAgo)
-      .order('date', { ascending: false })
+      .gte('log_date', sevenDaysAgo)
+      .order('log_date', { ascending: false })
       .limit(7)
 
     // Current training plan context

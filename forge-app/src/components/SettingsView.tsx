@@ -19,6 +19,10 @@ import {
   Calendar,
   Copy,
   ExternalLink,
+  Moon,
+  Unlink,
+  Eye,
+  EyeOff,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Profile, Integration } from '@/types/database'
@@ -83,6 +87,17 @@ export function SettingsView({ user, profile, integrations }: SettingsViewProps)
   const [isRegeneratingUrl, setIsRegeneratingUrl] = useState(false)
   const [calendarCopied, setCalendarCopied] = useState(false)
 
+  // Eight Sleep state
+  const [eightSleepConnected, setEightSleepConnected] = useState(false)
+  const [eightSleepLoading, setEightSleepLoading] = useState(true)
+  const [eightSleepConnecting, setEightSleepConnecting] = useState(false)
+  const [eightSleepDisconnecting, setEightSleepDisconnecting] = useState(false)
+  const [eightSleepError, setEightSleepError] = useState<string | null>(null)
+  const [showEightSleepForm, setShowEightSleepForm] = useState(false)
+  const [eightSleepEmail, setEightSleepEmail] = useState('')
+  const [eightSleepPassword, setEightSleepPassword] = useState('')
+  const [showEightSleepPassword, setShowEightSleepPassword] = useState(false)
+
   const supabase = createClient() as any
   const stravaIntegration = integrations.find(i => i.service === 'strava')
 
@@ -103,6 +118,24 @@ export function SettingsView({ user, profile, integrations }: SettingsViewProps)
       }
     }
     loadCalendarSettings()
+  }, [])
+
+  // Load Eight Sleep status on mount
+  useEffect(() => {
+    const loadEightSleepStatus = async () => {
+      try {
+        const response = await fetch('/api/eightsleep/auth')
+        if (response.ok) {
+          const data = await response.json()
+          setEightSleepConnected(data.connected)
+        }
+      } catch (error) {
+        console.error('Failed to load Eight Sleep status:', error)
+      } finally {
+        setEightSleepLoading(false)
+      }
+    }
+    loadEightSleepStatus()
   }, [])
 
   const handleSaveProfile = async () => {
@@ -302,6 +335,63 @@ export function SettingsView({ user, profile, integrations }: SettingsViewProps)
       .eq('service', 'strava')
 
     window.location.reload()
+  }
+
+  // Eight Sleep handlers
+  const handleEightSleepConnect = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!eightSleepEmail || !eightSleepPassword) {
+      setEightSleepError('Please enter your Eight Sleep email and password')
+      return
+    }
+
+    try {
+      setEightSleepConnecting(true)
+      setEightSleepError(null)
+
+      const response = await fetch('/api/eightsleep/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: eightSleepEmail, password: eightSleepPassword }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Connection failed')
+      }
+
+      setEightSleepConnected(true)
+      setShowEightSleepForm(false)
+      setEightSleepEmail('')
+      setEightSleepPassword('')
+    } catch (err: any) {
+      setEightSleepError(err.message || 'Failed to connect. Check your credentials.')
+    } finally {
+      setEightSleepConnecting(false)
+    }
+  }
+
+  const handleEightSleepDisconnect = async () => {
+    if (!confirm('Disconnect Eight Sleep? Your synced sleep data will remain.')) return
+
+    try {
+      setEightSleepDisconnecting(true)
+      setEightSleepError(null)
+
+      const response = await fetch('/api/eightsleep/auth', {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to disconnect')
+      }
+
+      setEightSleepConnected(false)
+    } catch (err) {
+      setEightSleepError('Failed to disconnect. Please try again.')
+    } finally {
+      setEightSleepDisconnecting(false)
+    }
   }
 
   const handleSignOut = async () => {
@@ -744,6 +834,138 @@ export function SettingsView({ user, profile, integrations }: SettingsViewProps)
             >
               Connect
             </a>
+          )}
+        </div>
+
+        {/* Eight Sleep */}
+        <div className="mt-4 p-4 bg-white/5 rounded-lg">
+          {eightSleepLoading ? (
+            <div className="flex items-center gap-2">
+              <Loader2 size={16} className="animate-spin text-white/40" />
+              <span className="text-sm text-white/40">Loading...</span>
+            </div>
+          ) : eightSleepConnected ? (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-violet-500/20 flex items-center justify-center">
+                  <Moon size={20} className="text-violet-400" />
+                </div>
+                <div>
+                  <p className="font-medium">Eight Sleep</p>
+                  <p className="text-sm text-emerald-400 flex items-center gap-1">
+                    <Check size={14} />
+                    Connected
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleEightSleepDisconnect}
+                disabled={eightSleepDisconnecting}
+                className="px-3 py-1.5 text-sm text-red-400 hover:bg-red-500/10 rounded-lg transition-colors flex items-center gap-1"
+              >
+                {eightSleepDisconnecting ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Unlink size={14} />
+                )}
+                Disconnect
+              </button>
+            </div>
+          ) : showEightSleepForm ? (
+            <form onSubmit={handleEightSleepConnect} className="space-y-3">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-lg bg-violet-500/20 flex items-center justify-center">
+                  <Moon size={20} className="text-violet-400" />
+                </div>
+                <div>
+                  <p className="font-medium">Eight Sleep</p>
+                  <p className="text-sm text-white/50">Connect your account</p>
+                </div>
+              </div>
+
+              {eightSleepError && (
+                <div className="p-2 bg-red-500/10 rounded-lg text-sm text-red-400">
+                  {eightSleepError}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm text-white/60 mb-1">Email</label>
+                <input
+                  type="email"
+                  value={eightSleepEmail}
+                  onChange={(e) => setEightSleepEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/30 focus:outline-none focus:border-violet-500"
+                  disabled={eightSleepConnecting}
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-white/60 mb-1">Password</label>
+                <div className="relative">
+                  <input
+                    type={showEightSleepPassword ? 'text' : 'password'}
+                    value={eightSleepPassword}
+                    onChange={(e) => setEightSleepPassword(e.target.value)}
+                    placeholder="Your Eight Sleep password"
+                    className="w-full px-3 py-2 pr-10 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/30 focus:outline-none focus:border-violet-500"
+                    disabled={eightSleepConnecting}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowEightSleepPassword(!showEightSleepPassword)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-white/40 hover:text-white/60"
+                  >
+                    {showEightSleepPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+              <p className="text-xs text-white/40">
+                Your credentials are stored securely and only used to sync your sleep data.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowEightSleepForm(false)}
+                  className="flex-1 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
+                  disabled={eightSleepConnecting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={eightSleepConnecting || !eightSleepEmail || !eightSleepPassword}
+                  className="flex-1 py-2 bg-violet-500 hover:bg-violet-400 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {eightSleepConnecting ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Connecting...
+                    </>
+                  ) : (
+                    'Connect'
+                  )}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-violet-500/20 flex items-center justify-center">
+                  <Moon size={20} className="text-violet-400" />
+                </div>
+                <div>
+                  <p className="font-medium">Eight Sleep</p>
+                  <p className="text-sm text-white/50">Not connected</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowEightSleepForm(true)}
+                className="px-4 py-2 bg-violet-500 hover:bg-violet-400 text-white rounded-lg text-sm transition-colors"
+              >
+                Connect
+              </button>
+            </div>
           )}
         </div>
 
