@@ -35,7 +35,57 @@ module.exports = {
         sans: ['Instrument Sans', 'system-ui', 'sans-serif'],
         display: ['Fraunces', 'serif'],
       },
+      // Accessibility - minimum touch targets
+      spacing: {
+        'touch': '44px', // iOS minimum touch target
+        'touch-lg': '48px', // Android minimum touch target
+      },
     },
   },
-  plugins: [],
+  plugins: [
+    // Focus visible plugin for accessibility
+    function({ addBase, addUtilities }) {
+      addBase({
+        // Remove default focus outline, rely on focus-visible
+        '*:focus': {
+          outline: 'none',
+        },
+        // Focus visible ring for keyboard navigation
+        '*:focus-visible': {
+          outline: '2px solid #f59e0b',
+          outlineOffset: '2px',
+        },
+      })
+      addUtilities({
+        // Custom focus ring utility
+        '.focus-ring': {
+          '&:focus-visible': {
+            outline: '2px solid #f59e0b',
+            outlineOffset: '2px',
+            borderRadius: '0.375rem',
+          },
+        },
+        // Skip link utility for accessibility
+        '.skip-link': {
+          position: 'absolute',
+          left: '-9999px',
+          top: 'auto',
+          width: '1px',
+          height: '1px',
+          overflow: 'hidden',
+          '&:focus': {
+            position: 'fixed',
+            top: '0',
+            left: '0',
+            width: 'auto',
+            height: 'auto',
+            padding: '1rem',
+            background: '#18181b',
+            color: '#fff',
+            zIndex: '9999',
+          },
+        },
+      })
+    },
+  ],
 }

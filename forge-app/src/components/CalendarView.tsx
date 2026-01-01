@@ -15,6 +15,8 @@ import {
   subMonths,
   addWeeks,
   subWeeks,
+  addDays,
+  subDays,
   isToday,
 } from 'date-fns'
 import {
@@ -36,6 +38,7 @@ import {
   Zap,
   CalendarDays,
   CalendarRange,
+  List,
   XCircle,
   AlertTriangle,
   CheckCircle,
@@ -157,7 +160,21 @@ const workoutIcons: Record<string, any> = {
   default: Activity,
 }
 
-type ViewMode = 'month' | 'week'
+type ViewMode = 'month' | 'week' | 'list'
+
+// Hook to detect mobile viewport
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 640)
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
+  return isMobile
+}
 
 export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: CalendarViewProps) {
   // Use null initially to avoid hydration mismatch, then set in useEffect
@@ -173,6 +190,7 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
   const [weatherForecast, setWeatherForecast] = useState<WeatherDay[]>([])
   const [selectedWeather, setSelectedWeather] = useState<WeatherDay | null>(null)
   const [mounted, setMounted] = useState(false)
+  const isMobile = useIsMobile()
 
   // Set dates after mount to avoid hydration mismatch
   useEffect(() => {
@@ -180,6 +198,13 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
     setCreateModalDate(new Date())
     setMounted(true)
   }, [])
+
+  // Auto-switch to list view on mobile
+  useEffect(() => {
+    if (mounted && isMobile && viewMode === 'month') {
+      setViewMode('list')
+    }
+  }, [isMobile, mounted])
 
   // Fetch workouts from API
   const fetchWorkouts = useCallback(async () => {
@@ -274,16 +299,22 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
   const navigatePrevious = () => {
     if (viewMode === 'month') {
       setCurrentDate(subMonths(currentDate, 1))
-    } else {
+    } else if (viewMode === 'week') {
       setCurrentDate(subWeeks(currentDate, 1))
+    } else {
+      // List view - navigate by day
+      setCurrentDate(subDays(currentDate, 1))
     }
   }
 
   const navigateNext = () => {
     if (viewMode === 'month') {
       setCurrentDate(addMonths(currentDate, 1))
-    } else {
+    } else if (viewMode === 'week') {
       setCurrentDate(addWeeks(currentDate, 1))
+    } else {
+      // List view - navigate by day
+      setCurrentDate(addDays(currentDate, 1))
     }
   }
 
@@ -291,8 +322,18 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
     if (viewMode === 'month') {
       return format(currentDate, 'MMMM yyyy')
     }
+    if (viewMode === 'list') {
+      // Show 7-day range for list view
+      const listEnd = addDays(currentDate, 6)
+      return `${format(currentDate, 'MMM d')} - ${format(listEnd, 'MMM d')}`
+    }
     return `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d, yyyy')}`
   }
+
+  // Get days for list view (7 days from current date)
+  const listViewDays = viewMode === 'list'
+    ? eachDayOfInterval({ start: currentDate, end: addDays(currentDate, 6) })
+    : []
 
   // Group workouts by date
   const workoutsByDate = workouts.reduce((acc, workout) => {
@@ -390,24 +431,42 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
           </button>
 
           {/* View toggle */}
-          <div className="flex items-center glass rounded-lg p-1">
+          <div className="flex items-center glass rounded-lg p-1" role="tablist" aria-label="Calendar view options">
             <button
-              onClick={() => setViewMode('month')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-colors ${
-                viewMode === 'month' ? 'bg-white/10 text-white' : 'text-white/50 hover:text-white/80'
+              onClick={() => setViewMode('list')}
+              role="tab"
+              aria-selected={viewMode === 'list'}
+              aria-label="List view"
+              className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-md text-sm transition-colors min-h-touch ${
+                viewMode === 'list' ? 'bg-white/10 text-white' : 'text-white/60 hover:text-white/80'
               }`}
             >
-              <CalendarDays size={16} />
-              Month
+              <List size={16} aria-hidden="true" />
+              <span className="hidden sm:inline">List</span>
             </button>
             <button
               onClick={() => setViewMode('week')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-colors ${
-                viewMode === 'week' ? 'bg-white/10 text-white' : 'text-white/50 hover:text-white/80'
+              role="tab"
+              aria-selected={viewMode === 'week'}
+              aria-label="Week view"
+              className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-md text-sm transition-colors min-h-touch ${
+                viewMode === 'week' ? 'bg-white/10 text-white' : 'text-white/60 hover:text-white/80'
               }`}
             >
-              <CalendarRange size={16} />
-              Week
+              <CalendarRange size={16} aria-hidden="true" />
+              <span className="hidden sm:inline">Week</span>
+            </button>
+            <button
+              onClick={() => setViewMode('month')}
+              role="tab"
+              aria-selected={viewMode === 'month'}
+              aria-label="Month view"
+              className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-colors min-h-touch ${
+                viewMode === 'month' ? 'bg-white/10 text-white' : 'text-white/60 hover:text-white/80'
+              }`}
+            >
+              <CalendarDays size={16} aria-hidden="true" />
+              Month
             </button>
           </div>
         </div>
@@ -485,7 +544,143 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
         loading={planLoading}
       />
 
-      {/* Calendar grid */}
+      {/* Mobile List View */}
+      {viewMode === 'list' && (
+        <div className="space-y-4" role="list" aria-label="Upcoming workouts">
+          {listViewDays.map((day, idx) => {
+            const dateKey = format(day, 'yyyy-MM-dd')
+            const dayWorkouts = workoutsByDate[dateKey] || []
+            const isCurrentDay = isToday(day)
+            const dayWeather = weatherByDate[dateKey]
+            const showWeather = dayWeather && (isToday(day) || day > new Date())
+
+            return (
+              <div
+                key={idx}
+                className={`border border-white/10 rounded-xl overflow-hidden ${
+                  isCurrentDay ? 'ring-2 ring-amber-500/50' : ''
+                }`}
+                role="listitem"
+              >
+                {/* Day header */}
+                <div className={`flex items-center justify-between p-4 ${
+                  isCurrentDay ? 'bg-amber-500/10' : 'bg-white/5'
+                }`}>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center ${
+                      isCurrentDay ? 'bg-amber-500 text-black' : 'bg-white/10'
+                    }`}>
+                      <span className="text-xs font-medium uppercase">
+                        {format(day, 'EEE')}
+                      </span>
+                      <span className="text-lg font-bold">
+                        {format(day, 'd')}
+                      </span>
+                    </div>
+                    <div>
+                      <p className={`font-medium ${isCurrentDay ? 'text-amber-400' : 'text-white'}`}>
+                        {isCurrentDay ? 'Today' : format(day, 'EEEE')}
+                      </p>
+                      <p className="text-sm text-white/50">
+                        {format(day, 'MMMM d, yyyy')}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {showWeather && dayWeather && (
+                      <WeatherBadge
+                        weather={dayWeather}
+                        onClick={() => setSelectedWeather(dayWeather)}
+                        size="sm"
+                      />
+                    )}
+                    <button
+                      onClick={() => openCreateModal(day)}
+                      aria-label={`Add workout for ${format(day, 'MMMM d')}`}
+                      className="p-2 min-h-touch min-w-touch hover:bg-white/10 rounded-lg transition-colors flex items-center justify-center"
+                    >
+                      <Plus size={20} className="text-white/60" aria-hidden="true" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Workouts for this day */}
+                <div className="p-3 space-y-2">
+                  {dayWorkouts.length === 0 ? (
+                    <button
+                      onClick={() => openCreateModal(day)}
+                      className="w-full py-6 border border-dashed border-white/10 rounded-lg text-white/40 hover:text-white/60 hover:border-white/20 transition-all text-sm flex items-center justify-center gap-2"
+                    >
+                      <Plus size={16} aria-hidden="true" />
+                      Add workout
+                    </button>
+                  ) : (
+                    dayWorkouts.map(workout => {
+                      const colors = categoryColors[workout.category] || categoryColors.other
+                      const Icon = getWorkoutIcon(workout.workout_type)
+                      const statusIcon = getStatusIcon(workout)
+
+                      return (
+                        <button
+                          key={workout.id}
+                          onClick={() => setSelectedWorkout(workout)}
+                          className={`w-full text-left rounded-xl overflow-hidden border ${colors.border} hover:translate-x-1 transition-all`}
+                          aria-label={`${workout.name || workout.workout_type} - ${workout.status === 'completed' && workout.actual_duration_minutes ? `${workout.actual_duration_minutes} minutes` : workout.planned_duration_minutes ? `${workout.planned_duration_minutes} minutes planned` : ''}`}
+                        >
+                          <div className={`h-1.5 ${colors.bg}`} />
+                          <div className="p-4 bg-zinc-800/90">
+                            <div className="flex items-start gap-3">
+                              <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${colors.light}`}>
+                                <Icon size={20} className={colors.text} aria-hidden="true" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  {statusIcon && (
+                                    <statusIcon.Icon size={14} className={`${statusIcon.color} flex-shrink-0`} aria-hidden="true" />
+                                  )}
+                                  <span className="font-medium truncate">
+                                    {workout.name || workout.workout_type}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-3 mt-1 text-sm text-white/50">
+                                  {workout.status === 'completed' && workout.actual_duration_minutes ? (
+                                    <span className="flex items-center gap-1">
+                                      <Clock size={14} aria-hidden="true" />
+                                      {workout.actual_duration_minutes}m
+                                    </span>
+                                  ) : workout.planned_duration_minutes ? (
+                                    <span className="flex items-center gap-1">
+                                      <Clock size={14} aria-hidden="true" />
+                                      {workout.planned_duration_minutes}m planned
+                                    </span>
+                                  ) : null}
+                                  {workout.actual_distance_miles && (
+                                    <span className="flex items-center gap-1">
+                                      <Route size={14} aria-hidden="true" />
+                                      {workout.actual_distance_miles}mi
+                                    </span>
+                                  )}
+                                  {workout.status === 'completed' && (
+                                    <span className="text-emerald-400 text-xs">Completed</span>
+                                  )}
+                                </div>
+                              </div>
+                              <ChevronRight size={20} className="text-white/30 flex-shrink-0" aria-hidden="true" />
+                            </div>
+                          </div>
+                        </button>
+                      )
+                    })
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Calendar grid (week/month views) */}
+      {(viewMode === 'week' || viewMode === 'month') && (
       <div className="border border-white/10 rounded-xl overflow-hidden">
         {/* Day headers */}
         <div className="grid grid-cols-7 bg-white/5">
@@ -622,6 +817,7 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
           })}
         </div>
       </div>
+      )}
 
       {/* Workout detail modal */}
       {selectedWorkout && (

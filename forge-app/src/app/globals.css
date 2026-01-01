@@ -102,3 +102,96 @@ h1, h2, h3, .font-display {
 .animate-fade {
   animation: fadeIn 0.2s ease-out forwards;
 }
+
+/* ============================================
+   ACCESSIBILITY IMPROVEMENTS
+   ============================================ */
+
+/* Reduced motion support - respect user preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .animate-slide-up,
+  .animate-fade,
+  .animate-bounce,
+  .animate-spin,
+  .animate-pulse {
+    animation: none !important;
+  }
+}
+
+/* High contrast text utilities - WCAG AA compliant */
+@layer utilities {
+  /* Replace text-white/30 with this for better contrast */
+  .text-muted {
+    color: rgba(255, 255, 255, 0.5);
+  }
+
+  /* Replace text-white/40 with this for better contrast */
+  .text-secondary {
+    color: rgba(255, 255, 255, 0.6);
+  }
+
+  /* Replace text-white/50 with this for better contrast */
+  .text-tertiary {
+    color: rgba(255, 255, 255, 0.7);
+  }
+
+  /* Minimum touch target size utilities */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .touch-target-lg {
+    min-height: 48px;
+    min-width: 48px;
+  }
+}
+
+/* Screen reader only - visually hidden but accessible */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Focus trap container for modals */
+.focus-trap {
+  isolation: isolate;
+}
+
+/* Safe area insets for mobile devices with notches */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0);
+}
+
+/* Improved placeholder contrast */
+::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+  opacity: 1;
+}
+
+/* Focus within for form groups */
+.focus-within-ring:focus-within {
+  outline: 2px solid #f59e0b;
+  outline-offset: 2px;
+  border-radius: 0.5rem;
+}

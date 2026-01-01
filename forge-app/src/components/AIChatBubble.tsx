@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import {
   Bot,
   X,
@@ -172,16 +172,31 @@ export function AIChatBubble() {
     }
   }
 
+  // Handle escape key to close chat
+  const handleEscapeKey = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'Escape' && isOpen) {
+      setIsOpen(false)
+    }
+  }, [isOpen])
+
+  useEffect(() => {
+    document.addEventListener('keydown', handleEscapeKey)
+    return () => document.removeEventListener('keydown', handleEscapeKey)
+  }, [handleEscapeKey])
+
   return (
     <>
       {/* Chat bubble button */}
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
+          aria-label="Open AI Coach chat"
+          aria-expanded={isOpen}
+          aria-controls="ai-chat-window"
           className="fixed bottom-6 right-6 w-14 h-14 bg-violet-500 hover:bg-violet-400 rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-105 z-50"
         >
-          <Bot size={24} className="text-white" />
-          <span className="absolute -top-1 -right-1 w-4 h-4 bg-amber-400 rounded-full flex items-center justify-center">
+          <Bot size={24} className="text-white" aria-hidden="true" />
+          <span className="absolute -top-1 -right-1 w-4 h-4 bg-amber-400 rounded-full flex items-center justify-center" aria-hidden="true">
             <Sparkles size={10} className="text-black" />
           </span>
         </button>
@@ -189,39 +204,53 @@ export function AIChatBubble() {
 
       {/* Chat window */}
       {isOpen && (
-        <div className="fixed bottom-6 right-6 w-[380px] h-[500px] bg-zinc-900 rounded-2xl shadow-2xl border border-white/10 flex flex-col overflow-hidden z-50 animate-slide-up">
+        <div
+          id="ai-chat-window"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="ai-chat-title"
+          className="fixed bottom-6 right-6 w-[380px] h-[500px] bg-zinc-900 rounded-2xl shadow-2xl border border-white/10 flex flex-col overflow-hidden z-50 animate-slide-up focus-trap"
+        >
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-white/10 bg-violet-500/10">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-violet-500 rounded-full flex items-center justify-center">
+              <div className="w-10 h-10 bg-violet-500 rounded-full flex items-center justify-center" aria-hidden="true">
                 <Bot size={20} className="text-white" />
               </div>
               <div>
-                <h3 className="font-semibold text-sm">FORGE Coach</h3>
-                <p className="text-xs text-white/50">AI Training Assistant</p>
+                <h3 id="ai-chat-title" className="font-semibold text-sm">FORGE Coach</h3>
+                <p className="text-xs text-white/60">AI Training Assistant</p>
               </div>
             </div>
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                aria-label="Minimize chat"
+                className="p-2 min-h-touch min-w-touch hover:bg-white/10 rounded-lg transition-colors flex items-center justify-center"
               >
-                <Minimize2 size={16} className="text-white/60" />
+                <Minimize2 size={16} className="text-white/60" aria-hidden="true" />
               </button>
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                aria-label="Close chat"
+                className="p-2 min-h-touch min-w-touch hover:bg-white/10 rounded-lg transition-colors flex items-center justify-center"
               >
-                <X size={16} className="text-white/60" />
+                <X size={16} className="text-white/60" aria-hidden="true" />
               </button>
             </div>
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div
+            className="flex-1 overflow-y-auto p-4 space-y-4"
+            role="log"
+            aria-label="Chat messages"
+            aria-live="polite"
+          >
             {!historyLoaded ? (
-              <div className="flex items-center justify-center h-full">
-                <Loader2 size={24} className="animate-spin text-white/40" />
+              <div className="flex items-center justify-center h-full" aria-label="Loading chat history">
+                <Loader2 size={24} className="animate-spin text-white/40" aria-hidden="true" />
+                <span className="sr-only">Loading chat history...</span>
               </div>
             ) : (
               <>
@@ -229,11 +258,14 @@ export function AIChatBubble() {
                   <div
                     key={message.id}
                     className={`flex gap-3 ${message.role === 'user' ? 'flex-row-reverse' : ''}`}
+                    role="article"
+                    aria-label={`${message.role === 'user' ? 'You' : 'AI Coach'}: ${message.content.substring(0, 50)}${message.content.length > 50 ? '...' : ''}`}
                   >
                     <div
                       className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
                         message.role === 'user' ? 'bg-amber-500' : 'bg-violet-500'
                       }`}
+                      aria-hidden="true"
                     >
                       {message.role === 'user' ? (
                         <User size={14} className="text-black" />
@@ -254,23 +286,28 @@ export function AIChatBubble() {
                 ))}
 
                 {isLoading && (
-                  <div className="flex gap-3">
-                    <div className="w-8 h-8 rounded-full bg-violet-500 flex items-center justify-center">
+                  <div className="flex gap-3" role="status" aria-label="AI is typing">
+                    <div className="w-8 h-8 rounded-full bg-violet-500 flex items-center justify-center" aria-hidden="true">
                       <Bot size={14} className="text-white" />
                     </div>
                     <div className="bg-white/10 rounded-2xl px-4 py-3">
-                      <div className="flex gap-1">
+                      <div className="flex gap-1" aria-hidden="true">
                         <div className="w-2 h-2 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
                         <div className="w-2 h-2 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
                         <div className="w-2 h-2 bg-white/40 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                       </div>
+                      <span className="sr-only">AI Coach is typing...</span>
                     </div>
                   </div>
                 )}
 
                 {error && (
-                  <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-sm text-red-400">
-                    <AlertCircle size={16} />
+                  <div
+                    className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-sm text-red-400"
+                    role="alert"
+                    aria-live="assertive"
+                  >
+                    <AlertCircle size={16} aria-hidden="true" />
                     {error}
                   </div>
                 )}
@@ -305,7 +342,9 @@ export function AIChatBubble() {
           {/* Input */}
           <div className="p-4 border-t border-white/10">
             <div className="flex items-end gap-2">
+              <label htmlFor="chat-input" className="sr-only">Message to AI Coach</label>
               <textarea
+                id="chat-input"
                 ref={inputRef}
                 value={input}
                 onChange={e => setInput(e.target.value)}
@@ -313,17 +352,21 @@ export function AIChatBubble() {
                 placeholder="Ask your coach..."
                 rows={1}
                 disabled={isLoading}
-                className="flex-1 px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-violet-500/50 resize-none max-h-[100px] disabled:opacity-50"
+                aria-label="Message to AI Coach"
+                aria-describedby="chat-hint"
+                className="flex-1 px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-sm text-white placeholder:text-white/50 focus:outline-none focus:border-violet-500/50 resize-none max-h-[100px] disabled:opacity-50"
               />
+              <span id="chat-hint" className="sr-only">Press Enter to send, Shift+Enter for new line</span>
               <button
                 onClick={handleSend}
                 disabled={!input.trim() || isLoading}
-                className="p-2.5 bg-violet-500 hover:bg-violet-400 disabled:opacity-50 disabled:hover:bg-violet-500 rounded-xl transition-colors"
+                aria-label={isLoading ? 'Sending message...' : 'Send message'}
+                className="p-3 min-h-touch min-w-touch bg-violet-500 hover:bg-violet-400 disabled:opacity-50 disabled:hover:bg-violet-500 rounded-xl transition-colors flex items-center justify-center"
               >
                 {isLoading ? (
-                  <Loader2 size={18} className="text-white animate-spin" />
+                  <Loader2 size={18} className="text-white animate-spin" aria-hidden="true" />
                 ) : (
-                  <Send size={18} className="text-white" />
+                  <Send size={18} className="text-white" aria-hidden="true" />
                 )}
               </button>
             </div>
