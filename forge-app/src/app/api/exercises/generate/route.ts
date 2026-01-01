@@ -30,9 +30,19 @@ The JSON should have these fields:
   "equipment": "one of: barbell, dumbbell, bodyweight, cable, machine, kettlebell, bands, medicine_ball",
   "is_compound": true or false,
   "is_unilateral": true or false,
+  "is_timed": true or false,
   "difficulty": "beginner, intermediate, or advanced",
   "cues": ["3-5 short coaching cues for proper form"]
 }
+
+is_timed should be true for exercises measured by duration rather than reps, including:
+- Planks (all variations)
+- Wall sits
+- Dead hangs
+- L-sits, hollow holds, superman holds
+- Isometric/static holds
+- Farmer's walks/carries
+- Any exercise with "hold" in the name
 
 Be accurate about muscle groups and equipment. If unsure about the exercise, make reasonable assumptions based on the name.`
         }
@@ -72,6 +82,11 @@ Be accurate about muscle groups and equipment. If unsure about the exercise, mak
     // Ensure secondary_muscles is an array
     if (!Array.isArray(exercise.secondary_muscles)) {
       exercise.secondary_muscles = []
+    }
+
+    // Ensure is_timed is a boolean
+    if (typeof exercise.is_timed !== 'boolean') {
+      exercise.is_timed = false
     }
 
     return NextResponse.json({ exercise })

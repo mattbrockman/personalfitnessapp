@@ -14,6 +14,7 @@ interface Exercise {
   primary_muscle: string
   equipment: string
   cues?: string[]
+  is_timed?: boolean
 }
 
 interface BuilderExercise {
@@ -22,6 +23,7 @@ interface BuilderExercise {
   sets: number
   reps_min: number
   reps_max: number
+  target_duration?: number // For timed exercises (seconds)
   rest_seconds: number
   superset_group: string | null
   notes: string
@@ -38,6 +40,10 @@ interface SetData {
   actual_weight: number | null
   actual_rir: string | null
   completed: boolean
+  // Time-based exercise fields
+  is_timed?: boolean
+  target_duration?: number | null // seconds
+  actual_duration?: number | null // seconds
 }
 
 interface WorkoutExercise {
@@ -90,6 +96,9 @@ export function LiftingTab({ workoutId }: LiftingTabProps) {
 
       // Convert workout exercises to tracker format
       const trackerExercises: WorkoutExercise[] = (workout.exercises || []).map((we: any) => {
+        // Check if exercise is timed
+        const isTimed = we.exercise?.is_timed || false
+
         // Convert sets from API format to tracker format
         const sets: SetData[] = (we.sets || []).map((set: any, index: number) => ({
           id: set.id || `set-${Date.now()}-${index}`,
@@ -102,24 +111,32 @@ export function LiftingTab({ workoutId }: LiftingTabProps) {
           actual_weight: set.actual_weight_lbs,
           actual_rir: set.actual_rpe ? String(10 - set.actual_rpe) : null,
           completed: set.completed || false,
+          // Time-based fields
+          is_timed: set.is_timed || isTimed,
+          target_duration: set.target_duration_seconds || null,
+          actual_duration: set.actual_duration_seconds || null,
         }))
 
         // If no sets exist, create sets based on JSONB metadata or defaults
         if (sets.length === 0) {
           const numSets = we._jsonb_sets || 3
           const targetReps = we._jsonb_reps_max || we._jsonb_reps_min || 10
+          const targetDuration = we._jsonb_target_duration || 30
           for (let i = 0; i < numSets; i++) {
             sets.push({
               id: `set-${Date.now()}-${i}`,
               set_number: i + 1,
               set_type: 'working',
-              target_reps: targetReps,
+              target_reps: isTimed ? null : targetReps,
               target_weight: null,
               target_rir: null,
               actual_reps: null,
               actual_weight: null,
               actual_rir: null,
               completed: false,
+              is_timed: isTimed,
+              target_duration: isTimed ? targetDuration : null,
+              actual_duration: null,
             })
           }
         }
@@ -132,6 +149,7 @@ export function LiftingTab({ workoutId }: LiftingTabProps) {
             primary_muscle: we.exercise?.primary_muscles?.[0] || '',
             equipment: we.exercise?.equipment || '',
             cues: we.exercise?.coaching_cues || [],
+            is_timed: isTimed,
           },
           superset_group: we.superset_group || null,
           rest_seconds: we.rest_seconds || 90,
@@ -156,6 +174,9 @@ export function LiftingTab({ workoutId }: LiftingTabProps) {
   // Convert BuilderExercise to WorkoutExercise format for the tracker
   const convertToTrackerFormat = useCallback((builderExercises: BuilderExercise[]): WorkoutExercise[] => {
     return builderExercises.map(be => {
+      // Check if this is a timed exercise
+      const isTimed = be.exercise.is_timed || false
+
       // Create sets based on the builder config
       const sets: SetData[] = []
       for (let i = 0; i < be.sets; i++) {
@@ -163,13 +184,17 @@ export function LiftingTab({ workoutId }: LiftingTabProps) {
           id: `set-${Date.now()}-${i}`,
           set_number: i + 1,
           set_type: 'working',
-          target_reps: be.reps_max, // Use max as target
+          target_reps: isTimed ? null : be.reps_max, // No reps for timed exercises
           target_weight: null,
           target_rir: null,
           actual_reps: null,
           actual_weight: null,
           actual_rir: null,
           completed: false,
+          // Time-based fields
+          is_timed: isTimed,
+          target_duration: isTimed ? (be.target_duration || 30) : null,
+          actual_duration: null,
         })
       }
 

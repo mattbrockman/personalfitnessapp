@@ -196,6 +196,10 @@ export async function POST(request: NextRequest) {
               actual_weight_lbs: set.actual_weight,
               actual_rpe: set.actual_rpe,
               completed: set.completed || false,
+              // Time-based exercise fields
+              is_timed: set.is_timed || false,
+              target_duration_seconds: set.target_duration_seconds || set.target_duration || null,
+              actual_duration_seconds: set.actual_duration_seconds || set.actual_duration || null,
             }))
 
             await (adminClient.from('exercise_sets') as any).insert(setsWithIds)

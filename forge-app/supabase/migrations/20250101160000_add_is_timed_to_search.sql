@@ -1,27 +1,10 @@
--- Migration: Enhanced Full-Text Search with Trigram Similarity
--- Enables fuzzy search like "rdl" -> "Romanian Deadlift"
+-- Migration: Add is_timed to search_exercises function
+-- Updates the search function to return the is_timed field
 
-BEGIN;
+-- Drop the old function first (required when changing return type)
+DROP FUNCTION IF EXISTS search_exercises(TEXT, TEXT, TEXT, INTEGER);
 
--- Step 0: Ensure required columns exist
-ALTER TABLE exercises ADD COLUMN IF NOT EXISTS primary_muscle TEXT;
-CREATE INDEX IF NOT EXISTS idx_exercises_primary_muscle ON exercises(primary_muscle);
-
--- Step 1: Enable pg_trgm extension for fuzzy matching
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
-
--- Step 2: Create trigram index for fuzzy name matching
-CREATE INDEX IF NOT EXISTS exercises_name_trgm_idx ON exercises
-  USING gin(name gin_trgm_ops);
-
--- Step 3: Drop old FTS index and create simpler version
--- Using name only for the GIN index (simpler and immutable)
-DROP INDEX IF EXISTS exercises_search_idx;
-
-CREATE INDEX exercises_search_idx ON exercises
-  USING gin(to_tsvector('english', COALESCE(name, '')));
-
--- Step 4: Create search function that handles common abbreviations
+-- Recreate the function with is_timed included
 CREATE OR REPLACE FUNCTION search_exercises(
   search_term TEXT,
   muscle_filter TEXT DEFAULT NULL,
@@ -122,10 +105,3 @@ BEGIN
   LIMIT result_limit;
 END;
 $$;
-
--- Grant execute permission
-GRANT EXECUTE ON FUNCTION search_exercises(TEXT, TEXT, TEXT, INTEGER) TO authenticated;
-GRANT EXECUTE ON FUNCTION search_exercises(TEXT, TEXT, TEXT, INTEGER) TO anon;
-GRANT EXECUTE ON FUNCTION search_exercises(TEXT, TEXT, TEXT, INTEGER) TO service_role;
-
-COMMIT;

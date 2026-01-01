@@ -50,6 +50,7 @@ interface Exercise {
   cues?: string[]
   video_url?: string | null
   thumbnail_url?: string | null
+  is_timed?: boolean
 }
 
 interface SetData {
@@ -768,6 +769,7 @@ function SetRow({
   const [timerRunning, setTimerRunning] = useState(false)
   const [timerSeconds, setTimerSeconds] = useState(0)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
+  const wakeLockRef = useRef<WakeLockSentinel | null>(null)
 
   // Timer effect
   useEffect(() => {
@@ -780,6 +782,41 @@ function SetRow({
     }
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
+    }
+  }, [timerRunning])
+
+  // Wake Lock - keep screen on while timer is running
+  useEffect(() => {
+    const requestWakeLock = async () => {
+      if (timerRunning && 'wakeLock' in navigator) {
+        try {
+          wakeLockRef.current = await navigator.wakeLock.request('screen')
+        } catch (err) {
+          // Wake Lock request failed - typically happens when page is not visible
+          console.debug('Wake Lock request failed:', err)
+        }
+      }
+    }
+
+    const releaseWakeLock = async () => {
+      if (wakeLockRef.current) {
+        try {
+          await wakeLockRef.current.release()
+          wakeLockRef.current = null
+        } catch (err) {
+          console.debug('Wake Lock release failed:', err)
+        }
+      }
+    }
+
+    if (timerRunning) {
+      requestWakeLock()
+    } else {
+      releaseWakeLock()
+    }
+
+    return () => {
+      releaseWakeLock()
     }
   }, [timerRunning])
 
@@ -1674,17 +1711,21 @@ function ExerciseCard({
 
   const addSet = () => {
     const lastSet = sets[sets.length - 1]
+    const isTimed = exercise.is_timed || lastSet?.is_timed || false
     const newSet: SetData = {
       id: `set-${Date.now()}`,
       set_number: sets.filter(s => s.set_type !== 'warmup').length + 1,
       set_type: 'working',
-      target_reps: lastSet?.target_reps ?? 10,
+      target_reps: isTimed ? null : (lastSet?.target_reps ?? 10),
       target_weight: lastSet?.target_weight ?? null,
       target_rir: null,
       actual_reps: null,
       actual_weight: null,
       actual_rir: null,
       completed: false,
+      is_timed: isTimed,
+      target_duration: isTimed ? (lastSet?.target_duration ?? 30) : null,
+      actual_duration: null,
     }
     onUpdate({ sets: [...sets, newSet] })
   }
@@ -1933,6 +1974,7 @@ export function LiftingTracker({
   }
 
   const addExercise = (exercise: Exercise) => {
+    const isTimed = exercise.is_timed || false
     const newExercise: WorkoutExercise = {
       id: `ex-${Date.now()}`,
       exercise,
@@ -1945,37 +1987,46 @@ export function LiftingTracker({
           id: `set-${Date.now()}`,
           set_number: 1,
           set_type: 'working',
-          target_reps: 10,
+          target_reps: isTimed ? null : 10,
           target_weight: null,
           target_rir: null,
           actual_reps: null,
           actual_weight: null,
           actual_rir: null,
           completed: false,
+          is_timed: isTimed,
+          target_duration: isTimed ? 30 : null,
+          actual_duration: null,
         },
         {
           id: `set-${Date.now() + 1}`,
           set_number: 2,
           set_type: 'working',
-          target_reps: 10,
+          target_reps: isTimed ? null : 10,
           target_weight: null,
           target_rir: null,
           actual_reps: null,
           actual_weight: null,
           actual_rir: null,
           completed: false,
+          is_timed: isTimed,
+          target_duration: isTimed ? 30 : null,
+          actual_duration: null,
         },
         {
           id: `set-${Date.now() + 2}`,
           set_number: 3,
           set_type: 'working',
-          target_reps: 10,
+          target_reps: isTimed ? null : 10,
           target_weight: null,
           target_rir: null,
           actual_reps: null,
           actual_weight: null,
           actual_rir: null,
           completed: false,
+          is_timed: isTimed,
+          target_duration: isTimed ? 30 : null,
+          actual_duration: null,
         },
       ],
     }
@@ -2057,6 +2108,10 @@ export function LiftingTracker({
           actual_weight: set.actual_weight,
           actual_rir: set.actual_rir,
           completed: set.completed,
+          // Time-based fields
+          is_timed: set.is_timed || false,
+          target_duration_seconds: set.target_duration || null,
+          actual_duration_seconds: set.actual_duration || null,
         })),
       }))
 

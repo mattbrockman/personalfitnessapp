@@ -28,6 +28,7 @@ interface Exercise {
   primary_muscle: string
   equipment: string
   cues?: string[]
+  is_timed?: boolean
 }
 
 interface BuilderExercise {
@@ -36,6 +37,7 @@ interface BuilderExercise {
   sets: number
   reps_min: number
   reps_max: number
+  target_duration?: number // For timed exercises (seconds)
   rest_seconds: number
   superset_group: string | null
   notes: string
@@ -735,23 +737,37 @@ function BuilderExerciseCard({
               </div>
             </div>
 
-            {/* Reps */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-white/50">Reps:</span>
-              <input
-                type="number"
-                value={exercise.reps_min}
-                onChange={e => onUpdate({ reps_min: parseInt(e.target.value) || 0 })}
-                className="w-12 bg-white/5 border border-white/10 rounded px-2 py-1 text-center text-sm focus:outline-none focus:border-amber-500/50"
-              />
-              <span className="text-white/30">-</span>
-              <input
-                type="number"
-                value={exercise.reps_max}
-                onChange={e => onUpdate({ reps_max: parseInt(e.target.value) || 0 })}
-                className="w-12 bg-white/5 border border-white/10 rounded px-2 py-1 text-center text-sm focus:outline-none focus:border-amber-500/50"
-              />
-            </div>
+            {/* Duration (for timed exercises) OR Reps (for rep-based exercises) */}
+            {exercise.exercise.is_timed ? (
+              <div className="flex items-center gap-2">
+                <Clock size={14} className="text-amber-400" />
+                <span className="text-sm text-white/50">Duration:</span>
+                <input
+                  type="number"
+                  value={exercise.target_duration || 30}
+                  onChange={e => onUpdate({ target_duration: parseInt(e.target.value) || 30 })}
+                  className="w-16 bg-white/5 border border-white/10 rounded px-2 py-1 text-center text-sm focus:outline-none focus:border-amber-500/50"
+                />
+                <span className="text-sm text-white/50">sec</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-white/50">Reps:</span>
+                <input
+                  type="number"
+                  value={exercise.reps_min}
+                  onChange={e => onUpdate({ reps_min: parseInt(e.target.value) || 0 })}
+                  className="w-12 bg-white/5 border border-white/10 rounded px-2 py-1 text-center text-sm focus:outline-none focus:border-amber-500/50"
+                />
+                <span className="text-white/30">-</span>
+                <input
+                  type="number"
+                  value={exercise.reps_max}
+                  onChange={e => onUpdate({ reps_max: parseInt(e.target.value) || 0 })}
+                  className="w-12 bg-white/5 border border-white/10 rounded px-2 py-1 text-center text-sm focus:outline-none focus:border-amber-500/50"
+                />
+              </div>
+            )}
 
             {/* Rest */}
             <div className="flex items-center gap-2">
@@ -795,12 +811,14 @@ export function WorkoutBuilder({
   const [detailExercise, setDetailExercise] = useState<Exercise | null>(null)
 
   const addExercise = (exercise: Exercise) => {
+    const isTimed = exercise.is_timed || false
     const newExercise: BuilderExercise = {
       id: `builder-${Date.now()}`,
       exercise,
       sets: 3,
-      reps_min: 8,
-      reps_max: 12,
+      reps_min: isTimed ? 0 : 8,
+      reps_max: isTimed ? 0 : 12,
+      target_duration: isTimed ? 30 : undefined,
       rest_seconds: 90,
       superset_group: null,
       notes: '',
