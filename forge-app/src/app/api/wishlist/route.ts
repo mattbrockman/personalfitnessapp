@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { promises as fs } from 'fs'
-import path from 'path'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 
-const WISHLIST_PATH = path.join(process.cwd(), 'WISHLIST.md')
-
-// GET /api/wishlist - Read current wishlist
+// GET /api/wishlist - Get all wishlist items
 export async function GET() {
   try {
     const supabase = await createClient()
@@ -14,12 +10,19 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    try {
-      const content = await fs.readFile(WISHLIST_PATH, 'utf-8')
-      return NextResponse.json({ content })
-    } catch {
-      return NextResponse.json({ content: '# FORGE App - Wishlist & Bug Fixes\n\n## Wishlist\n\n## Bug Reports\n' })
+    const adminClient = createAdminClient()
+
+    const { data: items, error } = await adminClient
+      .from('wishlist_items')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('Wishlist fetch error:', error)
+      return NextResponse.json({ error: 'Failed to fetch wishlist' }, { status: 500 })
     }
+
+    return NextResponse.json({ items })
   } catch (error) {
     console.error('Wishlist GET error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -42,92 +45,111 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Item is required' }, { status: 400 })
     }
 
-    // Read current content
-    let content: string
-    try {
-      content = await fs.readFile(WISHLIST_PATH, 'utf-8')
-    } catch {
-      content = `# FORGE App - Wishlist & Bug Fixes
+    const adminClient = createAdminClient()
 
-## In Progress
-<!-- Add current work items here -->
+    const { data, error } = await adminClient
+      .from('wishlist_items')
+      .insert({
+        user_id: session.user.id,
+        item,
+        category,
+      })
+      .select()
+      .single()
 
-## Completed
-<!-- Completed items will be moved here -->
-
-## Wishlist (Future Features)
-<!-- Add new feature ideas here -->
-
-## Bug Reports
-<!-- Add bug reports here -->
-
----
-*Last updated: ${new Date().toISOString().split('T')[0]}*
-`
+    if (error) {
+      console.error('Wishlist insert error:', error)
+      return NextResponse.json({ error: 'Failed to add to wishlist' }, { status: 500 })
     }
-
-    // Find the right section to add to
-    const sectionMap: Record<string, string> = {
-      wishlist: '## Wishlist (Future Features)',
-      bug: '## Bug Reports',
-      'in_progress': '## In Progress',
-    }
-
-    const sectionHeader = sectionMap[category] || sectionMap.wishlist
-    const newItem = `- [ ] ${item}`
-
-    // Insert the item after the section header
-    const sectionIndex = content.indexOf(sectionHeader)
-    if (sectionIndex === -1) {
-      // Section doesn't exist, append at end
-      content = content.trim() + `\n\n${sectionHeader}\n${newItem}\n`
-    } else {
-      // Find the end of the header line
-      const headerEndIndex = content.indexOf('\n', sectionIndex)
-      // Find the next section or end
-      const nextSectionMatch = content.slice(headerEndIndex + 1).match(/\n## /)
-      const insertPosition = nextSectionMatch
-        ? headerEndIndex + 1 + (nextSectionMatch.index || 0)
-        : content.length
-
-      // Find where to insert (after any existing items or comment)
-      let insertAt = headerEndIndex + 1
-      const sectionContent = content.slice(headerEndIndex + 1, insertPosition)
-      const lines = sectionContent.split('\n')
-
-      // Find first non-empty, non-comment line position to insert after existing items
-      let lastItemIndex = 0
-      for (let i = 0; i < lines.length; i++) {
-        if (lines[i].startsWith('- ')) {
-          lastItemIndex = i + 1
-        }
-      }
-
-      // Calculate actual insert position
-      const linesBeforeInsert = lines.slice(0, lastItemIndex || 1)
-      insertAt = headerEndIndex + 1 + linesBeforeInsert.join('\n').length + (lastItemIndex > 0 ? 1 : 0)
-
-      // Insert the new item
-      const prefix = content.slice(0, insertAt)
-      const suffix = content.slice(insertAt)
-
-      // Add newline if needed
-      const needsNewline = !prefix.endsWith('\n')
-      content = prefix + (needsNewline ? '\n' : '') + newItem + '\n' + suffix.replace(/^\n+/, '')
-    }
-
-    // Update last updated date
-    content = content.replace(/\*Last updated: .*\*/, `*Last updated: ${new Date().toISOString().split('T')[0]}*`)
-
-    // Write back
-    await fs.writeFile(WISHLIST_PATH, content, 'utf-8')
 
     return NextResponse.json({
       success: true,
       message: `Added to ${category}: "${item}"`,
+      item: data,
     })
   } catch (error) {
     console.error('Wishlist POST error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+// PATCH /api/wishlist - Update wishlist item (e.g., mark as completed)
+export async function PATCH(request: NextRequest) {
+  try {
+    const supabase = await createClient()
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const body = await request.json()
+    const { id, category, completed } = body
+
+    if (!id) {
+      return NextResponse.json({ error: 'Item ID is required' }, { status: 400 })
+    }
+
+    const adminClient = createAdminClient()
+
+    const updates: Record<string, any> = { updated_at: new Date().toISOString() }
+    if (category) updates.category = category
+    if (completed !== undefined) {
+      updates.category = completed ? 'completed' : 'wishlist'
+      updates.completed_at = completed ? new Date().toISOString() : null
+    }
+
+    const { data, error } = await adminClient
+      .from('wishlist_items')
+      .update(updates)
+      .eq('id', id)
+      .eq('user_id', session.user.id)
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Wishlist update error:', error)
+      return NextResponse.json({ error: 'Failed to update wishlist item' }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true, item: data })
+  } catch (error) {
+    console.error('Wishlist PATCH error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+// DELETE /api/wishlist - Delete wishlist item
+export async function DELETE(request: NextRequest) {
+  try {
+    const supabase = await createClient()
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')
+
+    if (!id) {
+      return NextResponse.json({ error: 'Item ID is required' }, { status: 400 })
+    }
+
+    const adminClient = createAdminClient()
+
+    const { error } = await adminClient
+      .from('wishlist_items')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', session.user.id)
+
+    if (error) {
+      console.error('Wishlist delete error:', error)
+      return NextResponse.json({ error: 'Failed to delete wishlist item' }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('Wishlist DELETE error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
