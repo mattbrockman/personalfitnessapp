@@ -179,7 +179,7 @@ export async function getSleepTrends(
 
 /**
  * Convert Eight Sleep day data to our sleep_logs format
- * The API returns sleep data directly on the day object, not in sessions
+ * The API returns sleep data directly on the day object
  */
 export function mapEightSleepDayToSleepLog(day: any) {
   try {
@@ -192,19 +192,25 @@ export function mapEightSleepDayToSleepLog(day: any) {
       ? day.presenceDuration - day.sleepDuration
       : null
 
+    // Get metrics from sleepQualityScore
+    const qualityScore = day.sleepQualityScore
+    const hrv = qualityScore?.hrv?.current
+    const heartRate = qualityScore?.heartRate?.current
+    const respRate = qualityScore?.respiratoryRate?.current
+
     return {
       log_date: day.day,
-      bedtime: day.bedLocalTime || null,
-      wake_time: day.outOfBedLocalTime || null,
+      bedtime: day.sleepStart || null,  // ISO timestamp
+      wake_time: day.sleepEnd || null,  // ISO timestamp
       total_sleep_minutes: secondsToMinutes(day.sleepDuration),
       deep_sleep_minutes: secondsToMinutes(day.deepDuration),
       rem_sleep_minutes: secondsToMinutes(day.remDuration),
       light_sleep_minutes: secondsToMinutes(day.lightDuration),
       awake_minutes: secondsToMinutes(awakeDuration),
-      sleep_score: day.score || day.sleepFitnessScore?.total || null,
-      hrv_avg: day.sleepFitnessScore?.hrv ? Math.round(day.sleepFitnessScore.hrv) : null,
-      resting_hr: day.respiratoryRate ? Math.round(day.respiratoryRate) : null,  // This might be wrong field
-      respiratory_rate: day.respiratoryRate || null,
+      sleep_score: day.score || null,
+      hrv_avg: hrv ? Math.round(hrv) : null,
+      resting_hr: heartRate ? Math.round(heartRate) : null,
+      respiratory_rate: respRate ? Math.round(respRate * 10) / 10 : null,
       source: 'eight_sleep_direct' as const,
     }
   } catch (error) {
