@@ -1,11 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   TrendingUp,
   TrendingDown,
   Minus,
-  Calendar,
   ChevronDown,
   Dumbbell,
   Scale,
@@ -17,6 +16,7 @@ import {
   Flame,
   Camera,
   X,
+  Loader2,
 } from 'lucide-react'
 import { BodyScanner } from './BodyScanner'
 import {
@@ -38,14 +38,15 @@ import {
 // Types
 interface ProgressDataPoint {
   date: string
+  weekStart: string
   weight?: number
   bodyFat?: number
   benchPress?: number
   squat?: number
   deadlift?: number
-  ctl?: number // Chronic Training Load (fitness)
-  atl?: number // Acute Training Load (fatigue)
-  tsb?: number // Training Stress Balance (form)
+  ctl?: number
+  atl?: number
+  tsb?: number
   weeklyVolume?: number
   avgSleepScore?: number
   avgHRV?: number
@@ -60,26 +61,16 @@ interface PersonalRecord {
   previousBest?: number
 }
 
-// Mock data
-const PROGRESS_DATA: ProgressDataPoint[] = [
-  { date: 'Nov 1', weight: 186, benchPress: 175, squat: 225, deadlift: 315, ctl: 45, atl: 50, tsb: -5, weeklyVolume: 42000, avgSleepScore: 78, avgHRV: 42, proteinAvg: 165 },
-  { date: 'Nov 8', weight: 185, benchPress: 175, squat: 230, deadlift: 315, ctl: 48, atl: 55, tsb: -7, weeklyVolume: 45000, avgSleepScore: 75, avgHRV: 40, proteinAvg: 170 },
-  { date: 'Nov 15', weight: 185, benchPress: 180, squat: 235, deadlift: 325, ctl: 52, atl: 58, tsb: -6, weeklyVolume: 48000, avgSleepScore: 80, avgHRV: 44, proteinAvg: 168 },
-  { date: 'Nov 22', weight: 184, benchPress: 180, squat: 240, deadlift: 325, ctl: 55, atl: 52, tsb: 3, weeklyVolume: 40000, avgSleepScore: 82, avgHRV: 46, proteinAvg: 175 },
-  { date: 'Nov 29', weight: 185, benchPress: 185, squat: 245, deadlift: 335, ctl: 58, atl: 60, tsb: -2, weeklyVolume: 50000, avgSleepScore: 79, avgHRV: 45, proteinAvg: 172 },
-  { date: 'Dec 6', weight: 184, benchPress: 185, squat: 245, deadlift: 335, ctl: 60, atl: 65, tsb: -5, weeklyVolume: 52000, avgSleepScore: 76, avgHRV: 43, proteinAvg: 168 },
-  { date: 'Dec 13', weight: 183, benchPress: 190, squat: 250, deadlift: 345, ctl: 62, atl: 58, tsb: 4, weeklyVolume: 45000, avgSleepScore: 84, avgHRV: 48, proteinAvg: 178 },
-  { date: 'Dec 20', weight: 184, benchPress: 190, squat: 255, deadlift: 350, ctl: 64, atl: 62, tsb: 2, weeklyVolume: 48000, avgSleepScore: 81, avgHRV: 47, proteinAvg: 175 },
-  { date: 'Dec 27', weight: 183, benchPress: 195, squat: 260, deadlift: 355, ctl: 65, atl: 55, tsb: 10, weeklyVolume: 42000, avgSleepScore: 85, avgHRV: 50, proteinAvg: 180 },
-]
-
-const PERSONAL_RECORDS: PersonalRecord[] = [
-  { exercise: 'Deadlift', weight: 355, reps: 1, date: '2024-12-27', previousBest: 335 },
-  { exercise: 'Squat', weight: 260, reps: 1, date: '2024-12-27', previousBest: 245 },
-  { exercise: 'Bench Press', weight: 195, reps: 1, date: '2024-12-27', previousBest: 185 },
-  { exercise: 'Overhead Press', weight: 135, reps: 1, date: '2024-12-15', previousBest: 125 },
-  { exercise: 'Barbell Row', weight: 185, reps: 5, date: '2024-12-20', previousBest: 175 },
-]
+interface ProgressData {
+  weeklyData: ProgressDataPoint[]
+  personalRecords: PersonalRecord[]
+  summary: {
+    latestWeight: number | null
+    latestBenchPress: number | null
+    latestCTL: number | null
+    latestHRV: number | null
+  }
+}
 
 // Time range options
 const TIME_RANGES = [
@@ -99,8 +90,8 @@ function CustomTooltip({ active, payload, label }: any) {
       <p className="text-sm text-white/60 mb-2">{label}</p>
       {payload.map((entry: any, index: number) => (
         <div key={index} className="flex items-center gap-2 text-sm">
-          <div 
-            className="w-2 h-2 rounded-full" 
+          <div
+            className="w-2 h-2 rounded-full"
             style={{ backgroundColor: entry.color }}
           />
           <span className="text-white/60">{entry.name}:</span>
@@ -120,14 +111,16 @@ function StatCard({
   change,
   changeLabel,
   color,
+  loading,
 }: {
   icon: React.ElementType
   label: string
-  value: string | number
+  value: string | number | null
   unit?: string
   change?: number
   changeLabel?: string
   color: string
+  loading?: boolean
 }) {
   const isPositive = change && change > 0
   const isNegative = change && change < 0
@@ -141,10 +134,16 @@ function StatCard({
         <span className="text-sm text-white/60">{label}</span>
       </div>
       <div className="flex items-baseline gap-1">
-        <span className="text-2xl font-bold">{value}</span>
-        {unit && <span className="text-white/40">{unit}</span>}
+        {loading ? (
+          <Loader2 size={24} className="animate-spin text-white/40" />
+        ) : (
+          <>
+            <span className="text-2xl font-bold">{value ?? '—'}</span>
+            {unit && value !== null && <span className="text-white/40">{unit}</span>}
+          </>
+        )}
       </div>
-      {change !== undefined && (
+      {change !== undefined && !loading && (
         <div className={`flex items-center gap-1 mt-1 text-sm ${
           isPositive ? 'text-emerald-400' : isNegative ? 'text-red-400' : 'text-white/40'
         }`}>
@@ -161,7 +160,7 @@ function StatCard({
 
 // PR Card
 function PRCard({ record }: { record: PersonalRecord }) {
-  const improvement = record.previousBest 
+  const improvement = record.previousBest
     ? Math.round(((record.weight - record.previousBest) / record.previousBest) * 100)
     : null
 
@@ -177,7 +176,7 @@ function PRCard({ record }: { record: PersonalRecord }) {
         </p>
       </div>
       <div className="text-right">
-        {improvement !== null && (
+        {improvement !== null && improvement > 0 && (
           <span className="text-emerald-400 text-sm font-medium">+{improvement}%</span>
         )}
         <p className="text-xs text-white/40">
@@ -188,31 +187,72 @@ function PRCard({ record }: { record: PersonalRecord }) {
   )
 }
 
+// Empty state component
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-12 text-center">
+      <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
+        <Activity size={32} className="text-white/20" />
+      </div>
+      <p className="text-white/40">{message}</p>
+    </div>
+  )
+}
+
 // Main Progress component
 export function Progress() {
   const [timeRange, setTimeRange] = useState('3m')
   const [activeChart, setActiveChart] = useState<'strength' | 'body' | 'fitness' | 'recovery'>('strength')
   const [showBodyScanner, setShowBodyScanner] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [data, setData] = useState<ProgressData | null>(null)
 
-  // Calculate summary stats
-  const latestData = PROGRESS_DATA[PROGRESS_DATA.length - 1]
-  const firstData = PROGRESS_DATA[0]
+  // Fetch progress data
+  useEffect(() => {
+    async function fetchProgress() {
+      setLoading(true)
+      try {
+        const response = await fetch(`/api/progress?range=${timeRange}`)
+        if (response.ok) {
+          const result = await response.json()
+          setData(result)
+        }
+      } catch (error) {
+        console.error('Failed to fetch progress:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchProgress()
+  }, [timeRange])
 
-  const weightChange = latestData.weight && firstData.weight
+  // Calculate changes from data
+  const weeklyData = data?.weeklyData || []
+  const firstData = weeklyData[0]
+  const latestData = weeklyData[weeklyData.length - 1]
+
+  const weightChange = latestData?.weight && firstData?.weight
     ? Math.round(((latestData.weight - firstData.weight) / firstData.weight) * 100 * 10) / 10
-    : 0
+    : undefined
 
-  const strengthChange = latestData.benchPress && firstData.benchPress
+  const strengthChange = latestData?.benchPress && firstData?.benchPress
     ? Math.round(((latestData.benchPress - firstData.benchPress) / firstData.benchPress) * 100)
-    : 0
+    : undefined
 
-  const fitnessChange = latestData.ctl && firstData.ctl
+  const fitnessChange = latestData?.ctl && firstData?.ctl
     ? Math.round(((latestData.ctl - firstData.ctl) / firstData.ctl) * 100)
-    : 0
+    : undefined
 
-  const hrvChange = latestData.avgHRV && firstData.avgHRV
+  const hrvChange = latestData?.avgHRV && firstData?.avgHRV
     ? Math.round(((latestData.avgHRV - firstData.avgHRV) / firstData.avgHRV) * 100)
-    : 0
+    : undefined
+
+  const hasStrengthData = weeklyData.some(d => d.benchPress || d.squat || d.deadlift)
+  const hasBodyData = weeklyData.some(d => d.weight || d.bodyFat)
+  const hasFitnessData = weeklyData.some(d => d.ctl || d.atl || d.tsb)
+  const hasRecoveryData = weeklyData.some(d => d.avgHRV || d.avgSleepScore)
+  const hasVolumeData = weeklyData.some(d => d.weeklyVolume)
+  const hasProteinData = weeklyData.some(d => d.proteinAvg)
 
   return (
     <div className="p-4 lg:p-6 pb-24">
@@ -222,7 +262,7 @@ export function Progress() {
           <h1 className="text-2xl font-display font-semibold">Progress</h1>
           <p className="text-white/50">Track your gains over time</p>
         </div>
-        
+
         {/* Time range selector */}
         <div className="relative">
           <select
@@ -243,37 +283,41 @@ export function Progress() {
         <StatCard
           icon={Scale}
           label="Body Weight"
-          value={latestData.weight || 0}
+          value={data?.summary.latestWeight ?? latestData?.weight ?? null}
           unit="lbs"
           change={weightChange}
           changeLabel="vs start"
           color="bg-sky-500/20 text-sky-400"
+          loading={loading}
         />
         <StatCard
           icon={Dumbbell}
           label="Bench Press"
-          value={latestData.benchPress || 0}
+          value={data?.summary.latestBenchPress ?? latestData?.benchPress ?? null}
           unit="lbs"
           change={strengthChange}
           changeLabel="vs start"
           color="bg-violet-500/20 text-violet-400"
+          loading={loading}
         />
         <StatCard
           icon={Zap}
           label="Fitness (CTL)"
-          value={latestData.ctl || 0}
+          value={data?.summary.latestCTL ?? latestData?.ctl ?? null}
           change={fitnessChange}
           changeLabel="vs start"
           color="bg-amber-500/20 text-amber-400"
+          loading={loading}
         />
         <StatCard
           icon={Heart}
           label="Avg HRV"
-          value={latestData.avgHRV || 0}
+          value={data?.summary.latestHRV ?? latestData?.avgHRV ?? null}
           unit="ms"
           change={hrvChange}
           changeLabel="vs start"
           color="bg-emerald-500/20 text-emerald-400"
+          loading={loading}
         />
       </div>
 
@@ -315,200 +359,252 @@ export function Progress() {
       {/* Main chart */}
       <div className="glass rounded-xl p-4 mb-6">
         <div className="h-80">
-          <ResponsiveContainer width="100%" height="100%">
-            {activeChart === 'strength' ? (
-              <LineChart data={PROGRESS_DATA}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                <XAxis dataKey="date" stroke="rgba(255,255,255,0.4)" fontSize={12} />
-                <YAxis stroke="rgba(255,255,255,0.4)" fontSize={12} />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend />
-                <Line 
-                  type="monotone" 
-                  dataKey="benchPress" 
-                  name="Bench Press" 
-                  stroke="#8b5cf6" 
-                  strokeWidth={2}
-                  dot={{ fill: '#8b5cf6', strokeWidth: 0 }}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="squat" 
-                  name="Squat" 
-                  stroke="#f59e0b" 
-                  strokeWidth={2}
-                  dot={{ fill: '#f59e0b', strokeWidth: 0 }}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="deadlift" 
-                  name="Deadlift" 
-                  stroke="#10b981" 
-                  strokeWidth={2}
-                  dot={{ fill: '#10b981', strokeWidth: 0 }}
-                />
-              </LineChart>
-            ) : activeChart === 'body' ? (
-              <ComposedChart data={PROGRESS_DATA}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                <XAxis dataKey="date" stroke="rgba(255,255,255,0.4)" fontSize={12} />
-                <YAxis stroke="rgba(255,255,255,0.4)" fontSize={12} domain={['dataMin - 5', 'dataMax + 5']} />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend />
-                <Area 
-                  type="monotone" 
-                  dataKey="weight" 
-                  name="Weight (lbs)" 
-                  fill="rgba(14, 165, 233, 0.2)" 
-                  stroke="#0ea5e9"
-                  strokeWidth={2}
-                />
-              </ComposedChart>
-            ) : activeChart === 'fitness' ? (
-              <ComposedChart data={PROGRESS_DATA}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                <XAxis dataKey="date" stroke="rgba(255,255,255,0.4)" fontSize={12} />
-                <YAxis stroke="rgba(255,255,255,0.4)" fontSize={12} />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend />
-                <Line 
-                  type="monotone" 
-                  dataKey="ctl" 
-                  name="Fitness (CTL)" 
-                  stroke="#10b981" 
-                  strokeWidth={2}
-                  dot={{ fill: '#10b981', strokeWidth: 0 }}
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="atl" 
-                  name="Fatigue (ATL)" 
-                  stroke="#f59e0b" 
-                  strokeWidth={2}
-                  dot={{ fill: '#f59e0b', strokeWidth: 0 }}
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="tsb" 
-                  name="Form (TSB)" 
-                  fill="rgba(139, 92, 246, 0.2)" 
-                  stroke="#8b5cf6"
-                  strokeWidth={2}
-                />
-              </ComposedChart>
-            ) : (
-              <ComposedChart data={PROGRESS_DATA}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                <XAxis dataKey="date" stroke="rgba(255,255,255,0.4)" fontSize={12} />
-                <YAxis yAxisId="left" stroke="rgba(255,255,255,0.4)" fontSize={12} />
-                <YAxis yAxisId="right" orientation="right" stroke="rgba(255,255,255,0.4)" fontSize={12} />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend />
-                <Line 
-                  yAxisId="left"
-                  type="monotone" 
-                  dataKey="avgHRV" 
-                  name="HRV (ms)" 
-                  stroke="#10b981" 
-                  strokeWidth={2}
-                  dot={{ fill: '#10b981', strokeWidth: 0 }}
-                />
-                <Line 
-                  yAxisId="right"
-                  type="monotone" 
-                  dataKey="avgSleepScore" 
-                  name="Sleep Score" 
-                  stroke="#8b5cf6" 
-                  strokeWidth={2}
-                  dot={{ fill: '#8b5cf6', strokeWidth: 0 }}
-                />
-              </ComposedChart>
-            )}
-          </ResponsiveContainer>
+          {loading ? (
+            <div className="h-full flex items-center justify-center">
+              <Loader2 size={32} className="animate-spin text-white/40" />
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              {activeChart === 'strength' ? (
+                hasStrengthData ? (
+                  <LineChart data={weeklyData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                    <XAxis dataKey="date" stroke="rgba(255,255,255,0.4)" fontSize={12} />
+                    <YAxis stroke="rgba(255,255,255,0.4)" fontSize={12} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="benchPress"
+                      name="Bench Press"
+                      stroke="#8b5cf6"
+                      strokeWidth={2}
+                      dot={{ fill: '#8b5cf6', strokeWidth: 0 }}
+                      connectNulls
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="squat"
+                      name="Squat"
+                      stroke="#f59e0b"
+                      strokeWidth={2}
+                      dot={{ fill: '#f59e0b', strokeWidth: 0 }}
+                      connectNulls
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="deadlift"
+                      name="Deadlift"
+                      stroke="#10b981"
+                      strokeWidth={2}
+                      dot={{ fill: '#10b981', strokeWidth: 0 }}
+                      connectNulls
+                    />
+                  </LineChart>
+                ) : (
+                  <EmptyState message="No strength data yet. Log workouts to track your lifts." />
+                )
+              ) : activeChart === 'body' ? (
+                hasBodyData ? (
+                  <ComposedChart data={weeklyData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                    <XAxis dataKey="date" stroke="rgba(255,255,255,0.4)" fontSize={12} />
+                    <YAxis stroke="rgba(255,255,255,0.4)" fontSize={12} domain={['dataMin - 5', 'dataMax + 5']} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend />
+                    <Area
+                      type="monotone"
+                      dataKey="weight"
+                      name="Weight (lbs)"
+                      fill="rgba(14, 165, 233, 0.2)"
+                      stroke="#0ea5e9"
+                      strokeWidth={2}
+                      connectNulls
+                    />
+                    {weeklyData.some(d => d.bodyFat) && (
+                      <Line
+                        type="monotone"
+                        dataKey="bodyFat"
+                        name="Body Fat %"
+                        stroke="#f59e0b"
+                        strokeWidth={2}
+                        dot={{ fill: '#f59e0b', strokeWidth: 0 }}
+                        connectNulls
+                      />
+                    )}
+                  </ComposedChart>
+                ) : (
+                  <EmptyState message="No body composition data yet. Log your weight or do a body scan." />
+                )
+              ) : activeChart === 'fitness' ? (
+                hasFitnessData ? (
+                  <ComposedChart data={weeklyData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                    <XAxis dataKey="date" stroke="rgba(255,255,255,0.4)" fontSize={12} />
+                    <YAxis stroke="rgba(255,255,255,0.4)" fontSize={12} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="ctl"
+                      name="Fitness (CTL)"
+                      stroke="#10b981"
+                      strokeWidth={2}
+                      dot={{ fill: '#10b981', strokeWidth: 0 }}
+                      connectNulls
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="atl"
+                      name="Fatigue (ATL)"
+                      stroke="#f59e0b"
+                      strokeWidth={2}
+                      dot={{ fill: '#f59e0b', strokeWidth: 0 }}
+                      connectNulls
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="tsb"
+                      name="Form (TSB)"
+                      fill="rgba(139, 92, 246, 0.2)"
+                      stroke="#8b5cf6"
+                      strokeWidth={2}
+                      connectNulls
+                    />
+                  </ComposedChart>
+                ) : (
+                  <EmptyState message="No training load data yet. Complete workouts to build your fitness profile." />
+                )
+              ) : (
+                hasRecoveryData ? (
+                  <ComposedChart data={weeklyData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                    <XAxis dataKey="date" stroke="rgba(255,255,255,0.4)" fontSize={12} />
+                    <YAxis yAxisId="left" stroke="rgba(255,255,255,0.4)" fontSize={12} />
+                    <YAxis yAxisId="right" orientation="right" stroke="rgba(255,255,255,0.4)" fontSize={12} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend />
+                    <Line
+                      yAxisId="left"
+                      type="monotone"
+                      dataKey="avgHRV"
+                      name="HRV (ms)"
+                      stroke="#10b981"
+                      strokeWidth={2}
+                      dot={{ fill: '#10b981', strokeWidth: 0 }}
+                      connectNulls
+                    />
+                    <Line
+                      yAxisId="right"
+                      type="monotone"
+                      dataKey="avgSleepScore"
+                      name="Sleep Score"
+                      stroke="#8b5cf6"
+                      strokeWidth={2}
+                      dot={{ fill: '#8b5cf6', strokeWidth: 0 }}
+                      connectNulls
+                    />
+                  </ComposedChart>
+                ) : (
+                  <EmptyState message="No recovery data yet. Log sleep or connect a wearable." />
+                )
+              )}
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
 
       {/* Weekly Volume chart */}
-      <div className="glass rounded-xl p-4 mb-6">
-        <h3 className="font-medium mb-4 flex items-center gap-2">
-          <Flame size={18} className="text-amber-400" />
-          Weekly Training Volume
-        </h3>
-        <div className="h-48">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={PROGRESS_DATA}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-              <XAxis dataKey="date" stroke="rgba(255,255,255,0.4)" fontSize={12} />
-              <YAxis stroke="rgba(255,255,255,0.4)" fontSize={12} tickFormatter={(v) => `${v/1000}k`} />
-              <Tooltip content={<CustomTooltip />} />
-              <Bar 
-                dataKey="weeklyVolume" 
-                name="Volume (lbs)" 
-                fill="#f59e0b" 
-                radius={[4, 4, 0, 0]}
-              />
-            </BarChart>
-          </ResponsiveContainer>
+      {hasVolumeData && (
+        <div className="glass rounded-xl p-4 mb-6">
+          <h3 className="font-medium mb-4 flex items-center gap-2">
+            <Flame size={18} className="text-amber-400" />
+            Weekly Training Volume
+          </h3>
+          <div className="h-48">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={weeklyData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                <XAxis dataKey="date" stroke="rgba(255,255,255,0.4)" fontSize={12} />
+                <YAxis stroke="rgba(255,255,255,0.4)" fontSize={12} tickFormatter={(v) => `${v/1000}k`} />
+                <Tooltip content={<CustomTooltip />} />
+                <Bar
+                  dataKey="weeklyVolume"
+                  name="Volume (lbs)"
+                  fill="#f59e0b"
+                  radius={[4, 4, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Personal Records */}
-      <div className="mb-6">
-        <h3 className="font-medium mb-4 flex items-center gap-2">
-          <Award size={18} className="text-amber-400" />
-          Recent Personal Records
-        </h3>
-        <div className="space-y-3">
-          {PERSONAL_RECORDS.map((record, i) => (
-            <PRCard key={i} record={record} />
-          ))}
+      {data?.personalRecords && data.personalRecords.length > 0 && (
+        <div className="mb-6">
+          <h3 className="font-medium mb-4 flex items-center gap-2">
+            <Award size={18} className="text-amber-400" />
+            Recent Personal Records
+          </h3>
+          <div className="space-y-3">
+            {data.personalRecords.map((record, i) => (
+              <PRCard key={i} record={record} />
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Protein tracking */}
-      <div className="glass rounded-xl p-4">
-        <h3 className="font-medium mb-4 flex items-center gap-2">
-          <Target size={18} className="text-emerald-400" />
-          Protein Consistency
-        </h3>
-        <div className="h-32">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={PROGRESS_DATA}>
-              <defs>
-                <linearGradient id="proteinGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-              <XAxis dataKey="date" stroke="rgba(255,255,255,0.4)" fontSize={12} />
-              <YAxis stroke="rgba(255,255,255,0.4)" fontSize={12} domain={[150, 190]} />
-              <Tooltip content={<CustomTooltip />} />
-              {/* Target line */}
-              <Line 
-                type="monotone" 
-                dataKey={() => 180} 
-                name="Target" 
-                stroke="rgba(255,255,255,0.3)" 
-                strokeDasharray="5 5"
-                strokeWidth={1}
-                dot={false}
-              />
-              <Area 
-                type="monotone" 
-                dataKey="proteinAvg" 
-                name="Protein (g)" 
-                stroke="#10b981"
-                strokeWidth={2}
-                fill="url(#proteinGradient)"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+      {hasProteinData && (
+        <div className="glass rounded-xl p-4">
+          <h3 className="font-medium mb-4 flex items-center gap-2">
+            <Target size={18} className="text-emerald-400" />
+            Protein Consistency
+          </h3>
+          <div className="h-32">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={weeklyData}>
+                <defs>
+                  <linearGradient id="proteinGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                <XAxis dataKey="date" stroke="rgba(255,255,255,0.4)" fontSize={12} />
+                <YAxis stroke="rgba(255,255,255,0.4)" fontSize={12} />
+                <Tooltip content={<CustomTooltip />} />
+                <Area
+                  type="monotone"
+                  dataKey="proteinAvg"
+                  name="Protein (g)"
+                  stroke="#10b981"
+                  strokeWidth={2}
+                  fill="url(#proteinGradient)"
+                  connectNulls
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+          <p className="text-center text-sm text-white/40 mt-2">
+            Avg: {Math.round(weeklyData.reduce((sum, d) => sum + (d.proteinAvg || 0), 0) / weeklyData.filter(d => d.proteinAvg).length) || '—'}g/day
+          </p>
         </div>
-        <p className="text-center text-sm text-white/40 mt-2">
-          Avg: {Math.round(PROGRESS_DATA.reduce((sum, d) => sum + (d.proteinAvg || 0), 0) / PROGRESS_DATA.length)}g/day • Target: 180g
-        </p>
-      </div>
+      )}
+
+      {/* Empty state when no data at all */}
+      {!loading && weeklyData.length === 0 && (
+        <div className="glass rounded-xl p-8 text-center">
+          <div className="w-20 h-20 rounded-full bg-amber-500/10 flex items-center justify-center mx-auto mb-4">
+            <Activity size={40} className="text-amber-500/50" />
+          </div>
+          <h3 className="text-lg font-medium mb-2">No Progress Data Yet</h3>
+          <p className="text-white/50 max-w-sm mx-auto">
+            Start logging workouts, body weight, sleep, and nutrition to see your progress over time.
+          </p>
+        </div>
+      )}
 
       {/* Body Scanner Modal */}
       {showBodyScanner && (
