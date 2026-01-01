@@ -178,6 +178,9 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
       const response = await fetch('/api/workouts')
       if (response.ok) {
         const data = await response.json()
+        console.log('[CalendarView] Fetched workouts:', data.workouts?.length)
+        const suggested = data.workouts?.filter((w: any) => w.source === 'suggested') || []
+        console.log('[CalendarView] Suggested workouts:', suggested.length, suggested.map((w: any) => ({ id: w.id, name: w.name, date: w.scheduled_date })))
         setWorkouts(data.workouts || [])
       }
     } catch (error) {

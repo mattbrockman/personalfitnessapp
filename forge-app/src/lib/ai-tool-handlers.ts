@@ -410,11 +410,18 @@ async function handleAddWorkout(
     }
   }
 
-  // Update profile with active plan
-  await supabase
+  // CRITICAL: Update profile with active plan BEFORE inserting workout
+  // This fixes race condition where fetches happen before profile is updated
+  const { error: profileError } = await supabase
     .from('profiles')
     .update({ active_program_id: newPlan.id })
     .eq('id', userId)
+
+  if (profileError) {
+    console.error('Failed to update profile active_program_id:', profileError)
+  }
+
+  console.log('Created training plan and set profile.active_program_id:', newPlan.id)
 
   // Now add as suggested workout with exercises
   const dayOfWeek = format(new Date(input.date), 'EEEE').toLowerCase()

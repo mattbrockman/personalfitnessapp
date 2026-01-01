@@ -54,6 +54,8 @@ export async function GET(request: NextRequest) {
       .eq('id', session.user.id)
       .single()
 
+    console.log('[/api/workouts] profile.active_program_id:', profile?.active_program_id)
+
     let suggestedWorkouts: any[] = []
     if (profile?.active_program_id) {
       let swQuery = (adminClient as any)
@@ -75,6 +77,7 @@ export async function GET(request: NextRequest) {
         scheduled_date: w.suggested_date,
         source: 'suggested',
       }))
+      console.log('[/api/workouts] suggestedWorkouts count:', suggestedWorkouts.length)
     }
 
     // Combine and return

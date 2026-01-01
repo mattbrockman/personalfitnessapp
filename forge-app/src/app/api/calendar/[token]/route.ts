@@ -99,8 +99,8 @@ export async function GET(
     // Add suggested workouts
     for (const sw of suggestedWorkouts) {
       const startDate = applyTimeToDate(new Date(sw.suggested_date), sw.scheduled_time)
-      const endDate = sw.duration_minutes
-        ? calculateEndTime(startDate, sw.duration_minutes)
+      const endDate = sw.planned_duration_minutes
+        ? calculateEndTime(startDate, sw.planned_duration_minutes)
         : calculateEndTime(startDate, 60) // Default 1 hour
 
       const emoji = getWorkoutEmoji(sw.workout_type || sw.category || 'other')
@@ -203,14 +203,14 @@ function buildSuggestedWorkoutDescription(sw: any): string {
   if (sw.category) {
     lines.push(`Category: ${sw.category}`)
   }
-  if (sw.intensity_level) {
-    lines.push(`Intensity: ${sw.intensity_level}`)
+  if (sw.primary_intensity) {
+    lines.push(`Intensity: ${sw.primary_intensity}`)
   }
-  if (sw.duration_minutes) {
-    lines.push(`Duration: ${sw.duration_minutes} min`)
+  if (sw.planned_duration_minutes) {
+    lines.push(`Duration: ${sw.planned_duration_minutes} min`)
   }
-  if (sw.target_tss) {
-    lines.push(`Target TSS: ${sw.target_tss}`)
+  if (sw.planned_tss) {
+    lines.push(`Target TSS: ${sw.planned_tss}`)
   }
   if (sw.description) {
     lines.push('')

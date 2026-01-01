@@ -55,10 +55,9 @@ export async function POST(
         workout_type: suggestedWorkout.workout_type,
         name: suggestedWorkout.name,
         description: suggestedWorkout.description,
-        date: scheduledDate,
-        time: scheduledTime,
+        scheduled_date: scheduledDate,
+        scheduled_time: scheduledTime,
         planned_duration_minutes: suggestedWorkout.planned_duration_minutes,
-        duration_minutes: null, // Will be filled after completion
         status: 'planned',
         notes: `Generated from training plan`,
       })

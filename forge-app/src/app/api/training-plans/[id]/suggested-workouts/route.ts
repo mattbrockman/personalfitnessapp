@@ -151,7 +151,6 @@ export async function POST(
         planned_duration_minutes: planned_duration_minutes || 60,
         status,
         order_in_day: orderInDay,
-        is_ai_generated: false,
       })
       .select()
       .single()
