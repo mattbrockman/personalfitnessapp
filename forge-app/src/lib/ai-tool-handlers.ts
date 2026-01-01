@@ -329,15 +329,19 @@ async function handleAddWorkout(
   console.log('exercises count:', input.exercises?.length || 0)
 
   // Get user's active training plan
-  const { data: profile } = await supabase
+  const { data: profile, error: profileFetchError } = await supabase
     .from('profiles')
     .select('active_program_id')
     .eq('id', userId)
     .single()
 
+  console.log('[add_workout] profile fetch:', { profile, error: profileFetchError?.message })
+
   const planId = profile?.active_program_id
+  console.log('[add_workout] active_program_id:', planId)
 
   if (planId) {
+    console.log('[add_workout] PATH A: Adding to existing plan', planId)
     // Add as suggested workout
     const dayOfWeek = format(new Date(input.date), 'EEEE').toLowerCase()
 
@@ -371,6 +375,7 @@ async function handleAddWorkout(
 
   // No active plan - create a training plan first, then add as suggested workout
   // This ensures exercises are properly stored
+  console.log('[add_workout] PATH B: No active plan, creating new plan...')
   const { data: newPlan, error: planError } = await supabase
     .from('training_plans')
     .insert({
@@ -384,6 +389,8 @@ async function handleAddWorkout(
 
   if (planError) {
     // Fall back to regular workout without exercises
+    console.log('[add_workout] PATH C: Plan creation FAILED, falling back to workouts table')
+    console.log('[add_workout] planError:', planError.message, planError.code)
     const { data: newWorkout, error } = await supabase
       .from('workouts')
       .insert({
@@ -421,10 +428,11 @@ async function handleAddWorkout(
     console.error('Failed to update profile active_program_id:', profileError)
   }
 
-  console.log('Created training plan and set profile.active_program_id:', newPlan.id)
+  console.log('[add_workout] PATH B SUCCESS: Created plan', newPlan.id)
 
   // Now add as suggested workout with exercises
   const dayOfWeek = format(new Date(input.date), 'EEEE').toLowerCase()
+  console.log('[add_workout] Inserting into suggested_workouts with exercises:', input.exercises?.length)
 
   const { data: newWorkout, error } = await supabase
     .from('suggested_workouts')
@@ -444,8 +452,11 @@ async function handleAddWorkout(
     .single()
 
   if (error) {
+    console.log('[add_workout] suggested_workouts insert FAILED:', error.message)
     return { success: false, message: `Failed to add workout: ${error.message}` }
   }
+
+  console.log('[add_workout] SUCCESS: Workout added to suggested_workouts with id:', newWorkout.id)
 
   return {
     success: true,
