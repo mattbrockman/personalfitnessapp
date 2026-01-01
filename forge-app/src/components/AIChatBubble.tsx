@@ -354,6 +354,12 @@ export function AIChatBubble() {
                 disabled={isLoading}
                 aria-label="Message to AI Coach"
                 aria-describedby="chat-hint"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="sentences"
+                spellCheck="false"
+                data-form-type="other"
+                enterKeyHint="send"
                 className="flex-1 px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-sm text-white placeholder:text-white/50 focus:outline-none focus:border-violet-500/50 resize-none max-h-[100px] disabled:opacity-50"
               />
               <span id="chat-hint" className="sr-only">Press Enter to send, Shift+Enter for new line</span>
