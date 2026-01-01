@@ -182,44 +182,64 @@ export async function getSleepTrends(
  * Convert Eight Sleep session to our sleep_logs format
  */
 export function mapEightSleepToSleepLog(day: EightSleepTrends['days'][0], session: EightSleepSession) {
-  // Get average HRV from timeseries or quality score
-  const avgHrv = session.sleepQualityScore?.hrv ||
-    (session.timeseries?.hrv?.length > 0
-      ? Math.round(session.timeseries.hrv.reduce((sum, [, val]) => sum + val, 0) / session.timeseries.hrv.length)
-      : null)
+  try {
+    // Get average HRV from timeseries or quality score
+    const avgHrv = session?.sleepQualityScore?.hrv ||
+      (session?.timeseries?.hrv?.length > 0
+        ? Math.round(session.timeseries.hrv.reduce((sum, [, val]) => sum + val, 0) / session.timeseries.hrv.length)
+        : null)
 
-  // Get average heart rate from timeseries
-  const avgHr = session.timeseries?.heartRate?.length > 0
-    ? Math.round(session.timeseries.heartRate.reduce((sum, [, val]) => sum + val, 0) / session.timeseries.heartRate.length)
-    : null
+    // Get average heart rate from timeseries
+    const avgHr = session?.timeseries?.heartRate?.length > 0
+      ? Math.round(session.timeseries.heartRate.reduce((sum, [, val]) => sum + val, 0) / session.timeseries.heartRate.length)
+      : null
 
-  // Get average respiratory rate
-  const avgRespRate = session.timeseries?.respiratoryRate?.length > 0
-    ? Math.round(session.timeseries.respiratoryRate.reduce((sum, [, val]) => sum + val, 0) / session.timeseries.respiratoryRate.length * 10) / 10
-    : null
+    // Get average respiratory rate
+    const avgRespRate = session?.timeseries?.respiratoryRate?.length > 0
+      ? Math.round(session.timeseries.respiratoryRate.reduce((sum, [, val]) => sum + val, 0) / session.timeseries.respiratoryRate.length * 10) / 10
+      : null
 
-  // Convert seconds to minutes
-  const secondsToMinutes = (seconds: number | undefined) =>
-    seconds ? Math.round(seconds / 60) : null
+    // Convert seconds to minutes
+    const secondsToMinutes = (seconds: number | undefined) =>
+      seconds ? Math.round(seconds / 60) : null
 
-  // Total sleep = light + deep + rem (not including awake)
-  const totalSleepSeconds = (session.stages?.light || 0) +
-                           (session.stages?.deep || 0) +
-                           (session.stages?.rem || 0)
+    // Total sleep = light + deep + rem (not including awake)
+    const totalSleepSeconds = (session?.stages?.light || 0) +
+                             (session?.stages?.deep || 0) +
+                             (session?.stages?.rem || 0)
 
-  return {
-    log_date: day.day,
-    bedtime: session.startTime,
-    wake_time: session.endTime,
-    total_sleep_minutes: secondsToMinutes(totalSleepSeconds),
-    deep_sleep_minutes: secondsToMinutes(session.stages?.deep),
-    rem_sleep_minutes: secondsToMinutes(session.stages?.rem),
-    light_sleep_minutes: secondsToMinutes(session.stages?.light),
-    awake_minutes: secondsToMinutes(session.stages?.awake),
-    sleep_score: session.score || day.score,
-    hrv_avg: avgHrv,
-    resting_hr: avgHr,
-    respiratory_rate: avgRespRate,
-    source: 'eight_sleep_direct' as const,
+    return {
+      log_date: day.day,
+      bedtime: session?.startTime || null,
+      wake_time: session?.endTime || null,
+      total_sleep_minutes: secondsToMinutes(totalSleepSeconds) || secondsToMinutes(day.sleepDuration),
+      deep_sleep_minutes: secondsToMinutes(session?.stages?.deep),
+      rem_sleep_minutes: secondsToMinutes(session?.stages?.rem),
+      light_sleep_minutes: secondsToMinutes(session?.stages?.light),
+      awake_minutes: secondsToMinutes(session?.stages?.awake),
+      sleep_score: session?.score || day.score,
+      hrv_avg: avgHrv,
+      resting_hr: avgHr,
+      respiratory_rate: avgRespRate,
+      source: 'eight_sleep_direct' as const,
+    }
+  } catch (error) {
+    console.error('Error mapping sleep data for day:', day.day, error)
+    // Return minimal data
+    return {
+      log_date: day.day,
+      bedtime: null,
+      wake_time: null,
+      total_sleep_minutes: null,
+      deep_sleep_minutes: null,
+      rem_sleep_minutes: null,
+      light_sleep_minutes: null,
+      awake_minutes: null,
+      sleep_score: day.score || null,
+      hrv_avg: null,
+      resting_hr: null,
+      respiratory_rate: null,
+      source: 'eight_sleep_direct' as const,
+    }
   }
 }

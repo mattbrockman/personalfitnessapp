@@ -66,12 +66,25 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch sleep data from Eight Sleep
-    const trends = await getSleepTrends(
-      accessToken,
-      profile.eightsleep_user_id,
-      startDate,
-      endDate
-    )
+    console.log('Fetching Eight Sleep trends for user:', profile.eightsleep_user_id)
+    console.log('Date range:', startDate, 'to', endDate)
+
+    let trends
+    try {
+      trends = await getSleepTrends(
+        accessToken,
+        profile.eightsleep_user_id,
+        startDate,
+        endDate
+      )
+      console.log('Trends response:', JSON.stringify(trends).slice(0, 500))
+    } catch (trendsError: any) {
+      console.error('Failed to fetch trends:', trendsError)
+      return NextResponse.json(
+        { error: 'Failed to fetch sleep data from Eight Sleep', details: trendsError.message },
+        { status: 500 }
+      )
+    }
 
     if (!trends.days || trends.days.length === 0) {
       return NextResponse.json({
@@ -81,6 +94,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Map Eight Sleep data to our schema
+    console.log('Mapping', trends.days.length, 'days of sleep data')
     const sleepLogs = trends.days
       .filter(day => day.sessions && day.sessions.length > 0)
       .map(day => {
@@ -92,6 +106,8 @@ export async function POST(request: NextRequest) {
           updated_at: new Date().toISOString(),
         }
       })
+
+    console.log('Mapped sleep logs:', sleepLogs.length)
 
     if (sleepLogs.length === 0) {
       return NextResponse.json({
