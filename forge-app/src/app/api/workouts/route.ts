@@ -46,7 +46,41 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch workouts' }, { status: 500 })
     }
 
-    return NextResponse.json({ workouts })
+    // Also fetch suggested workouts from user's active plan
+    const adminClient = createAdminClient()
+    const { data: profile } = await (adminClient as any)
+      .from('profiles')
+      .select('active_program_id')
+      .eq('id', session.user.id)
+      .single()
+
+    let suggestedWorkouts: any[] = []
+    if (profile?.active_program_id) {
+      let swQuery = (adminClient as any)
+        .from('suggested_workouts')
+        .select('*')
+        .eq('plan_id', profile.active_program_id)
+        .order('suggested_date', { ascending: false })
+
+      if (startDate) {
+        swQuery = swQuery.gte('suggested_date', startDate)
+      }
+      if (endDate) {
+        swQuery = swQuery.lte('suggested_date', endDate)
+      }
+
+      const { data: sw } = await swQuery
+      suggestedWorkouts = (sw || []).map((w: any) => ({
+        ...w,
+        scheduled_date: w.suggested_date,
+        source: 'suggested',
+      }))
+    }
+
+    // Combine and return
+    const allWorkouts = [...(workouts || []), ...suggestedWorkouts]
+
+    return NextResponse.json({ workouts: allWorkouts })
   } catch (error) {
     console.error('Workouts GET error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

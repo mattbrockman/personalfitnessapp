@@ -343,6 +343,26 @@ export function AICoach() {
       }
       setMessages(prev => [...prev, assistantMessage])
 
+      // Dispatch events for executed tools so other components can refresh
+      if (data.executed_tools?.length > 0) {
+        data.executed_tools.forEach((tool: { name: string; result: { success: boolean } }) => {
+          if (tool.result.success) {
+            if (tool.name === 'add_workout' || tool.name === 'reschedule_workout' || tool.name === 'skip_workout' || tool.name === 'modify_workout_exercise') {
+              window.dispatchEvent(new CustomEvent('workout-updated'))
+            }
+            if (tool.name === 'log_sleep') {
+              window.dispatchEvent(new CustomEvent('sleep-updated'))
+            }
+            if (tool.name === 'log_meal') {
+              window.dispatchEvent(new CustomEvent('nutrition-updated'))
+            }
+            if (tool.name === 'log_body_comp') {
+              window.dispatchEvent(new CustomEvent('body-comp-updated'))
+            }
+          }
+        })
+      }
+
       // Handle pending confirmation
       if (data.pending_confirmation) {
         setPendingAction(data.pending_confirmation)

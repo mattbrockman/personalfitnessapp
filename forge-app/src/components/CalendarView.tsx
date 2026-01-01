@@ -172,6 +172,19 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
   const [weatherForecast, setWeatherForecast] = useState<WeatherDay[]>([])
   const [selectedWeather, setSelectedWeather] = useState<WeatherDay | null>(null)
 
+  // Fetch workouts from API
+  const fetchWorkouts = useCallback(async () => {
+    try {
+      const response = await fetch('/api/workouts')
+      if (response.ok) {
+        const data = await response.json()
+        setWorkouts(data.workouts || [])
+      }
+    } catch (error) {
+      console.error('Failed to fetch workouts:', error)
+    }
+  }, [])
+
   // Fetch weather forecast
   const fetchWeather = useCallback(async () => {
     try {
@@ -204,6 +217,16 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
     fetchPlanData()
     fetchWeather()
   }, [])
+
+  // Listen for workout updates from AI Coach
+  useEffect(() => {
+    const handleWorkoutUpdate = () => {
+      fetchWorkouts()
+      fetchPlanData()
+    }
+    window.addEventListener('workout-updated', handleWorkoutUpdate)
+    return () => window.removeEventListener('workout-updated', handleWorkoutUpdate)
+  }, [fetchWorkouts, fetchPlanData])
 
   // Generate calendar days based on view mode
   const monthStart = startOfMonth(currentDate)
