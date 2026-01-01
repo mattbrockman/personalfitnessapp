@@ -702,28 +702,31 @@ function CreateExerciseModal({
             </div>
 
             {/* Actions */}
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => setGeneratedExercise(null)}
-                className="flex-1 py-3 bg-white/10 text-white font-medium rounded-xl hover:bg-white/20 transition-colors"
-              >
-                Edit Details
-              </button>
-              <button
-                onClick={saveExercise}
-                disabled={saving}
-                className="flex-1 py-3 bg-amber-500 text-black font-semibold rounded-xl hover:bg-amber-400 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 size={18} className="animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  'Save & Add'
-                )}
-              </button>
-            </div>
+            <p className="text-xs text-white/40 text-center mt-4 mb-3">
+              Edit the fields above if needed, then save
+            </p>
+
+            <button
+              onClick={saveExercise}
+              disabled={saving}
+              className="w-full py-3 bg-amber-500 text-black font-semibold rounded-xl hover:bg-amber-400 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {saving ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save & Add'
+              )}
+            </button>
+
+            <button
+              onClick={() => setGeneratedExercise(null)}
+              className="w-full mt-2 py-2 text-sm text-white/40 hover:text-white/60 transition-colors"
+            >
+              Start over with different name
+            </button>
           </>
         )}
 

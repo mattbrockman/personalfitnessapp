@@ -65,6 +65,7 @@ function ExerciseSearchModal({
   const [loading, setLoading] = useState(true)
   const [isSearching, setIsSearching] = useState(false)
   const [showCreateExercise, setShowCreateExercise] = useState(false)
+  const [detailExercise, setDetailExercise] = useState<Exercise | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Debounce search to prevent flickering
@@ -166,23 +167,39 @@ function ExerciseSearchModal({
           ) : exercises.length > 0 ? (
             <>
               {exercises.map(exercise => (
-                <button
+                <div
                   key={exercise.id}
-                  onClick={() => {
-                    onSelect(exercise)
-                    onClose()
-                  }}
-                  className="w-full px-4 py-3 flex items-center gap-3 hover:bg-white/5 transition-colors text-left"
+                  className="w-full px-4 py-3 flex items-center gap-3 hover:bg-white/5 transition-colors"
                 >
-                  <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center">
+                  {/* Icon - clickable to view details */}
+                  <button
+                    onClick={() => setDetailExercise(exercise)}
+                    className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center hover:bg-white/15 transition-colors"
+                    title="View details"
+                  >
                     <EquipmentIcon equipment={exercise.equipment} size={18} />
-                  </div>
-                  <div className="flex-1 min-w-0">
+                  </button>
+
+                  {/* Name/info - clickable to view details */}
+                  <button
+                    onClick={() => setDetailExercise(exercise)}
+                    className="flex-1 min-w-0 text-left hover:text-amber-400 transition-colors"
+                  >
                     <p className="font-medium">{exercise.name}</p>
                     <p className="text-sm text-white/50 capitalize">{exercise.primary_muscle?.replace('_', ' ')} • {exercise.equipment}</p>
-                  </div>
-                  <ChevronRight size={18} className="text-white/30" />
-                </button>
+                  </button>
+
+                  {/* Add button */}
+                  <button
+                    onClick={() => {
+                      onSelect(exercise)
+                      onClose()
+                    }}
+                    className="px-3 py-1.5 bg-amber-500/20 text-amber-400 rounded-lg hover:bg-amber-500/30 transition-colors text-sm font-medium shrink-0"
+                  >
+                    Add
+                  </button>
+                </div>
               ))}
               {/* Always show create option when searching */}
               {debouncedSearch && (
@@ -211,6 +228,19 @@ function ExerciseSearchModal({
           )}
         </div>
 
+        {/* Exercise Detail Popup */}
+        {detailExercise && (
+          <ExerciseDetailPopup
+            exercise={detailExercise}
+            onClose={() => setDetailExercise(null)}
+            onAdd={() => {
+              onSelect(detailExercise)
+              setDetailExercise(null)
+              onClose()
+            }}
+          />
+        )}
+
         {/* Create Exercise Modal */}
         {showCreateExercise && (
           <CreateExerciseModal
@@ -223,6 +253,70 @@ function ExerciseSearchModal({
             }}
           />
         )}
+      </div>
+    </div>
+  )
+}
+
+// Exercise Detail Popup
+function ExerciseDetailPopup({
+  exercise,
+  onClose,
+  onAdd,
+}: {
+  exercise: Exercise
+  onClose: () => void
+  onAdd: () => void
+}) {
+  return (
+    <div
+      className="absolute inset-0 bg-zinc-900 z-10 overflow-y-auto animate-slide-up"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="p-4">
+        {/* Header */}
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center">
+              <EquipmentIcon equipment={exercise.equipment} size={24} />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold">{exercise.name}</h3>
+              <p className="text-sm text-white/50 capitalize">
+                {exercise.primary_muscle?.replace('_', ' ')} • {exercise.equipment}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+          >
+            <X size={20} className="text-white/60" />
+          </button>
+        </div>
+
+        {/* Cues */}
+        {exercise.cues && exercise.cues.length > 0 && (
+          <div className="mb-4">
+            <h4 className="text-sm font-medium text-white/70 mb-2">Coaching Cues</h4>
+            <ul className="space-y-1">
+              {exercise.cues.map((cue, i) => (
+                <li key={i} className="text-sm text-white/60 flex items-start gap-2">
+                  <span className="text-amber-400 mt-0.5">•</span>
+                  {cue}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Add button */}
+        <button
+          onClick={onAdd}
+          className="w-full py-3 bg-amber-500 text-black font-semibold rounded-xl hover:bg-amber-400 transition-colors"
+        >
+          Add to Workout
+        </button>
       </div>
     </div>
   )
@@ -409,28 +503,31 @@ function CreateExerciseModal({
               )}
             </div>
 
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => setGeneratedExercise(null)}
-                className="flex-1 py-3 bg-white/10 text-white font-medium rounded-xl hover:bg-white/20 transition-colors"
-              >
-                Edit Details
-              </button>
-              <button
-                onClick={saveExercise}
-                disabled={saving}
-                className="flex-1 py-3 bg-amber-500 text-black font-semibold rounded-xl hover:bg-amber-400 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 size={18} className="animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  'Save & Add'
-                )}
-              </button>
-            </div>
+            <p className="text-xs text-white/40 text-center mt-4 mb-3">
+              Edit the fields above if needed, then save
+            </p>
+
+            <button
+              onClick={saveExercise}
+              disabled={saving}
+              className="w-full py-3 bg-amber-500 text-black font-semibold rounded-xl hover:bg-amber-400 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {saving ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save & Add'
+              )}
+            </button>
+
+            <button
+              onClick={() => setGeneratedExercise(null)}
+              className="w-full mt-2 py-2 text-sm text-white/40 hover:text-white/60 transition-colors"
+            >
+              Start over with different name
+            </button>
           </>
         )}
 
