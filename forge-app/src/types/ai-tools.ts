@@ -13,6 +13,7 @@ export type ToolName =
   | 'log_readiness'
   | 'get_workout_details'
   | 'find_exercise_alternatives'
+  | 'add_to_wishlist'
 
 // Tool input types
 export interface ModifyWorkoutExerciseInput {
@@ -108,6 +109,11 @@ export interface FindExerciseAlternativesInput {
   muscle_group?: string
 }
 
+export interface AddToWishlistInput {
+  item: string
+  category?: 'wishlist' | 'bug' | 'in_progress'
+}
+
 // Union type of all inputs
 export type ToolInput =
   | ModifyWorkoutExerciseInput
@@ -120,6 +126,7 @@ export type ToolInput =
   | LogReadinessInput
   | GetWorkoutDetailsInput
   | FindExerciseAlternativesInput
+  | AddToWishlistInput
 
 // Tool execution result
 export interface ToolResult {

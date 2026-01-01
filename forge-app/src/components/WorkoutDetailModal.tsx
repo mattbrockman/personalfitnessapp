@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import {
@@ -52,8 +52,10 @@ const feelingOptions = [
   { value: 5, emoji: '😄', label: 'Very Strong' },
 ]
 
-export function WorkoutDetailModal({ workout, onClose, onUpdate }: WorkoutDetailModalProps) {
+export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate }: WorkoutDetailModalProps) {
   const router = useRouter()
+  const [workout, setWorkout] = useState<Workout>(initialWorkout)
+  const [isLoading, setIsLoading] = useState(true)
   const [isEditing, setIsEditing] = useState(false)
   const [showFullCompletion, setShowFullCompletion] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -62,9 +64,25 @@ export function WorkoutDetailModal({ workout, onClose, onUpdate }: WorkoutDetail
 
   const isStrengthWorkout = workout.category === 'strength'
 
-  // Debug logging
-  console.log('[WorkoutDetailModal] workout.category:', workout.category, 'isStrengthWorkout:', isStrengthWorkout)
-  console.log('[WorkoutDetailModal] workout.exercises:', workout.exercises)
+  // Fetch full workout details including exercises when modal opens
+  useEffect(() => {
+    const fetchWorkoutDetails = async () => {
+      try {
+        const res = await fetch(`/api/workouts/${initialWorkout.id}`)
+        if (res.ok) {
+          const data = await res.json()
+          if (data.workout) {
+            setWorkout(data.workout)
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch workout details:', err)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    fetchWorkoutDetails()
+  }, [initialWorkout.id])
 
   // Quick complete duration (editable on main view)
   const [quickDuration, setQuickDuration] = useState(
@@ -755,32 +773,77 @@ export function WorkoutDetailModal({ workout, onClose, onUpdate }: WorkoutDetail
             </div>
           </div>
 
-          {/* Exercises (for strength workouts from suggested_workouts) */}
+          {/* Exercises (for strength workouts) */}
           {workout.exercises && workout.exercises.length > 0 && (
             <div className="glass rounded-xl p-4">
-              <p className="text-xs text-white/40 mb-3">Exercises</p>
-              <div className="space-y-2">
-                {workout.exercises.map((ex, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between py-2 px-3 bg-white/5 rounded-lg"
-                  >
-                    <div>
-                      <span className="text-sm font-medium">{ex.exercise_name}</span>
+              <p className="text-xs text-white/40 mb-3">Exercises ({workout.exercises.length})</p>
+              <div className="space-y-3 max-h-[300px] overflow-y-auto">
+                {workout.exercises.map((ex: any, idx: number) => {
+                  // Handle both formats: array of sets or simple sets count
+                  const setsArray = Array.isArray(ex.sets) ? ex.sets : []
+                  const completedSets = setsArray.filter((s: any) => s.completed)
+
+                  return (
+                    <div
+                      key={idx}
+                      className="py-2 px-3 bg-white/5 rounded-lg"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium">
+                          {ex.exercise_name || ex.exercise?.name || 'Exercise'}
+                        </span>
+                        {setsArray.length > 0 && (
+                          <span className="text-xs text-emerald-400">
+                            {completedSets.length}/{setsArray.length} sets
+                          </span>
+                        )}
+                      </div>
                       {ex.notes && (
-                        <p className="text-xs text-white/40 mt-0.5">{ex.notes}</p>
+                        <p className="text-xs text-white/40 mb-2">{ex.notes}</p>
+                      )}
+                      {/* Show actual set results */}
+                      {setsArray.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {setsArray.map((set: any, setIdx: number) => (
+                            <div
+                              key={setIdx}
+                              className={`px-2 py-1 rounded text-xs ${
+                                set.completed
+                                  ? 'bg-emerald-500/20 text-emerald-400'
+                                  : 'bg-white/5 text-white/40'
+                              }`}
+                            >
+                              {set.is_timed ? (
+                                // Timed set display
+                                set.actual_duration_seconds
+                                  ? `${set.actual_duration_seconds}s`
+                                  : set.target_duration_seconds
+                                    ? `${set.target_duration_seconds}s target`
+                                    : '-'
+                              ) : (
+                                // Reps/weight set display
+                                <>
+                                  {set.actual_reps ?? set.target_reps ?? '-'}
+                                  {(set.actual_weight_lbs || set.target_weight_lbs) && (
+                                    <span className="text-white/50">
+                                      ×{set.actual_weight_lbs ?? set.target_weight_lbs}lb
+                                    </span>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {/* Fallback for simple format */}
+                      {!setsArray.length && ex.sets && (
+                        <div className="text-xs text-white/50">
+                          {ex.sets} × {ex.reps_min === ex.reps_max ? ex.reps_min : `${ex.reps_min}-${ex.reps_max}`}
+                        </div>
                       )}
                     </div>
-                    <div className="text-right">
-                      <span className="text-sm text-white/70">
-                        {ex.sets} × {ex.reps_min === ex.reps_max ? ex.reps_min : `${ex.reps_min}-${ex.reps_max}`}
-                      </span>
-                      {ex.rest_seconds && (
-                        <p className="text-xs text-white/40">{ex.rest_seconds}s rest</p>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           )}

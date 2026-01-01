@@ -13,6 +13,7 @@ import {
   LogReadinessInput,
   GetWorkoutDetailsInput,
   FindExerciseAlternativesInput,
+  AddToWishlistInput,
 } from '@/types/ai-tools'
 
 type ToolInput = Record<string, any>
@@ -49,6 +50,8 @@ export async function executeToolHandler(
         return await handleGetWorkoutDetails(input as GetWorkoutDetailsInput, userId, supabase)
       case 'find_exercise_alternatives':
         return await handleFindExerciseAlternatives(input as FindExerciseAlternativesInput, supabase)
+      case 'add_to_wishlist':
+        return await handleAddToWishlist(input as AddToWishlistInput)
       default:
         return { success: false, message: `Unknown tool: ${toolName}` }
     }
@@ -737,5 +740,111 @@ async function handleFindExerciseAlternatives(
         difficulty: ex.difficulty,
       })),
     },
+  }
+}
+
+// ============ WISHLIST HANDLER ============
+
+async function handleAddToWishlist(
+  input: AddToWishlistInput
+): Promise<ToolResult> {
+  try {
+    // Import fs dynamically to avoid issues
+    const { promises: fs } = await import('fs')
+    const path = await import('path')
+
+    const WISHLIST_PATH = path.join(process.cwd(), 'WISHLIST.md')
+    const category = input.category || 'wishlist'
+
+    // Read current content
+    let content: string
+    try {
+      content = await fs.readFile(WISHLIST_PATH, 'utf-8')
+    } catch {
+      content = `# FORGE App - Wishlist & Bug Fixes
+
+## In Progress
+<!-- Add current work items here -->
+
+## Completed
+<!-- Completed items will be moved here -->
+
+## Wishlist (Future Features)
+<!-- Add new feature ideas here -->
+
+## Bug Reports
+<!-- Add bug reports here -->
+
+---
+*Last updated: ${new Date().toISOString().split('T')[0]}*
+`
+    }
+
+    // Find the right section to add to
+    const sectionMap: Record<string, string> = {
+      wishlist: '## Wishlist (Future Features)',
+      bug: '## Bug Reports',
+      in_progress: '## In Progress',
+    }
+
+    const sectionHeader = sectionMap[category] || sectionMap.wishlist
+    const newItem = `- [ ] ${input.item}`
+
+    // Insert the item after the section header
+    const sectionIndex = content.indexOf(sectionHeader)
+    if (sectionIndex === -1) {
+      // Section doesn't exist, append at end
+      content = content.trim() + `\n\n${sectionHeader}\n${newItem}\n`
+    } else {
+      // Find the end of the header line
+      const headerEndIndex = content.indexOf('\n', sectionIndex)
+      // Find the next section or end
+      const nextSectionMatch = content.slice(headerEndIndex + 1).match(/\n## /)
+      const insertPosition = nextSectionMatch
+        ? headerEndIndex + 1 + (nextSectionMatch.index || 0)
+        : content.length
+
+      // Find where to insert (after any existing items or comment)
+      let insertAt = headerEndIndex + 1
+      const sectionContent = content.slice(headerEndIndex + 1, insertPosition)
+      const lines = sectionContent.split('\n')
+
+      // Find first non-empty, non-comment line position to insert after existing items
+      let lastItemIndex = 0
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].startsWith('- ')) {
+          lastItemIndex = i + 1
+        }
+      }
+
+      // Calculate actual insert position
+      const linesBeforeInsert = lines.slice(0, lastItemIndex || 1)
+      insertAt = headerEndIndex + 1 + linesBeforeInsert.join('\n').length + (lastItemIndex > 0 ? 1 : 0)
+
+      // Insert the new item
+      const prefix = content.slice(0, insertAt)
+      const suffix = content.slice(insertAt)
+
+      // Add newline if needed
+      const needsNewline = !prefix.endsWith('\n')
+      content = prefix + (needsNewline ? '\n' : '') + newItem + '\n' + suffix.replace(/^\n+/, '')
+    }
+
+    // Update last updated date
+    content = content.replace(/\*Last updated: .*\*/, `*Last updated: ${new Date().toISOString().split('T')[0]}*`)
+
+    // Write back
+    await fs.writeFile(WISHLIST_PATH, content, 'utf-8')
+
+    const categoryLabel = category === 'bug' ? 'Bug Reports' : category === 'in_progress' ? 'In Progress' : 'Wishlist'
+    return {
+      success: true,
+      message: `Added to ${categoryLabel}: "${input.item}"`,
+    }
+  } catch (error: any) {
+    return {
+      success: false,
+      message: `Failed to add to wishlist: ${error.message}`,
+    }
   }
 }

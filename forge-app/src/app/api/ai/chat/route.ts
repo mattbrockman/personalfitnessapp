@@ -161,6 +161,7 @@ Available tools:
 - log_readiness: Log how the user is feeling (auto-executes)
 - get_workout_details: Look up workout information
 - find_exercise_alternatives: Find exercise substitutes
+- add_to_wishlist: Add feature requests or bug reports to the app wishlist (auto-executes)
 
 IMPORTANT: When adding a workout, call add_workout with the exercises array populated - don't just describe the exercises in your text response.
 

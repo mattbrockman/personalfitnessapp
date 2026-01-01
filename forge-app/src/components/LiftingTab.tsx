@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
-import { Plus, Layers, History, Dumbbell, Loader2, Sparkles } from 'lucide-react'
+import { Plus, Layers, History, Dumbbell, Loader2, Sparkles, Calendar, ChevronRight, CheckCircle2 } from 'lucide-react'
+import { format } from 'date-fns'
 import { WorkoutBuilder } from './WorkoutBuilder'
 import { LiftingTracker } from './LiftingTracker'
 import { WorkoutTemplateLibrary } from './WorkoutTemplateLibrary'
@@ -63,6 +64,15 @@ interface LiftingTabProps {
   workoutId?: string | null
 }
 
+interface HistoryWorkout {
+  id: string
+  name: string
+  scheduled_date: string
+  completed_at: string
+  actual_duration_minutes: number | null
+  exercises: any[]
+}
+
 export function LiftingTab({ workoutId }: LiftingTabProps) {
   const [mainView, setMainView] = useState<MainView>('tabs')
   const [activeTab, setActiveTab] = useState<TabView>('new')
@@ -72,12 +82,59 @@ export function LiftingTab({ workoutId }: LiftingTabProps) {
   const [loading, setLoading] = useState(false)
   const [showAIGenerator, setShowAIGenerator] = useState(false)
 
+  // History tab state
+  const [historyWorkouts, setHistoryWorkouts] = useState<HistoryWorkout[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [selectedHistoryWorkout, setSelectedHistoryWorkout] = useState<HistoryWorkout | null>(null)
+
   // Load workout from URL param if provided
   useEffect(() => {
     if (workoutId) {
       loadPlannedWorkout(workoutId)
     }
   }, [workoutId])
+
+  // Load workout history when History tab is selected
+  useEffect(() => {
+    if (activeTab === 'history' && historyWorkouts.length === 0 && !historyLoading) {
+      loadWorkoutHistory()
+    }
+  }, [activeTab])
+
+  const loadWorkoutHistory = async () => {
+    setHistoryLoading(true)
+    try {
+      // Fetch completed strength workouts
+      const res = await fetch('/api/workouts?status=completed&type=strength')
+      if (res.ok) {
+        const data = await res.json()
+        // Filter to only strength workouts and sort by date
+        const strengthWorkouts = (data.workouts || [])
+          .filter((w: any) => w.category === 'strength' && w.status === 'completed')
+          .sort((a: any, b: any) =>
+            new Date(b.completed_at || b.scheduled_date).getTime() -
+            new Date(a.completed_at || a.scheduled_date).getTime()
+          )
+        setHistoryWorkouts(strengthWorkouts)
+      }
+    } catch (err) {
+      console.error('Failed to load workout history:', err)
+    } finally {
+      setHistoryLoading(false)
+    }
+  }
+
+  const loadWorkoutDetails = async (workoutId: string) => {
+    try {
+      const res = await fetch(`/api/workouts/${workoutId}`)
+      if (res.ok) {
+        const data = await res.json()
+        setSelectedHistoryWorkout(data.workout)
+      }
+    } catch (err) {
+      console.error('Failed to load workout details:', err)
+    }
+  }
 
   const loadPlannedWorkout = async (id: string) => {
     setLoading(true)
@@ -493,13 +550,131 @@ export function LiftingTab({ workoutId }: LiftingTabProps) {
 
       {activeTab === 'history' && (
         <div className="p-4 lg:p-6">
-          <div className="text-center py-12">
-            <History size={48} className="mx-auto text-white/20 mb-4" />
-            <p className="text-white/40">Workout history coming soon</p>
-            <p className="text-sm text-white/30 mt-1">
-              Your past lifting sessions will appear here
-            </p>
-          </div>
+          {historyLoading ? (
+            <div className="text-center py-12">
+              <Loader2 size={32} className="mx-auto text-amber-400 animate-spin mb-4" />
+              <p className="text-white/60">Loading workout history...</p>
+            </div>
+          ) : historyWorkouts.length === 0 ? (
+            <div className="text-center py-12">
+              <History size={48} className="mx-auto text-white/20 mb-4" />
+              <p className="text-white/40">No completed workouts yet</p>
+              <p className="text-sm text-white/30 mt-1">
+                Complete a workout to see it here
+              </p>
+            </div>
+          ) : selectedHistoryWorkout ? (
+            // Workout detail view
+            <div>
+              <button
+                onClick={() => setSelectedHistoryWorkout(null)}
+                className="flex items-center gap-2 text-white/60 hover:text-white mb-4 text-sm"
+              >
+                <ChevronRight size={16} className="rotate-180" />
+                Back to History
+              </button>
+
+              <div className="glass rounded-xl p-4 mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-semibold text-lg">{selectedHistoryWorkout.name}</h3>
+                  <span className="px-2 py-1 bg-emerald-500/20 text-emerald-400 text-xs rounded-full flex items-center gap-1">
+                    <CheckCircle2 size={12} /> Completed
+                  </span>
+                </div>
+                <div className="flex items-center gap-4 text-sm text-white/60">
+                  <div className="flex items-center gap-1">
+                    <Calendar size={14} />
+                    {format(new Date(selectedHistoryWorkout.completed_at || selectedHistoryWorkout.scheduled_date), 'MMM d, yyyy')}
+                  </div>
+                  {selectedHistoryWorkout.actual_duration_minutes && (
+                    <div>{selectedHistoryWorkout.actual_duration_minutes}min</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Exercises with sets */}
+              <div className="space-y-3">
+                {(selectedHistoryWorkout.exercises || []).map((ex: any, idx: number) => {
+                  const setsArray = Array.isArray(ex.sets) ? ex.sets : []
+                  const completedSets = setsArray.filter((s: any) => s.completed)
+
+                  return (
+                    <div key={idx} className="glass rounded-xl p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-medium">{ex.exercise_name || ex.exercise?.name}</h4>
+                        {setsArray.length > 0 && (
+                          <span className="text-xs text-emerald-400">
+                            {completedSets.length}/{setsArray.length} sets
+                          </span>
+                        )}
+                      </div>
+                      {ex.notes && <p className="text-xs text-white/40 mb-3">{ex.notes}</p>}
+
+                      {setsArray.length > 0 ? (
+                        <div className="space-y-2">
+                          {setsArray.map((set: any, setIdx: number) => (
+                            <div
+                              key={setIdx}
+                              className={`flex items-center justify-between py-2 px-3 rounded-lg ${
+                                set.completed ? 'bg-emerald-500/10' : 'bg-white/5'
+                              }`}
+                            >
+                              <span className="text-xs text-white/40">Set {setIdx + 1}</span>
+                              <div className="text-sm">
+                                {set.is_timed ? (
+                                  set.actual_duration_seconds
+                                    ? <span className="text-emerald-400">{set.actual_duration_seconds}s</span>
+                                    : <span className="text-white/40">{set.target_duration_seconds}s target</span>
+                                ) : (
+                                  <>
+                                    <span className={set.completed ? 'text-emerald-400' : 'text-white/60'}>
+                                      {set.actual_reps ?? set.target_reps ?? '-'} reps
+                                    </span>
+                                    {(set.actual_weight_lbs || set.target_weight_lbs) && (
+                                      <span className="text-white/40 ml-2">
+                                        @ {set.actual_weight_lbs ?? set.target_weight_lbs} lbs
+                                      </span>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-white/30">No set data recorded</p>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          ) : (
+            // Workout list view
+            <div className="space-y-2">
+              {historyWorkouts.map(workout => (
+                <button
+                  key={workout.id}
+                  onClick={() => loadWorkoutDetails(workout.id)}
+                  className="w-full glass rounded-xl p-4 text-left hover:bg-white/10 transition-colors flex items-center justify-between group"
+                >
+                  <div>
+                    <h4 className="font-medium mb-1">{workout.name || 'Workout'}</h4>
+                    <div className="flex items-center gap-3 text-sm text-white/50">
+                      <span className="flex items-center gap-1">
+                        <Calendar size={12} />
+                        {format(new Date(workout.completed_at || workout.scheduled_date), 'MMM d, yyyy')}
+                      </span>
+                      {workout.actual_duration_minutes && (
+                        <span>{workout.actual_duration_minutes}min</span>
+                      )}
+                    </div>
+                  </div>
+                  <ChevronRight size={20} className="text-white/30 group-hover:text-white/60 transition-colors" />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

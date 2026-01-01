@@ -345,6 +345,27 @@ export const AI_TOOLS: Anthropic.Tool[] = [
       required: ['exercise_name'],
     },
   },
+
+  // ============ WISHLIST TOOL ============
+  {
+    name: 'add_to_wishlist',
+    description: 'Add a feature request or bug report to the app wishlist. Use when user asks to add something to the wishlist, track a feature idea, or report a bug. Auto-executes.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        item: {
+          type: 'string',
+          description: 'Description of the feature request or bug report',
+        },
+        category: {
+          type: 'string',
+          enum: ['wishlist', 'bug', 'in_progress'],
+          description: 'Category: "wishlist" for feature requests, "bug" for bug reports, "in_progress" for items being worked on',
+        },
+      },
+      required: ['item'],
+    },
+  },
 ]
 
 // Tools that require user confirmation before execution
