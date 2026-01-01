@@ -29,6 +29,7 @@ import {
   Camera,
   Zap,
   TrendingUp,
+  ArrowLeftRight,
 } from 'lucide-react'
 
 // Strength training imports (Greg Nuckols evidence-based methods)
@@ -185,9 +186,13 @@ function RestTimer({
 function ExerciseSearchModal({
   onSelect,
   onClose,
+  title,
+  subtitle,
 }: {
   onSelect: (exercise: Exercise) => void
   onClose: () => void
+  title?: string
+  subtitle?: string
 }) {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<string | null>(null)
@@ -234,10 +239,30 @@ function ExerciseSearchModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/80" onClick={onClose}>
-      <div 
+      <div
         className="bg-zinc-900 rounded-2xl w-full max-w-lg max-h-[80vh] overflow-hidden border border-white/10 animate-slide-up"
         onClick={e => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title || "Search exercises"}
       >
+        {/* Optional title header for swap mode */}
+        {title && (
+          <div className="flex items-center justify-between p-4 border-b border-white/10 bg-violet-500/10">
+            <div>
+              <h2 className="font-semibold text-white">{title}</h2>
+              {subtitle && <p className="text-sm text-white/60">{subtitle}</p>}
+            </div>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+              aria-label="Close"
+            >
+              <X size={20} className="text-white/60" />
+            </button>
+          </div>
+        )}
+
         <div className="p-4 border-b border-white/10">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
@@ -1055,6 +1080,7 @@ function ExerciseCard({
   onSetComplete,
   onShowDetails,
   onFormCoach,
+  onSwapExercise,
 }: {
   workoutExercise: WorkoutExercise
   index: number
@@ -1064,6 +1090,7 @@ function ExerciseCard({
   onSetComplete: (setId: string) => void
   onShowDetails: () => void
   onFormCoach: () => void
+  onSwapExercise: () => void
 }) {
   const { exercise, sets, collapsed, superset_group, rest_seconds, notes } = workoutExercise
   const completedSets = sets.filter(s => s.completed).length
@@ -1134,20 +1161,30 @@ function ExerciseCard({
         </div>
 
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <h3
               className="font-medium truncate cursor-pointer hover:text-amber-400 transition-colors"
               onClick={(e) => { e.stopPropagation(); onShowDetails(); }}
             >
               {exercise.name}
             </h3>
+            {/* Swap Exercise button */}
+            <button
+              onClick={(e) => { e.stopPropagation(); onSwapExercise(); }}
+              className="p-1 rounded-lg bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 transition-colors"
+              title="Swap Exercise"
+              aria-label="Swap exercise for alternative"
+            >
+              <ArrowLeftRight size={12} />
+            </button>
             {/* AI Form Coach button */}
             <button
               onClick={(e) => { e.stopPropagation(); onFormCoach(); }}
-              className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-colors"
+              className="p-1 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-colors"
               title="AI Form Coach"
+              aria-label="AI Form Coach"
             >
-              <Camera size={14} />
+              <Camera size={12} />
             </button>
           </div>
           <p className="text-sm text-white/50">
@@ -1286,6 +1323,19 @@ export function LiftingTracker({
   const [saving, setSaving] = useState(false)
   const [selectedExerciseForDetails, setSelectedExerciseForDetails] = useState<Exercise | null>(null)
   const [selectedExerciseForFormCoach, setSelectedExerciseForFormCoach] = useState<Exercise | null>(null)
+  const [exerciseToSwap, setExerciseToSwap] = useState<{ workoutExerciseId: string; exercise: Exercise } | null>(null)
+
+  // Swap an exercise for a new one, keeping the sets
+  const swapExercise = (newExercise: Exercise) => {
+    if (!exerciseToSwap) return
+    setExercises(exercises.map(ex => {
+      if (ex.id === exerciseToSwap.workoutExerciseId) {
+        return { ...ex, exercise: newExercise }
+      }
+      return ex
+    }))
+    setExerciseToSwap(null)
+  }
 
   const addExercise = (exercise: Exercise) => {
     const newExercise: WorkoutExercise = {
@@ -1515,6 +1565,7 @@ export function LiftingTracker({
             onSetComplete={(setId) => handleSetComplete(ex.id, setId)}
             onShowDetails={() => setSelectedExerciseForDetails(ex.exercise)}
             onFormCoach={() => setSelectedExerciseForFormCoach(ex.exercise)}
+            onSwapExercise={() => setExerciseToSwap({ workoutExerciseId: ex.id, exercise: ex.exercise })}
           />
         ))}
 
@@ -1586,6 +1637,16 @@ export function LiftingTracker({
         <FormCoachingModal
           exercise={selectedExerciseForFormCoach}
           onClose={() => setSelectedExerciseForFormCoach(null)}
+        />
+      )}
+
+      {/* Swap Exercise Modal */}
+      {exerciseToSwap && (
+        <ExerciseSearchModal
+          onSelect={swapExercise}
+          onClose={() => setExerciseToSwap(null)}
+          title={`Swap "${exerciseToSwap.exercise.name}"`}
+          subtitle="Select an alternative exercise"
         />
       )}
     </div>
