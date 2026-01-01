@@ -12,7 +12,7 @@
 - [x] Add timer sound notifications (rest timer completion + work timer at target)
 
 ## Wishlist (Future Features)
-<!-- Add new feature ideas here -->
+- [ ] Show notes from previous workout when performing same exercise - display indicator next to exercise notes with popup showing last time's notes (e.g., "Back squat: focus on depth" from last week)
 
 ## Bug Reports
 <!-- Add bug reports here -->
