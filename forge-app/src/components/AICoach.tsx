@@ -343,21 +343,23 @@ export function AICoach() {
       }
       setMessages(prev => [...prev, assistantMessage])
 
-      // Dispatch events for executed tools so other components can refresh
+      // Signal updates for other pages to refresh when they load
       if (data.executed_tools?.length > 0) {
         data.executed_tools.forEach((tool: { name: string; result: { success: boolean } }) => {
           if (tool.result.success) {
             if (tool.name === 'add_workout' || tool.name === 'reschedule_workout' || tool.name === 'skip_workout' || tool.name === 'modify_workout_exercise') {
+              // Store timestamp so calendar knows to refresh
+              localStorage.setItem('workout-updated', Date.now().toString())
               window.dispatchEvent(new CustomEvent('workout-updated'))
             }
             if (tool.name === 'log_sleep') {
-              window.dispatchEvent(new CustomEvent('sleep-updated'))
+              localStorage.setItem('sleep-updated', Date.now().toString())
             }
             if (tool.name === 'log_meal') {
-              window.dispatchEvent(new CustomEvent('nutrition-updated'))
+              localStorage.setItem('nutrition-updated', Date.now().toString())
             }
             if (tool.name === 'log_body_comp') {
-              window.dispatchEvent(new CustomEvent('body-comp-updated'))
+              localStorage.setItem('body-comp-updated', Date.now().toString())
             }
           }
         })

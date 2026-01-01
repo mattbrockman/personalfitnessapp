@@ -216,9 +216,20 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
   useEffect(() => {
     fetchPlanData()
     fetchWeather()
+
+    // Check if AI Coach made updates while we were on another page
+    const lastUpdate = localStorage.getItem('workout-updated')
+    if (lastUpdate) {
+      const updateTime = parseInt(lastUpdate)
+      // If update was within the last 5 minutes, refresh
+      if (Date.now() - updateTime < 5 * 60 * 1000) {
+        fetchWorkouts()
+      }
+      localStorage.removeItem('workout-updated')
+    }
   }, [])
 
-  // Listen for workout updates from AI Coach
+  // Listen for workout updates from AI Coach (same-page updates)
   useEffect(() => {
     const handleWorkoutUpdate = () => {
       fetchWorkouts()
