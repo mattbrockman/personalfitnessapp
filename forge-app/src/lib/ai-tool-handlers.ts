@@ -324,135 +324,32 @@ async function handleAddWorkout(
   userId: string,
   supabase: SupabaseClient
 ): Promise<ToolResult> {
-  // Debug: Log what we received
-  console.log('add_workout input:', JSON.stringify(input, null, 2))
-  console.log('exercises count:', input.exercises?.length || 0)
-
-  // Get user's active training plan directly from training_plans table
-  // (profiles.active_program_id column may not exist)
-  const { data: activePlan, error: planFetchError } = await supabase
-    .from('training_plans')
-    .select('id')
-    .eq('user_id', userId)
-    .eq('status', 'active')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single()
-
-  console.log('[add_workout] active plan fetch:', { activePlan, error: planFetchError?.message })
-
-  const planId = activePlan?.id
-  console.log('[add_workout] active plan id:', planId)
-
-  if (planId) {
-    console.log('[add_workout] PATH A: Adding to existing plan', planId)
-    // Add as suggested workout
-    const dayOfWeek = format(new Date(input.date), 'EEEE').toLowerCase()
-
-    const { data: newWorkout, error } = await supabase
-      .from('suggested_workouts')
-      .insert({
-        plan_id: planId,
-        suggested_date: input.date,
-        day_of_week: dayOfWeek,
-        category: input.category,
-        workout_type: input.workout_type,
-        name: input.name,
-        description: input.description || null,
-        planned_duration_minutes: input.duration_minutes || 60,
-        exercises: input.exercises || null,
-        status: 'suggested',
-      })
-      .select()
-      .single()
-
-    if (error) {
-      return { success: false, message: `Failed to add workout: ${error.message}` }
-    }
-
-    return {
-      success: true,
-      message: `Added "${input.name}" on ${input.date}`,
-      data: newWorkout,
-    }
-  }
-
-  // No active plan - create a training plan first, then add as suggested workout
-  // This ensures exercises are properly stored
-  console.log('[add_workout] PATH B: No active plan, creating new plan...')
-  const today = format(new Date(), 'yyyy-MM-dd')
-  const { data: newPlan, error: planError } = await supabase
-    .from('training_plans')
-    .insert({
-      user_id: userId,
-      name: 'My Training Plan',
-      goal: 'General fitness',
-      status: 'active',
-      start_date: today,
-    })
-    .select('id')
-    .single()
-
-  if (planError) {
-    // Fall back to regular workout without exercises
-    console.log('[add_workout] PATH C: Plan creation FAILED, falling back to workouts table')
-    console.log('[add_workout] planError:', planError.message, planError.code)
-    const { data: newWorkout, error } = await supabase
-      .from('workouts')
-      .insert({
-        user_id: userId,
-        scheduled_date: input.date,
-        category: input.category,
-        workout_type: input.workout_type,
-        name: input.name,
-        description: input.exercises ? `Exercises: ${input.exercises.map((e: any) => `${e.exercise_name} ${e.sets}x${e.reps_min}-${e.reps_max}`).join(', ')}` : input.description,
-        planned_duration_minutes: input.duration_minutes || 60,
-        status: 'planned',
-      })
-      .select()
-      .single()
-
-    if (error) {
-      return { success: false, message: `Failed to add workout: ${error.message}` }
-    }
-
-    return {
-      success: true,
-      message: `Added "${input.name}" on ${input.date}`,
-      data: newWorkout,
-    }
-  }
-
-  console.log('[add_workout] PATH B SUCCESS: Created plan', newPlan.id)
-
-  // Now add as suggested workout with exercises
-  const dayOfWeek = format(new Date(input.date), 'EEEE').toLowerCase()
-  console.log('[add_workout] Inserting into suggested_workouts with exercises:', input.exercises?.length)
+  // Simple: insert directly into workouts table with exercises JSONB
+  console.log('[add_workout] Adding workout with', input.exercises?.length || 0, 'exercises')
 
   const { data: newWorkout, error } = await supabase
-    .from('suggested_workouts')
+    .from('workouts')
     .insert({
-      plan_id: newPlan.id,
-      suggested_date: input.date,
-      day_of_week: dayOfWeek,
+      user_id: userId,
+      scheduled_date: input.date,
       category: input.category,
       workout_type: input.workout_type,
       name: input.name,
       description: input.description || null,
       planned_duration_minutes: input.duration_minutes || 60,
       exercises: input.exercises || null,
-      status: 'suggested',
+      status: 'planned',
+      source: 'manual',
     })
     .select()
     .single()
 
   if (error) {
-    console.log('[add_workout] suggested_workouts insert FAILED:', error.message)
+    console.log('[add_workout] FAILED:', error.message)
     return { success: false, message: `Failed to add workout: ${error.message}` }
   }
 
-  console.log('[add_workout] SUCCESS: Workout added to suggested_workouts with id:', newWorkout.id)
-
+  console.log('[add_workout] SUCCESS: id=', newWorkout.id)
   return {
     success: true,
     message: `Added "${input.name}" on ${input.date}`,

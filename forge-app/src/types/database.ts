@@ -103,11 +103,19 @@ export interface Database {
           actual_np: number | null
           actual_elevation_ft: number | null
           status: 'planned' | 'in_progress' | 'completed' | 'skipped'
-          source: 'manual' | 'strava' | 'trainerroad' | 'zwift' | 'apple_health' | 'strong' | 'garmin' | 'wahoo' | 'peloton'
+          source: 'manual' | 'strava' | 'trainerroad' | 'zwift' | 'apple_health' | 'strong' | 'garmin' | 'wahoo' | 'peloton' | 'ai_coach'
           external_id: string | null
           external_url: string | null
           notes: string | null
           perceived_exertion: number | null
+          exercises: {
+            exercise_name: string
+            sets: number
+            reps_min: number
+            reps_max: number
+            rest_seconds?: number
+            notes?: string
+          }[] | null
           created_at: string
           updated_at: string
         }
