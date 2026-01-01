@@ -126,7 +126,7 @@ export async function getLinkToken(
  */
 export async function getConnectedProviders(junctionUserId: string): Promise<ConnectedProvider[]> {
   const response = await junctionFetch<{ providers: ConnectedProvider[] }>(
-    `/v2/user/${junctionUserId}/providers`
+    `/v2/user/providers/${junctionUserId}`
   )
   return response.providers || []
 }
