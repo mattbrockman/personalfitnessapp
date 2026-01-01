@@ -176,7 +176,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Prepare exercise data
+    // Prepare exercise data (use coaching_cues, not cues - that column doesn't exist)
     const exerciseData = {
       name: titleCase(body.name),
       primary_muscle: body.primary_muscle,
@@ -185,8 +185,7 @@ export async function POST(request: NextRequest) {
       difficulty: body.difficulty || 'intermediate',
       is_compound: body.is_compound ?? null,
       is_unilateral: body.is_unilateral ?? null,
-      cues: body.cues || [],
-      coaching_cues: body.cues || [],
+      coaching_cues: body.cues || body.coaching_cues || [],
       common_mistakes: body.common_mistakes || [],
       description: body.description || null,
       instructions: body.instructions || null,
