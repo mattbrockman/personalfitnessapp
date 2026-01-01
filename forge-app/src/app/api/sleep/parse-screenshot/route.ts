@@ -50,23 +50,28 @@ export async function POST(request: NextRequest) {
             },
             {
               type: 'text',
-              text: `You are extracting sleep data from an Eight Sleep app screenshot.
+              text: `Extract sleep data from this Eight Sleep app screenshot. This could be a daily report OR a monthly trend view.
 
-Look at the image carefully and find:
-- DATE: Look for day/month at top (e.g., "Sun, Dec 29", "Dec 30"). Year is 2025 (or 2026 for January).
-- SLEEP SCORE: Large number 0-100, often in a circular ring labeled "Sleep Fitness"
-- TOTAL SLEEP: Duration like "6h 52m" - convert to total minutes (6*60+52=412)
-- BED/WAKE TIMES: When fell asleep and woke up (convert to 24hr format)
-- SLEEP STAGES: Deep, REM, Light, Awake times - convert each to minutes
-- HRV: Heart rate variability in ms (number like 42)
-- RESTING HR: Heart rate in bpm (number like 52)
-- RESPIRATORY RATE: Breaths per minute (number like 15.2)
+LOOK FOR ANY OF THESE:
+- DATE: "Dec 29, 2025", "DEC 29, 2025", "Sun, Dec 29" → use 2025 as year (2026 for Jan)
+- SLEEP SCORE: Large 0-100 number in a circle
+- TOTAL SLEEP: "6h 52m" → convert to minutes (412)
+- DEEP SLEEP: "1h 14m" or "30-DAY AVG DEEP: 1h 14m" → 74 minutes
+- REM SLEEP: "1h 59m" → 119 minutes
+- LIGHT SLEEP: duration → minutes
+- AWAKE: duration → minutes
+- BEDTIME/ASLEEP: "11:16 PM" or "30-DAY AVG ASLEEP: 11:16 PM" → "23:16"
+- WAKE TIME/AWAKE: "7:23 AM" → "07:23"
+- HRV: "47 ms" → 47
+- RESTING HR: "46 bpm" → 46
+- RESPIRATORY/BREATH RATE: "15.2 brpm" → 15.2
 
-Return ONLY a JSON object with these exact keys. No markdown, no explanation, just the JSON:
+For trend views showing "30-DAY AVG", extract those values and use the end date shown (e.g., "Nov 29 - Dec 29, 2025" → log_date: "2025-12-29").
 
-{"log_date":"2025-12-29","bedtime":"23:30","wake_time":"06:30","total_sleep_minutes":412,"deep_sleep_minutes":74,"rem_sleep_minutes":119,"light_sleep_minutes":219,"awake_minutes":23,"sleep_score":85,"hrv_avg":42,"resting_hr":52,"respiratory_rate":15.2,"recovery_score":null}
+Return ONLY JSON, no markdown:
+{"log_date":"2025-12-29","bedtime":"23:16","wake_time":"07:23","total_sleep_minutes":null,"deep_sleep_minutes":74,"rem_sleep_minutes":119,"light_sleep_minutes":null,"awake_minutes":null,"sleep_score":null,"hrv_avg":47,"resting_hr":46,"respiratory_rate":15.2,"recovery_score":null}
 
-Use null for any field not visible in the image. Convert all durations to minutes.`
+Use null for fields not visible.`
             }
           ],
         }
