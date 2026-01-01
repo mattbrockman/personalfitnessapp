@@ -324,6 +324,10 @@ async function handleAddWorkout(
   userId: string,
   supabase: SupabaseClient
 ): Promise<ToolResult> {
+  // Debug: Log what we received
+  console.log('add_workout input:', JSON.stringify(input, null, 2))
+  console.log('exercises count:', input.exercises?.length || 0)
+
   // Get user's active training plan
   const { data: profile } = await supabase
     .from('profiles')
