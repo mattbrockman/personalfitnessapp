@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getSleepTrends, refreshToken, mapEightSleepToSleepLog } from '@/lib/eightsleep'
+import { getSleepTrends, refreshToken, mapEightSleepDayToSleepLog } from '@/lib/eightsleep'
 
 // POST /api/eightsleep/sync - Sync sleep data from Eight Sleep
 export async function POST(request: NextRequest) {
@@ -96,13 +96,11 @@ export async function POST(request: NextRequest) {
     // Map Eight Sleep data to our schema
     console.log('Mapping', trends.days.length, 'days of sleep data')
     const sleepLogs = trends.days
-      .filter(day => day.sessions && day.sessions.length > 0)
+      .filter(day => day.sleepDuration && day.sleepDuration > 0)
       .map(day => {
-        // Use the main/first session for each day
-        const session = day.sessions[0]
         return {
           user_id: user.id,
-          ...mapEightSleepToSleepLog(day, session),
+          ...mapEightSleepDayToSleepLog(day),
           updated_at: new Date().toISOString(),
         }
       })

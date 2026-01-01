@@ -178,53 +178,37 @@ export async function getSleepTrends(
 }
 
 /**
- * Convert Eight Sleep session to our sleep_logs format
+ * Convert Eight Sleep day data to our sleep_logs format
+ * The API returns sleep data directly on the day object, not in sessions
  */
-export function mapEightSleepToSleepLog(day: EightSleepTrends['days'][0], session: EightSleepSession) {
+export function mapEightSleepDayToSleepLog(day: any) {
   try {
-    // Get average HRV from timeseries or quality score
-    const avgHrv = session?.sleepQualityScore?.hrv ||
-      (session?.timeseries?.hrv?.length > 0
-        ? Math.round(session.timeseries.hrv.reduce((sum, [, val]) => sum + val, 0) / session.timeseries.hrv.length)
-        : null)
-
-    // Get average heart rate from timeseries
-    const avgHr = session?.timeseries?.heartRate?.length > 0
-      ? Math.round(session.timeseries.heartRate.reduce((sum, [, val]) => sum + val, 0) / session.timeseries.heartRate.length)
-      : null
-
-    // Get average respiratory rate
-    const avgRespRate = session?.timeseries?.respiratoryRate?.length > 0
-      ? Math.round(session.timeseries.respiratoryRate.reduce((sum, [, val]) => sum + val, 0) / session.timeseries.respiratoryRate.length * 10) / 10
-      : null
-
     // Convert seconds to minutes
-    const secondsToMinutes = (seconds: number | undefined) =>
+    const secondsToMinutes = (seconds: number | undefined | null) =>
       seconds ? Math.round(seconds / 60) : null
 
-    // Total sleep = light + deep + rem (not including awake)
-    const totalSleepSeconds = (session?.stages?.light || 0) +
-                             (session?.stages?.deep || 0) +
-                             (session?.stages?.rem || 0)
+    // Calculate awake time (presence - sleep)
+    const awakeDuration = day.presenceDuration && day.sleepDuration
+      ? day.presenceDuration - day.sleepDuration
+      : null
 
     return {
       log_date: day.day,
-      bedtime: session?.startTime || null,
-      wake_time: session?.endTime || null,
-      total_sleep_minutes: secondsToMinutes(totalSleepSeconds) || secondsToMinutes(day.sleepDuration),
-      deep_sleep_minutes: secondsToMinutes(session?.stages?.deep),
-      rem_sleep_minutes: secondsToMinutes(session?.stages?.rem),
-      light_sleep_minutes: secondsToMinutes(session?.stages?.light),
-      awake_minutes: secondsToMinutes(session?.stages?.awake),
-      sleep_score: session?.score || day.score,
-      hrv_avg: avgHrv,
-      resting_hr: avgHr,
-      respiratory_rate: avgRespRate,
+      bedtime: day.bedLocalTime || null,
+      wake_time: day.outOfBedLocalTime || null,
+      total_sleep_minutes: secondsToMinutes(day.sleepDuration),
+      deep_sleep_minutes: secondsToMinutes(day.deepDuration),
+      rem_sleep_minutes: secondsToMinutes(day.remDuration),
+      light_sleep_minutes: secondsToMinutes(day.lightDuration),
+      awake_minutes: secondsToMinutes(awakeDuration),
+      sleep_score: day.score || day.sleepFitnessScore?.total || null,
+      hrv_avg: day.sleepFitnessScore?.hrv ? Math.round(day.sleepFitnessScore.hrv) : null,
+      resting_hr: day.respiratoryRate ? Math.round(day.respiratoryRate) : null,  // This might be wrong field
+      respiratory_rate: day.respiratoryRate || null,
       source: 'eight_sleep_direct' as const,
     }
   } catch (error) {
     console.error('Error mapping sleep data for day:', day.day, error)
-    // Return minimal data
     return {
       log_date: day.day,
       bedtime: null,
@@ -234,7 +218,7 @@ export function mapEightSleepToSleepLog(day: EightSleepTrends['days'][0], sessio
       rem_sleep_minutes: null,
       light_sleep_minutes: null,
       awake_minutes: null,
-      sleep_score: day.score || null,
+      sleep_score: null,
       hrv_avg: null,
       resting_hr: null,
       respiratory_rate: null,
