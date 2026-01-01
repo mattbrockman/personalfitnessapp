@@ -195,3 +195,19 @@ h1, h2, h3, .font-display {
   outline-offset: 2px;
   border-radius: 0.5rem;
 }
+
+/* Prevent iOS Safari auto-zoom on input focus */
+/* iOS zooms in on inputs with font-size < 16px, causing viewport issues */
+@media screen and (max-width: 768px) {
+  input[type="text"],
+  input[type="number"],
+  input[type="email"],
+  input[type="password"],
+  input[type="search"],
+  input[type="tel"],
+  input[type="url"],
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
