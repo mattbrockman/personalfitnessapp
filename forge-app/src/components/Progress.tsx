@@ -15,7 +15,10 @@ import {
   Target,
   Award,
   Flame,
+  Camera,
+  X,
 } from 'lucide-react'
+import { BodyScanner } from './BodyScanner'
 import {
   LineChart,
   Line,
@@ -189,6 +192,7 @@ function PRCard({ record }: { record: PersonalRecord }) {
 export function Progress() {
   const [timeRange, setTimeRange] = useState('3m')
   const [activeChart, setActiveChart] = useState<'strength' | 'body' | 'fitness' | 'recovery'>('strength')
+  const [showBodyScanner, setShowBodyScanner] = useState(false)
 
   // Calculate summary stats
   const latestData = PROGRESS_DATA[PROGRESS_DATA.length - 1]
@@ -295,6 +299,18 @@ export function Progress() {
           </button>
         ))}
       </div>
+
+      {/* Body Scan Button - show when on body tab */}
+      {activeChart === 'body' && (
+        <button
+          onClick={() => setShowBodyScanner(true)}
+          className="w-full mb-4 py-3 bg-gradient-to-r from-amber-500/20 to-violet-500/20 hover:from-amber-500/30 hover:to-violet-500/30 border border-amber-500/30 rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
+        >
+          <Camera size={18} className="text-amber-400" />
+          <span>AI Body Scan</span>
+          <span className="text-xs text-white/50 ml-2">Analyze from photo</span>
+        </button>
+      )}
 
       {/* Main chart */}
       <div className="glass rounded-xl p-4 mb-6">
@@ -493,6 +509,23 @@ export function Progress() {
           Avg: {Math.round(PROGRESS_DATA.reduce((sum, d) => sum + (d.proteinAvg || 0), 0) / PROGRESS_DATA.length)}g/day • Target: 180g
         </p>
       </div>
+
+      {/* Body Scanner Modal */}
+      {showBodyScanner && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm overflow-y-auto">
+          <div className="min-h-full">
+            <div className="absolute top-4 right-4 z-10">
+              <button
+                onClick={() => setShowBodyScanner(false)}
+                className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            <BodyScanner />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

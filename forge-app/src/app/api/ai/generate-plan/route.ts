@@ -46,6 +46,16 @@ export async function POST(request: NextRequest) {
 
     console.log('Generating training plan:', body)
 
+    // Fetch user's equipment preferences
+    const { data: profileData } = await (adminClient as any)
+      .from('profiles')
+      .select('available_equipment')
+      .eq('id', session.user.id)
+      .single()
+
+    const userEquipment: string[] = profileData?.available_equipment ||
+      ['barbell', 'dumbbell', 'cable', 'machine', 'bodyweight']
+
     // Fetch exercise library for strength workouts
     const { data: exercises } = await (adminClient as any)
       .from('exercises')
@@ -95,9 +105,22 @@ export async function POST(request: NextRequest) {
       console.log('Weather fetch failed, continuing without weather context:', weatherError)
     }
 
-    // Group exercises by muscle group for the prompt
+    // Group exercises by muscle group, filtered by user equipment
     const exercisesByMuscle: Record<string, string[]> = {}
     for (const ex of (exercises || []) as any[]) {
+      const exEquipment = (ex.equipment || '').toLowerCase()
+
+      // Check if exercise matches user's available equipment
+      const includeExercise = userEquipment.some(equip => {
+        const equipLower = equip.toLowerCase()
+        if (equipLower === 'bodyweight') {
+          return exEquipment.includes('bodyweight') || exEquipment === 'none' || exEquipment === ''
+        }
+        return exEquipment.includes(equipLower)
+      })
+
+      if (!includeExercise) continue
+
       const muscles = ex.primary_muscles || []
       for (const muscle of muscles) {
         if (!exercisesByMuscle[muscle]) exercisesByMuscle[muscle] = []
@@ -195,6 +218,9 @@ ${body.preferences?.vacation_dates && body.preferences.vacation_dates.length > 0
   ? `- Blocked dates (vacations):\n${body.preferences.vacation_dates.map(v => `  * ${v.start} to ${v.end}${v.name ? ` (${v.name})` : ''}`).join('\n')}`
   : ''
 }
+
+AVAILABLE EQUIPMENT: ${userEquipment.join(', ')}
+IMPORTANT: Only use exercises that can be performed with the equipment listed above. The exercise list below has already been filtered to match available equipment.
 
 AVAILABLE EXERCISES (use ONLY these names for strength workouts):
 ${exerciseLibraryText}

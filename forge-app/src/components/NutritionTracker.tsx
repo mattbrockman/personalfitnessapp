@@ -38,6 +38,18 @@ interface FoodItem {
   fiber_g?: number
   sodium_mg?: number
   source: 'manual' | 'photo_ai' | 'barcode' | 'database' | 'favorite'
+  confidence?: number
+}
+
+interface DetectedFood {
+  food_name: string
+  portion_size: string
+  calories: number
+  protein_g: number
+  carbs_g: number
+  fat_g: number
+  fiber_g?: number
+  confidence: number
 }
 
 interface Meal {
@@ -136,51 +148,121 @@ function MacroRing({
   )
 }
 
-// Photo Capture Modal
+// Photo Capture Modal with AI Analysis
 function PhotoCaptureModal({
+  mealType,
   onCapture,
   onClose,
 }: {
-  onCapture: (photoData: string) => void
+  mealType: string
+  onCapture: (foods: FoodItem[]) => void
   onClose: () => void
 }) {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [detectedFoods, setDetectedFoods] = useState<DetectedFood[] | null>(null)
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
-    // Convert to base64
+    setError(null)
+    setIsAnalyzing(true)
+
+    // Show preview
     const reader = new FileReader()
-    reader.onload = async (event) => {
-      const photoData = event.target?.result as string
-      setIsAnalyzing(true)
-      
-      // Simulate AI analysis (would call actual API)
-      setTimeout(() => {
-        onCapture(photoData)
-        setIsAnalyzing(false)
-      }, 2000)
+    reader.onload = (event) => {
+      setPhotoPreview(event.target?.result as string)
     }
     reader.readAsDataURL(file)
+
+    // Send to API
+    try {
+      const formData = new FormData()
+      formData.append('photo', file)
+      formData.append('meal_type', mealType)
+
+      const response = await fetch('/api/nutrition/analyze-photo', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to analyze photo')
+      }
+
+      const data = await response.json()
+      setDetectedFoods(data.analysis.detected_foods)
+    } catch (err: any) {
+      setError(err.message || 'Failed to analyze photo. Please try again.')
+      setPhotoPreview(null)
+    } finally {
+      setIsAnalyzing(false)
+    }
   }
+
+  const handleConfirm = () => {
+    if (!detectedFoods) return
+
+    const foods: FoodItem[] = detectedFoods.map((food, index) => ({
+      id: `food-${Date.now()}-${index}`,
+      name: food.food_name,
+      servings: 1,
+      serving_unit: food.portion_size,
+      calories: food.calories,
+      protein_g: food.protein_g,
+      carbs_g: food.carbs_g,
+      fat_g: food.fat_g,
+      fiber_g: food.fiber_g,
+      source: 'photo_ai' as const,
+      confidence: food.confidence,
+    }))
+
+    onCapture(foods)
+  }
+
+  const handleRemoveFood = (index: number) => {
+    if (!detectedFoods) return
+    setDetectedFoods(detectedFoods.filter((_, i) => i !== index))
+  }
+
+  const totalCalories = detectedFoods?.reduce((sum, f) => sum + f.calories, 0) || 0
+  const totalProtein = detectedFoods?.reduce((sum, f) => sum + f.protein_g, 0) || 0
+  const totalCarbs = detectedFoods?.reduce((sum, f) => sum + f.carbs_g, 0) || 0
+  const totalFat = detectedFoods?.reduce((sum, f) => sum + f.fat_g, 0) || 0
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80" onClick={onClose}>
-      <div 
-        className="bg-zinc-900 rounded-2xl w-full max-w-md overflow-hidden border border-white/10 animate-slide-up"
+      <div
+        className="bg-zinc-900 rounded-2xl w-full max-w-md max-h-[90vh] overflow-hidden border border-white/10 animate-slide-up"
         onClick={e => e.stopPropagation()}
       >
         <div className="p-4 border-b border-white/10 flex items-center justify-between">
-          <h3 className="font-semibold">Log Food with Photo</h3>
+          <h3 className="font-semibold">
+            {detectedFoods ? 'Review Detected Foods' : 'Log Food with Photo'}
+          </h3>
           <button onClick={onClose} className="p-1 hover:bg-white/10 rounded-lg">
             <X size={20} />
           </button>
         </div>
 
-        <div className="p-6">
-          {isAnalyzing ? (
+        <div className="p-6 overflow-y-auto max-h-[calc(90vh-8rem)]">
+          {/* Photo Preview */}
+          {photoPreview && (
+            <div className="mb-4">
+              <img
+                src={photoPreview}
+                alt="Food"
+                className="w-full h-40 object-cover rounded-lg"
+              />
+            </div>
+          )}
+
+          {/* Analyzing State */}
+          {isAnalyzing && (
             <div className="text-center py-8">
               <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-amber-500/20 flex items-center justify-center animate-pulse">
                 <Sparkles size={32} className="text-amber-500" />
@@ -188,9 +270,105 @@ function PhotoCaptureModal({
               <p className="font-medium">Analyzing your food...</p>
               <p className="text-sm text-white/50 mt-1">AI is identifying ingredients and estimating nutrition</p>
             </div>
-          ) : (
+          )}
+
+          {/* Error State */}
+          {error && (
+            <div className="text-center py-4">
+              <p className="text-red-400 mb-4">{error}</p>
+              <button
+                onClick={() => {
+                  setError(null)
+                  fileInputRef.current?.click()
+                }}
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black rounded-lg font-medium"
+              >
+                Try Again
+              </button>
+            </div>
+          )}
+
+          {/* Detected Foods Review */}
+          {detectedFoods && detectedFoods.length > 0 && (
+            <div className="space-y-3">
+              {detectedFoods.map((food, index) => (
+                <div key={index} className="p-3 bg-white/5 rounded-lg">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium">{food.food_name}</p>
+                      <p className="text-sm text-white/50">{food.portion_size}</p>
+                    </div>
+                    <button
+                      onClick={() => handleRemoveFood(index)}
+                      className="p-1 hover:bg-white/10 rounded text-white/40 hover:text-red-400"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                  <div className="mt-2 flex gap-3 text-sm">
+                    <span className="text-amber-400">{food.calories} cal</span>
+                    <span className="text-red-400">{food.protein_g}p</span>
+                    <span className="text-green-400">{food.carbs_g}c</span>
+                    <span className="text-yellow-400">{food.fat_g}f</span>
+                  </div>
+                  <div className="mt-1">
+                    <div className="flex items-center gap-1 text-xs text-white/40">
+                      <span>Confidence:</span>
+                      <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full ${food.confidence >= 80 ? 'bg-emerald-500' : food.confidence >= 60 ? 'bg-amber-500' : 'bg-red-500'}`}
+                          style={{ width: `${food.confidence}%` }}
+                        />
+                      </div>
+                      <span>{food.confidence}%</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {/* Totals */}
+              <div className="p-3 bg-amber-500/10 rounded-lg">
+                <p className="text-sm font-medium text-amber-400 mb-1">Total</p>
+                <div className="flex gap-4 text-sm">
+                  <span>{totalCalories} cal</span>
+                  <span>{Math.round(totalProtein)}p</span>
+                  <span>{Math.round(totalCarbs)}c</span>
+                  <span>{Math.round(totalFat)}f</span>
+                </div>
+              </div>
+
+              {/* Confirm Button */}
+              <button
+                onClick={handleConfirm}
+                className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-black font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                <Check size={18} />
+                Add {detectedFoods.length} Item{detectedFoods.length > 1 ? 's' : ''} to {mealType}
+              </button>
+            </div>
+          )}
+
+          {/* Empty Detected Foods */}
+          {detectedFoods && detectedFoods.length === 0 && (
+            <div className="text-center py-4">
+              <p className="text-white/50 mb-4">No foods detected in the image</p>
+              <button
+                onClick={() => {
+                  setDetectedFoods(null)
+                  setPhotoPreview(null)
+                  fileInputRef.current?.click()
+                }}
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black rounded-lg font-medium"
+              >
+                Try Another Photo
+              </button>
+            </div>
+          )}
+
+          {/* Initial Upload State */}
+          {!isAnalyzing && !error && !detectedFoods && !photoPreview && (
             <>
-              <div 
+              <div
                 onClick={() => fileInputRef.current?.click()}
                 className="border-2 border-dashed border-white/20 rounded-xl p-8 text-center cursor-pointer hover:border-amber-500/50 transition-colors"
               >
@@ -198,15 +376,6 @@ function PhotoCaptureModal({
                 <p className="font-medium">Take or upload a photo</p>
                 <p className="text-sm text-white/50 mt-1">AI will estimate nutrition from the image</p>
               </div>
-
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                onChange={handleFileSelect}
-                className="hidden"
-              />
 
               <div className="mt-4 p-3 bg-amber-500/10 rounded-lg">
                 <p className="text-xs text-amber-400 flex items-center gap-2">
@@ -216,6 +385,15 @@ function PhotoCaptureModal({
               </div>
             </>
           )}
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
         </div>
       </div>
     </div>
@@ -573,21 +751,11 @@ export function NutritionTracker() {
     ))
   }
 
-  const handlePhotoCapture = (mealId: string, photoData: string) => {
-    // In real app, would send to AI API and get back nutrition estimates
-    // For now, add a mock AI-estimated food
-    const mockAiFood: FoodItem = {
-      id: `food-${Date.now()}`,
-      name: 'AI Detected: Mixed Plate',
-      servings: 1,
-      serving_unit: 'plate',
-      calories: 550,
-      protein_g: 35,
-      carbs_g: 45,
-      fat_g: 20,
-      source: 'photo_ai',
-    }
-    addFoodToMeal(mealId, mockAiFood)
+  const handlePhotoCapture = (mealId: string, foods: FoodItem[]) => {
+    // Add all detected foods to the meal
+    foods.forEach(food => {
+      addFoodToMeal(mealId, food)
+    })
     setShowPhotoCapture(null)
   }
 
@@ -690,7 +858,8 @@ export function NutritionTracker() {
       {/* Photo Capture Modal */}
       {showPhotoCapture && (
         <PhotoCaptureModal
-          onCapture={(photoData) => handlePhotoCapture(showPhotoCapture, photoData)}
+          mealType={showPhotoCapture}
+          onCapture={(foods) => handlePhotoCapture(showPhotoCapture, foods)}
           onClose={() => setShowPhotoCapture(null)}
         />
       )}

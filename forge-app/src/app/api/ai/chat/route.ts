@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { format, subDays } from 'date-fns'
+import { AI_TOOLS, requiresConfirmation } from '@/lib/ai-tools'
+import { executeToolHandler } from '@/lib/ai-tool-handlers'
+import { ToolName, ToolResult, PendingAction, AIChatResponse } from '@/types/ai-tools'
+import { randomUUID } from 'crypto'
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -133,13 +137,35 @@ export async function POST(request: NextRequest) {
 
 ${contextSummary}
 
+TODAY'S DATE: ${today}
+
 GUIDELINES:
 - Be specific to the user's actual data when relevant
 - Consider their current fatigue/readiness when recommending intensity
 - Reference their training plan and current phase when applicable
 - Keep responses concise but actionable (2-4 paragraphs max)
 - If asked about something you don't have data for, acknowledge it honestly
-- Don't make up specific numbers - only reference data you actually have`
+- Don't make up specific numbers - only reference data you actually have
+
+TOOL USE:
+You have access to tools that let you take actions, not just give advice:
+- modify_workout_exercise: Swap exercises for injury modifications or preferences (auto-executes)
+- reschedule_workout: Move workouts to different dates (requires user confirmation)
+- skip_workout: Mark workouts as skipped (auto-executes)
+- add_workout: Add new workouts to the schedule (requires user confirmation)
+- log_sleep: Log sleep data when user mentions it (auto-executes)
+- log_meal: Log meals when user mentions what they ate (auto-executes). Include estimated macros if the user provides them.
+- log_body_comp: Log weight/body composition (auto-executes)
+- log_readiness: Log how the user is feeling (auto-executes)
+- get_workout_details: Look up workout information including exercises
+- find_exercise_alternatives: Find exercise substitutes based on constraints
+
+PHOTO ANALYSIS:
+The app has AI-powered meal photo analysis in the Nutrition section. If a user asks about logging meals with photos, direct them to the Nutrition tab where they can tap the camera icon on any meal to take a photo and have AI estimate the nutritional content.
+
+When a user asks you to make a change or logs data, USE THE APPROPRIATE TOOL rather than just suggesting they do it manually. For modifications, first use get_workout_details to see what exercises are in the workout, then make the modifications.
+
+For dates, use ${today} as today. When a user says "tomorrow", use the next day's date in YYYY-MM-DD format.`
 
     // 6. Build messages array for Claude
     const messages: Anthropic.MessageParam[] = [
@@ -150,24 +176,122 @@ GUIDELINES:
       { role: 'user' as const, content: message },
     ]
 
-    // 7. Call Claude API
-    const response = await anthropic.messages.create({
-      model,
-      max_tokens: 1024,
-      system: systemPrompt,
-      messages,
-    })
+    // 7. Call Claude API with tool support - handle tool use loop
+    let pendingConfirmation: PendingAction | null = null
+    const executedTools: { name: ToolName; result: ToolResult }[] = []
+    let finalResponse = ''
+    let currentMessages = [...messages]
+    let iterationCount = 0
+    const MAX_ITERATIONS = 10 // Prevent infinite loops
 
-    // Extract response text
-    const textContent = response.content.find(c => c.type === 'text')
-    if (!textContent || textContent.type !== 'text') {
-      throw new Error('No text response from Claude')
+    while (iterationCount < MAX_ITERATIONS) {
+      iterationCount++
+
+      const response = await anthropic.messages.create({
+        model,
+        max_tokens: 2048,
+        system: systemPrompt,
+        messages: currentMessages,
+        tools: AI_TOOLS,
+      })
+
+      // Process response content
+      let hasToolUse = false
+      const toolResults: Anthropic.ToolResultBlockParam[] = []
+
+      for (const block of response.content) {
+        if (block.type === 'text') {
+          finalResponse = block.text
+        } else if (block.type === 'tool_use') {
+          hasToolUse = true
+          const toolName = block.name as ToolName
+          const toolInput = block.input as Record<string, any>
+
+          // Check if this tool requires confirmation
+          if (requiresConfirmation(toolName)) {
+            // Return pending confirmation - don't execute yet
+            pendingConfirmation = {
+              id: randomUUID(),
+              tool_name: toolName,
+              tool_input: toolInput,
+              description: generateToolDescription(toolName, toolInput),
+              created_at: new Date().toISOString(),
+            }
+
+            // Add a tool result that says it's pending
+            toolResults.push({
+              type: 'tool_result',
+              tool_use_id: block.id,
+              content: `This action requires user confirmation. The user will be prompted to approve or reject: ${pendingConfirmation.description}`,
+            })
+          } else {
+            // Auto-execute the tool
+            const result = await executeToolHandler(
+              toolName,
+              toolInput,
+              user.id,
+              adminClient
+            )
+
+            executedTools.push({ name: toolName, result })
+
+            toolResults.push({
+              type: 'tool_result',
+              tool_use_id: block.id,
+              content: result.success
+                ? `Success: ${result.message}${result.data ? `\nData: ${JSON.stringify(result.data)}` : ''}`
+                : `Error: ${result.message}`,
+            })
+          }
+        }
+      }
+
+      // If there were tool uses, continue the loop with tool results
+      if (hasToolUse && toolResults.length > 0) {
+        // Add assistant's response with tool uses
+        currentMessages.push({
+          role: 'assistant',
+          content: response.content,
+        })
+
+        // Add tool results
+        currentMessages.push({
+          role: 'user',
+          content: toolResults,
+        })
+
+        // If we have a pending confirmation, break out to let user confirm
+        if (pendingConfirmation) {
+          // Get Claude's final message acknowledging the pending action
+          const finalMessageResponse = await anthropic.messages.create({
+            model,
+            max_tokens: 1024,
+            system: systemPrompt,
+            messages: currentMessages,
+            tools: AI_TOOLS,
+          })
+
+          const textBlock = finalMessageResponse.content.find(c => c.type === 'text')
+          if (textBlock && textBlock.type === 'text') {
+            finalResponse = textBlock.text
+          }
+          break
+        }
+      } else {
+        // No tool use, we're done
+        break
+      }
     }
 
-    const aiResponse = textContent.text
+    // If no text response, provide a default
+    if (!finalResponse) {
+      finalResponse = executedTools.length > 0
+        ? `Done! ${executedTools.map(t => t.result.message).join('. ')}`
+        : 'I processed your request.'
+    }
 
     // 8. Save both messages to database
-    const { data: userMsg } = await (adminClient as any)
+    await (adminClient as any)
       .from('chat_messages')
       .insert({
         user_id: user.id,
@@ -182,17 +306,20 @@ GUIDELINES:
       .insert({
         user_id: user.id,
         role: 'assistant',
-        content: aiResponse,
+        content: finalResponse,
         context_type: determineContextType(message),
       })
       .select('id')
       .single()
 
-    return NextResponse.json({
-      response: aiResponse,
+    const responseData: AIChatResponse = {
+      response: finalResponse,
       message_id: assistantMsg?.id,
-      context_used: getContextUsed(contextSummary),
-    })
+      ...(pendingConfirmation && { pending_confirmation: pendingConfirmation }),
+      ...(executedTools.length > 0 && { executed_tools: executedTools }),
+    }
+
+    return NextResponse.json(responseData)
   } catch (error) {
     console.error('AI chat error:', error)
 
@@ -376,4 +503,30 @@ function getContextUsed(contextSummary: string): string[] {
   if (contextSummary.includes('READINESS:')) used.push('readiness')
   if (contextSummary.includes('TRAINING LOAD:')) used.push('training_load')
   return used
+}
+
+// Helper: Generate human-readable description for pending tool actions
+function generateToolDescription(toolName: ToolName, input: Record<string, any>): string {
+  switch (toolName) {
+    case 'reschedule_workout':
+      return `Move workout to ${input.new_date}${input.reason ? ` (${input.reason})` : ''}`
+    case 'add_workout':
+      return `Add "${input.name}" workout on ${input.date}`
+    case 'delete_workout':
+      return `Delete workout ${input.workout_id}`
+    case 'modify_workout_exercise':
+      return `Swap "${input.original_exercise}" with "${input.new_exercise}" in workout`
+    case 'skip_workout':
+      return `Skip workout${input.reason ? ` (${input.reason})` : ''}`
+    case 'log_sleep':
+      return `Log sleep data for ${input.log_date}`
+    case 'log_meal':
+      return `Log ${input.meal_type}: ${input.food_name}`
+    case 'log_body_comp':
+      return `Log body composition for ${input.log_date}`
+    case 'log_readiness':
+      return `Log readiness ${input.subjective_readiness}/10 for ${input.date}`
+    default:
+      return `Execute ${toolName}`
+  }
 }

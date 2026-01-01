@@ -18,7 +18,12 @@ import {
   Lightbulb,
   Target,
   Zap,
+  Check,
+  X,
+  Loader2,
+  Wrench,
 } from 'lucide-react'
+import { PendingAction, ToolName, ToolResult } from '@/types/ai-tools'
 
 // Types
 interface Message {
@@ -27,9 +32,10 @@ interface Message {
   content: string
   timestamp: Date
   context?: {
-    type: 'workout' | 'nutrition' | 'sleep' | 'injury' | 'progress' | 'recommendation'
+    type: 'workout' | 'nutrition' | 'sleep' | 'injury' | 'progress' | 'recommendation' | 'action'
     data?: any
   }
+  executedTools?: { name: ToolName; result: ToolResult }[]
 }
 
 interface QuickAction {
@@ -100,6 +106,84 @@ function TypingIndicator() {
   )
 }
 
+// Pending action confirmation card
+function PendingActionCard({
+  action,
+  onApprove,
+  onReject,
+  isProcessing,
+}: {
+  action: PendingAction
+  onApprove: () => void
+  onReject: () => void
+  isProcessing: boolean
+}) {
+  const getActionIcon = (toolName: ToolName) => {
+    switch (toolName) {
+      case 'reschedule_workout':
+        return Calendar
+      case 'add_workout':
+        return Dumbbell
+      case 'delete_workout':
+        return X
+      default:
+        return Wrench
+    }
+  }
+
+  const Icon = getActionIcon(action.tool_name)
+
+  return (
+    <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 my-3">
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center flex-shrink-0">
+          <Icon size={20} className="text-amber-400" />
+        </div>
+        <div className="flex-1">
+          <h4 className="font-medium text-amber-400">Confirm Action</h4>
+          <p className="text-sm text-white/70 mt-1">{action.description}</p>
+          <div className="flex gap-2 mt-3">
+            <button
+              onClick={onApprove}
+              disabled={isProcessing}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-black rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              {isProcessing ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Check size={14} />
+              )}
+              Approve
+            </button>
+            <button
+              onClick={onReject}
+              disabled={isProcessing}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm transition-colors disabled:opacity-50"
+            >
+              <X size={14} />
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Executed tool badge
+function ExecutedToolBadge({ tool }: { tool: { name: ToolName; result: ToolResult } }) {
+  return (
+    <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs ${
+      tool.result.success
+        ? 'bg-emerald-500/20 text-emerald-400'
+        : 'bg-red-500/20 text-red-400'
+    }`}>
+      {tool.result.success ? <Check size={12} /> : <X size={12} />}
+      <span>{tool.result.message}</span>
+    </div>
+  )
+}
+
 // Message bubble
 function MessageBubble({ message }: { message: Message }) {
   const isUser = message.role === 'user'
@@ -127,6 +211,15 @@ function MessageBubble({ message }: { message: Message }) {
           <p className="whitespace-pre-wrap">{message.content}</p>
         </div>
         
+        {/* Executed tools */}
+        {message.executedTools && message.executedTools.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1">
+            {message.executedTools.map((tool, i) => (
+              <ExecutedToolBadge key={i} tool={tool} />
+            ))}
+          </div>
+        )}
+
         {/* Context badge */}
         {message.context && (
           <div className={`mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs ${
@@ -138,6 +231,7 @@ function MessageBubble({ message }: { message: Message }) {
             {message.context.type === 'injury' && <AlertCircle size={10} />}
             {message.context.type === 'progress' && <TrendingUp size={10} />}
             {message.context.type === 'recommendation' && <Lightbulb size={10} />}
+            {message.context.type === 'action' && <Wrench size={10} />}
             <span className="capitalize">{message.context.type}</span>
           </div>
         )}
@@ -191,6 +285,8 @@ export function AICoach() {
   const [input, setInput] = useState('')
   const [isTyping, setIsTyping] = useState(false)
   const [showInsights, setShowInsights] = useState(true)
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null)
+  const [isProcessingAction, setIsProcessingAction] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -223,19 +319,92 @@ export function AICoach() {
     setShowInsights(false)
     setIsTyping(true)
 
-    // Simulate AI response (would call actual API)
-    setTimeout(() => {
-      const responses = getSimulatedResponse(messageText)
+    try {
+      const response = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: messageText }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to get response')
+      }
+
+      const data = await response.json()
+
+      // Create assistant message
       const assistantMessage: Message = {
-        id: `msg-${Date.now() + 1}`,
+        id: data.message_id || `msg-${Date.now() + 1}`,
         role: 'assistant',
-        content: responses.content,
+        content: data.response,
         timestamp: new Date(),
-        context: responses.context,
+        executedTools: data.executed_tools,
+        context: data.executed_tools?.length > 0 ? { type: 'action' } : undefined,
       }
       setMessages(prev => [...prev, assistantMessage])
+
+      // Handle pending confirmation
+      if (data.pending_confirmation) {
+        setPendingAction(data.pending_confirmation)
+      }
+    } catch (error) {
+      console.error('Chat error:', error)
+      const errorMessage: Message = {
+        id: `msg-${Date.now() + 1}`,
+        role: 'assistant',
+        content: "I'm having trouble processing that request. Please try again.",
+        timestamp: new Date(),
+      }
+      setMessages(prev => [...prev, errorMessage])
+    } finally {
       setIsTyping(false)
-    }, 1500 + Math.random() * 1000)
+    }
+  }
+
+  const handleApproveAction = async () => {
+    if (!pendingAction) return
+
+    setIsProcessingAction(true)
+    try {
+      const response = await fetch('/api/ai/execute-tool', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action_id: pendingAction.id,
+          tool_name: pendingAction.tool_name,
+          tool_input: pendingAction.tool_input,
+          approved: true,
+        }),
+      })
+
+      const result = await response.json()
+
+      // Add confirmation message
+      const confirmationMessage: Message = {
+        id: `msg-${Date.now()}`,
+        role: 'assistant',
+        content: result.success ? `Done! ${result.message}` : `Failed: ${result.message}`,
+        timestamp: new Date(),
+        context: { type: 'action' },
+      }
+      setMessages(prev => [...prev, confirmationMessage])
+      setPendingAction(null)
+    } catch (error) {
+      console.error('Execute tool error:', error)
+    } finally {
+      setIsProcessingAction(false)
+    }
+  }
+
+  const handleRejectAction = () => {
+    setPendingAction(null)
+    const rejectMessage: Message = {
+      id: `msg-${Date.now()}`,
+      role: 'assistant',
+      content: "No problem, I've cancelled that action. What would you like to do instead?",
+      timestamp: new Date(),
+    }
+    setMessages(prev => [...prev, rejectMessage])
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -252,6 +421,7 @@ export function AICoach() {
   const resetChat = () => {
     setMessages(SAMPLE_MESSAGES)
     setShowInsights(true)
+    setPendingAction(null)
   }
 
   return (
@@ -290,6 +460,16 @@ export function AICoach() {
               <TypingIndicator />
             </div>
           </div>
+        )}
+
+        {/* Pending action confirmation */}
+        {pendingAction && (
+          <PendingActionCard
+            action={pendingAction}
+            onApprove={handleApproveAction}
+            onReject={handleRejectAction}
+            isProcessing={isProcessingAction}
+          />
         )}
 
         <div ref={messagesEndRef} />
@@ -370,156 +550,9 @@ export function AICoach() {
           </div>
         </div>
         <p className="text-xs text-white/30 mt-2 text-center">
-          AI coach has access to your workouts, nutrition, sleep, and journal data
+          AI coach can make changes to your workouts, log data, and answer questions
         </p>
       </div>
     </div>
   )
-}
-
-// Simulated responses based on user input
-function getSimulatedResponse(input: string): { content: string; context?: Message['context'] } {
-  const lowerInput = input.toLowerCase()
-
-  if (lowerInput.includes('workout') || lowerInput.includes('training') || lowerInput.includes('today')) {
-    return {
-      content: `Based on your training history, here's what I recommend for today:
-
-**Upper Body Push Focus**
-You did legs 2 days ago and your sleep score last night was 82 - solid recovery.
-
-Suggested workout:
-• Bench Press: 4x6 @ 185lbs (up 5lbs from last week)
-• Incline DB Press: 3x10
-• Cable Flyes: 3x12
-• Overhead Press: 3x8
-• Tricep Pushdowns: 3x12
-
-Your bench has been progressing well - you hit 180x6 with good form last week. Let's keep the momentum going!
-
-Should I add this to your calendar?`,
-      context: { type: 'workout' },
-    }
-  }
-
-  if (lowerInput.includes('progress') || lowerInput.includes('trend') || lowerInput.includes('month')) {
-    return {
-      content: `Here's your training summary for December:
-
-**Strength Progress** 📈
-• Bench: 175 → 185 lbs (+5.7%)
-• Squat: 225 → 245 lbs (+8.9%)
-• Deadlift: 315 → 335 lbs (+6.3%)
-
-**Consistency** ✅
-• 18 workouts logged (4.5/week avg)
-• Only missed 2 planned sessions
-
-**Areas to Watch** ⚠️
-• Sleep averaging 6.8 hours (target: 7.5)
-• Protein intake dropped to 160g avg last week
-
-Overall, great month! Your strength gains are solid. Focus on sleep and protein to maintain momentum.`,
-      context: { type: 'progress' },
-    }
-  }
-
-  if (lowerInput.includes('protein') || lowerInput.includes('nutrition') || lowerInput.includes('eating')) {
-    return {
-      content: `Looking at your nutrition data:
-
-**This Week's Averages:**
-• Calories: 2,280/day (target: 2,400)
-• Protein: 162g/day (target: 180g) ⚠️
-• Carbs: 245g/day
-• Fat: 78g/day
-
-You're about 18g short on protein daily. Easy fixes:
-1. Add a protein shake post-workout (+24g)
-2. Greek yogurt as a snack (+18g)
-3. Extra egg at breakfast (+6g)
-
-Your best protein day was Tuesday (195g) - what did you eat differently?`,
-      context: { type: 'nutrition' },
-    }
-  }
-
-  if (lowerInput.includes('sleep') || lowerInput.includes('recovery') || lowerInput.includes('hrv') || lowerInput.includes('recovered')) {
-    return {
-      content: `Your recovery status looks solid today:
-
-**Last Night:**
-• Sleep Score: 82 ✅
-• Total Sleep: 7h 15m
-• Deep Sleep: 1h 25m (19%)
-• HRV: 48ms (up from 42 yesterday)
-• Resting HR: 52 bpm
-
-**Trend:** Your HRV has been climbing this week, suggesting good adaptation to training. You're well-recovered for a high-intensity session.
-
-**Recommendation:** Green light for hard training today. Your body has adapted well to last week's volume.`,
-      context: { type: 'sleep' },
-    }
-  }
-
-  if (lowerInput.includes('injury') || lowerInput.includes('pain') || lowerInput.includes('knee') || lowerInput.includes('hurt')) {
-    return {
-      content: `I see you logged some knee discomfort recently. Let me help:
-
-**Immediate Modifications:**
-• Replace back squats with leg press (less knee flexion)
-• Avoid deep lunges - stick to partial range
-• Add 5 min of cycling warm-up before leg work
-• Include VMO-focused exercises (terminal knee extensions)
-
-**Recommended Additions:**
-• Copenhagen planks for adductor strength
-• Glute bridges to reduce knee stress
-• Foam rolling quads and IT band
-
-**Monitor:** If pain persists beyond 2 weeks or worsens, consider seeing a physio. Would you like me to adjust your upcoming leg workouts?`,
-      context: { type: 'injury' },
-    }
-  }
-
-  if (lowerInput.includes('goal') || lowerInput.includes('plan') || lowerInput.includes('month')) {
-    return {
-      content: `Let's set up your Q1 2025 goals based on your current levels:
-
-**Realistic 3-Month Targets:**
-
-*Strength:*
-• Bench: 185 → 205 lbs (+11%)
-• Squat: 245 → 275 lbs (+12%)
-• Deadlift: 335 → 365 lbs (+9%)
-
-*Body Composition:*
-• Maintain ~185 lbs bodyweight
-• Target 180g protein daily
-
-*Cardio:*
-• Sub-25 min 5K (currently ~27 min)
-• 2 zone 2 sessions/week
-
-*Recovery:*
-• Average 7+ hours sleep
-• Weekly HRV trending up
-
-Should I create a periodized training plan to hit these targets?`,
-      context: { type: 'recommendation' },
-    }
-  }
-
-  // Default response
-  return {
-    content: `I'm here to help with your training! I can:
-
-• **Suggest workouts** based on your history and recovery
-• **Analyze progress** across strength, nutrition, and sleep
-• **Provide modifications** if you're dealing with injuries
-• **Plan goals** and create periodized training blocks
-• **Answer questions** about technique, nutrition timing, etc.
-
-What would you like to focus on?`,
-  }
 }
