@@ -23,6 +23,7 @@ import {
   Loader2,
 } from 'lucide-react'
 import { format, subDays, addDays, isToday, startOfWeek, eachDayOfInterval, isSameDay } from 'date-fns'
+import JunctionConnect from './JunctionConnect'
 
 // Types
 interface SleepLog {
@@ -175,6 +176,7 @@ function ScreenshotUploadModal({
   const [files, setFiles] = useState<ParsedSleepItem[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const [currentIndex, setCurrentIndex] = useState(0)
+  const [dateOverride, setDateOverride] = useState<string>('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -205,6 +207,9 @@ function ScreenshotUploadModal({
       try {
         const formData = new FormData()
         formData.append('file', updatedFiles[i].file)
+        if (dateOverride) {
+          formData.append('date', dateOverride)
+        }
 
         const response = await fetch('/api/sleep/parse-screenshot', {
           method: 'POST',
@@ -215,6 +220,10 @@ function ScreenshotUploadModal({
           const result = await response.json()
           updatedFiles[i].status = 'success'
           updatedFiles[i].data = result.parsed
+          // Apply date override if parsed data is missing date
+          if (dateOverride && !updatedFiles[i].data?.log_date) {
+            updatedFiles[i].data = { ...updatedFiles[i].data, log_date: dateOverride }
+          }
           updatedFiles[i].extraction_quality = result.extraction_quality
         } else {
           const errorData = await response.json()
@@ -287,6 +296,18 @@ function ScreenshotUploadModal({
                   <Sparkles size={14} />
                   AI will extract: sleep score, stages, HRV, heart rate, date, and more
                 </p>
+              </div>
+
+              <div className="mt-4">
+                <label className="text-sm text-white/60 block mb-2">
+                  Date override (optional - use if screenshots don&apos;t show date)
+                </label>
+                <input
+                  type="date"
+                  value={dateOverride}
+                  onChange={(e) => setDateOverride(e.target.value)}
+                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white"
+                />
               </div>
             </>
           ) : (
@@ -576,24 +597,34 @@ export function SleepTracker() {
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [showManualModal, setShowManualModal] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [syncMessage, setSyncMessage] = useState<string | null>(null)
+
+  // Fetch sleep logs
+  const fetchSleepLogs = async () => {
+    try {
+      const response = await fetch('/api/sleep?limit=60')
+      if (response.ok) {
+        const data = await response.json()
+        setSleepLogs(data.sleepLogs || [])
+      }
+    } catch (error) {
+      console.error('Error fetching sleep logs:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   // Fetch sleep logs on mount
   useEffect(() => {
-    async function fetchSleepLogs() {
-      try {
-        const response = await fetch('/api/sleep?limit=60')
-        if (response.ok) {
-          const data = await response.json()
-          setSleepLogs(data.sleepLogs || [])
-        }
-      } catch (error) {
-        console.error('Error fetching sleep logs:', error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
     fetchSleepLogs()
   }, [])
+
+  // Handle sync completion
+  const handleSyncComplete = (count: number) => {
+    setSyncMessage(`Synced ${count} sleep records`)
+    fetchSleepLogs()
+    setTimeout(() => setSyncMessage(null), 3000)
+  }
 
   // Get current week
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 })
@@ -722,6 +753,21 @@ export function SleepTracker() {
             Manual
           </button>
         </div>
+      </div>
+
+      {/* Eight Sleep Connection */}
+      <div className="mb-6">
+        <JunctionConnect
+          provider="eight_sleep"
+          providerName="Eight Sleep"
+          onSync={handleSyncComplete}
+          showSyncButton={true}
+        />
+        {syncMessage && (
+          <div className="mt-2 p-2 bg-emerald-500/20 text-emerald-400 rounded-lg text-sm text-center">
+            {syncMessage}
+          </div>
+        )}
       </div>
 
       {/* Week selector */}
