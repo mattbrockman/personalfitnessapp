@@ -545,14 +545,40 @@ function ExerciseDetailModal({
           {/* About Tab */}
           {activeTab === 'about' && (
             <div className="space-y-4">
-              {/* GIF placeholder - would show actual exercise video/gif */}
-              <div className="aspect-video bg-white/5 rounded-lg flex items-center justify-center">
-                <div className="text-center text-white/40">
-                  <Dumbbell size={48} className="mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">Exercise demonstration</p>
-                  <p className="text-xs text-white/30 mt-1">Video coming soon</p>
+              {/* Exercise demonstration GIF/Image */}
+              {(exercise.video_url || exercise.thumbnail_url) ? (
+                <div className="aspect-video bg-black rounded-lg overflow-hidden relative">
+                  <img
+                    src={exercise.video_url || exercise.thumbnail_url}
+                    alt={`${exercise.name} demonstration`}
+                    className="w-full h-full object-contain"
+                    loading="lazy"
+                    onError={(e) => {
+                      // Try thumbnail as fallback, or hide if both fail
+                      const img = e.target as HTMLImageElement
+                      if (exercise.video_url && exercise.thumbnail_url && img.src === exercise.video_url) {
+                        img.src = exercise.thumbnail_url
+                      } else {
+                        img.style.display = 'none'
+                      }
+                    }}
+                  />
+                  {/* Show badge if it's a static image vs animated GIF */}
+                  {!exercise.video_url && exercise.thumbnail_url && (
+                    <span className="absolute bottom-2 right-2 px-2 py-0.5 bg-black/60 rounded text-[10px] text-white/60">
+                      Static image
+                    </span>
+                  )}
                 </div>
-              </div>
+              ) : (
+                <div className="aspect-video bg-white/5 rounded-lg flex items-center justify-center">
+                  <div className="text-center text-white/40">
+                    <Dumbbell size={48} className="mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">Exercise demonstration</p>
+                    <p className="text-xs text-white/30 mt-1">No image available</p>
+                  </div>
+                </div>
+              )}
 
               {/* Coaching Cues */}
               {exercise.cues && exercise.cues.length > 0 && (

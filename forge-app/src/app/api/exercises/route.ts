@@ -10,7 +10,12 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search')
     const muscleGroup = searchParams.get('muscle_group')
     const equipment = searchParams.get('equipment')
+    const bodyPart = searchParams.get('body_part')
+    const difficulty = searchParams.get('difficulty')
+    const adaptation = searchParams.get('adaptation')
+    const isCompound = searchParams.get('is_compound')
     const limit = searchParams.get('limit')
+    const offset = searchParams.get('offset')
 
     let query = adminClient
       .from('exercises')
@@ -33,8 +38,30 @@ export async function GET(request: NextRequest) {
       query = query.eq('equipment', equipment)
     }
 
-    // Limit results
-    if (limit) {
+    // Filter by body part
+    if (bodyPart) {
+      query = query.eq('body_part', bodyPart)
+    }
+
+    // Filter by difficulty
+    if (difficulty) {
+      query = query.eq('difficulty', difficulty)
+    }
+
+    // Filter by Galpin adaptation
+    if (adaptation) {
+      query = query.contains('galpin_adaptations', [adaptation])
+    }
+
+    // Filter by compound/isolation
+    if (isCompound !== null && isCompound !== undefined) {
+      query = query.eq('is_compound', isCompound === 'true')
+    }
+
+    // Pagination
+    if (offset) {
+      query = query.range(parseInt(offset, 10), parseInt(offset, 10) + (parseInt(limit || '100', 10) - 1))
+    } else if (limit) {
       query = query.limit(parseInt(limit, 10))
     } else {
       query = query.limit(100) // Default limit
@@ -67,6 +94,10 @@ export async function GET(request: NextRequest) {
       is_unilateral: ex.is_unilateral,
       video_url: ex.video_url,
       thumbnail_url: ex.thumbnail_url,
+      // New fields from ExerciseDB expansion
+      body_part: ex.body_part,
+      galpin_adaptations: ex.galpin_adaptations || [],
+      external_source: ex.external_source,
     }))
 
     return NextResponse.json({ exercises: normalizedExercises })
@@ -76,40 +107,48 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// GET unique muscle groups for filtering
+// GET unique filter options for exercise search
 export async function OPTIONS(request: NextRequest) {
   try {
     const adminClient = createAdminClient()
 
-    // Get distinct muscle groups
+    // Get all exercise data for extracting unique values
     const { data: exercises } = await adminClient
       .from('exercises')
-      .select('primary_muscle, primary_muscles')
+      .select('primary_muscle, primary_muscles, equipment, body_part, difficulty, galpin_adaptations')
 
     if (!exercises) {
-      return NextResponse.json({ muscle_groups: [], equipment: [] })
+      return NextResponse.json({
+        muscle_groups: [],
+        equipment: [],
+        body_parts: [],
+        difficulties: [],
+        adaptations: [],
+      })
     }
 
-    // Extract unique muscle groups
+    // Extract unique values
     const muscleGroups = new Set<string>()
+    const equipmentSet = new Set<string>()
+    const bodyParts = new Set<string>()
+    const difficulties = new Set<string>()
+    const adaptations = new Set<string>()
+
     exercises.forEach((ex: any) => {
       if (ex.primary_muscle) muscleGroups.add(ex.primary_muscle)
       if (ex.primary_muscles) ex.primary_muscles.forEach((m: string) => muscleGroups.add(m))
-    })
-
-    // Get distinct equipment
-    const { data: equipmentData } = await adminClient
-      .from('exercises')
-      .select('equipment')
-
-    const equipment = new Set<string>()
-    equipmentData?.forEach((ex: any) => {
-      if (ex.equipment) equipment.add(ex.equipment)
+      if (ex.equipment) equipmentSet.add(ex.equipment)
+      if (ex.body_part) bodyParts.add(ex.body_part)
+      if (ex.difficulty) difficulties.add(ex.difficulty)
+      if (ex.galpin_adaptations) ex.galpin_adaptations.forEach((a: string) => adaptations.add(a))
     })
 
     return NextResponse.json({
       muscle_groups: Array.from(muscleGroups).sort(),
-      equipment: Array.from(equipment).sort(),
+      equipment: Array.from(equipmentSet).sort(),
+      body_parts: Array.from(bodyParts).sort(),
+      difficulties: Array.from(difficulties).sort(),
+      adaptations: Array.from(adaptations).sort(),
     })
   } catch (error) {
     console.error('Exercises OPTIONS error:', error)
