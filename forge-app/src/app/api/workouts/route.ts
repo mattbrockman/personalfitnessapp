@@ -110,8 +110,11 @@ export async function POST(request: NextRequest) {
       scheduled_date,
       scheduled_time,
       planned_duration_minutes,
+      actual_duration_minutes,
       notes,
       category,
+      status,
+      completed_at,
       workout_zones,
       exercises, // For lifting workouts
     } = body
@@ -128,8 +131,10 @@ export async function POST(request: NextRequest) {
         scheduled_date: scheduled_date || null,
         scheduled_time: scheduled_time || null,
         planned_duration_minutes: planned_duration_minutes || null,
+        actual_duration_minutes: actual_duration_minutes || null,
         notes: notes || null,
-        status: 'planned',
+        status: status || 'planned',
+        completed_at: completed_at || null,
       })
       .select()
       .single()

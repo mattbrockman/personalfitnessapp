@@ -41,6 +41,42 @@ import { EffectiveRepsDisplay } from '@/components/strength/EffectiveRepsDisplay
 import { ProgressionSuggestionInline } from '@/components/strength/ProgressionSuggestionCard'
 import { calculate1RM, calculateEffectiveReps, calculateRelativeIntensity } from '@/lib/strength-calculations'
 
+// Timer sound utility
+const playTimerSound = () => {
+  if (typeof window === 'undefined') return
+  try {
+    const AudioContext = window.AudioContext || (window as any).webkitAudioContext
+    if (!AudioContext) return
+
+    const audioContext = new AudioContext()
+    const oscillator = audioContext.createOscillator()
+    const gainNode = audioContext.createGain()
+
+    oscillator.connect(gainNode)
+    gainNode.connect(audioContext.destination)
+
+    // Play 3 short beeps
+    const playBeep = (startTime: number, frequency: number) => {
+      const osc = audioContext.createOscillator()
+      const gain = audioContext.createGain()
+      osc.connect(gain)
+      gain.connect(audioContext.destination)
+      osc.frequency.value = frequency
+      osc.type = 'sine'
+      gain.gain.value = 0.3
+      osc.start(startTime)
+      osc.stop(startTime + 0.15)
+    }
+
+    const now = audioContext.currentTime
+    playBeep(now, 800)
+    playBeep(now + 0.2, 800)
+    playBeep(now + 0.4, 1000) // Higher pitch on last beep
+  } catch (err) {
+    console.debug('Audio playback failed:', err)
+  }
+}
+
 // Types
 interface Exercise {
   id: string
@@ -121,7 +157,10 @@ function RestTimer({
 
   useEffect(() => {
     if (!isRunning || timeLeft <= 0) {
-      if (timeLeft <= 0) onComplete()
+      if (timeLeft <= 0) {
+        playTimerSound() // Play sound when rest timer completes
+        onComplete()
+      }
       return
     }
 
@@ -768,6 +807,7 @@ function SetRow({
   const setType = SET_TYPES.find(t => t.value === set.set_type)
   const [timerRunning, setTimerRunning] = useState(false)
   const [timerSeconds, setTimerSeconds] = useState(0)
+  const [targetReached, setTargetReached] = useState(false)
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const wakeLockRef = useRef<WakeLockSentinel | null>(null)
 
@@ -784,6 +824,14 @@ function SetRow({
       if (timerRef.current) clearInterval(timerRef.current)
     }
   }, [timerRunning])
+
+  // Play sound when timer reaches target duration
+  useEffect(() => {
+    if (timerRunning && set.target_duration && timerSeconds >= set.target_duration && !targetReached) {
+      playTimerSound()
+      setTargetReached(true)
+    }
+  }, [timerSeconds, timerRunning, set.target_duration, targetReached])
 
   // Wake Lock - keep screen on while timer is running
   useEffect(() => {
@@ -849,6 +897,7 @@ function SetRow({
   const resetTimer = () => {
     setTimerRunning(false)
     setTimerSeconds(0)
+    setTargetReached(false)
     onUpdate({ actual_duration: null })
   }
 
@@ -872,21 +921,35 @@ function SetRow({
         </div>
 
         {/* Target duration */}
-        <div className="w-16">
+        <div className="w-14">
           <input
             type="number"
+            inputMode="numeric"
             value={set.target_duration ?? ''}
             onChange={e => onUpdate({ target_duration: e.target.value ? Number(e.target.value) : null })}
-            placeholder="sec"
+            onFocus={e => e.target.select()}
+            placeholder="goal"
             className="w-full bg-white/5 border border-white/10 rounded px-2 py-1.5 text-center text-sm focus:outline-none focus:border-amber-500/50"
           />
         </div>
 
-        {/* Timer display */}
+        {/* Timer display and manual duration input */}
         <div className="flex-1 flex items-center gap-2">
-          <div className={`text-lg font-mono tabular-nums ${timerRunning ? 'text-amber-400' : 'text-white/60'}`}>
-            {formatTime(set.actual_duration ?? timerSeconds)}
-          </div>
+          {/* Editable actual duration */}
+          <input
+            type="number"
+            inputMode="numeric"
+            value={timerRunning ? timerSeconds : (set.actual_duration ?? '')}
+            onChange={e => onUpdate({ actual_duration: e.target.value ? Number(e.target.value) : null })}
+            onFocus={e => e.target.select()}
+            placeholder="sec"
+            disabled={timerRunning}
+            className={`w-16 font-mono tabular-nums text-lg text-center bg-transparent border-b focus:outline-none ${
+              timerRunning
+                ? 'text-amber-400 border-amber-400/30'
+                : 'text-white/60 border-white/20 focus:border-amber-500/50'
+            }`}
+          />
 
           {/* Timer controls */}
           <button
@@ -970,8 +1033,10 @@ function SetRow({
       <div className="w-16">
         <input
           type="number"
+          inputMode="decimal"
           value={set.actual_weight ?? set.target_weight ?? ''}
           onChange={e => onUpdate({ actual_weight: e.target.value ? Number(e.target.value) : null })}
+          onFocus={e => e.target.select()}
           placeholder="lbs"
           className={`w-full border rounded px-2 py-1.5 text-center text-sm focus:outline-none focus:border-amber-500/50 ${
             set.completed
@@ -987,8 +1052,10 @@ function SetRow({
       <div className="w-14">
         <input
           type="number"
+          inputMode="numeric"
           value={set.actual_reps ?? set.target_reps ?? ''}
           onChange={e => onUpdate({ actual_reps: e.target.value ? Number(e.target.value) : null })}
+          onFocus={e => e.target.select()}
           placeholder="reps"
           className={`w-full border rounded px-2 py-1.5 text-center text-sm focus:outline-none focus:border-amber-500/50 ${
             set.completed
@@ -1731,9 +1798,24 @@ function ExerciseCard({
   }
 
   const updateSet = (setId: string, updates: Partial<SetData>) => {
-    onUpdate({
-      sets: sets.map(s => s.id === setId ? { ...s, ...updates } : s)
-    })
+    // If weight is being updated, propagate to subsequent sets that don't have a weight yet
+    if (updates.actual_weight !== undefined) {
+      const setIndex = sets.findIndex(s => s.id === setId)
+      onUpdate({
+        sets: sets.map((s, i) => {
+          if (s.id === setId) return { ...s, ...updates }
+          // Propagate weight to subsequent sets without an actual weight
+          if (i > setIndex && s.actual_weight === null && !s.completed) {
+            return { ...s, actual_weight: updates.actual_weight }
+          }
+          return s
+        })
+      })
+    } else {
+      onUpdate({
+        sets: sets.map(s => s.id === setId ? { ...s, ...updates } : s)
+      })
+    }
   }
 
   const deleteSet = (setId: string) => {
@@ -1779,39 +1861,39 @@ function ExerciseCard({
         </div>
 
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
-            <h3
-              className="font-medium truncate cursor-pointer hover:text-amber-400 transition-colors"
-              onClick={(e) => { e.stopPropagation(); onShowDetails(); }}
-            >
-              {exercise.name}
-            </h3>
-            {/* Swap Exercise button */}
-            <button
-              onClick={(e) => { e.stopPropagation(); onSwapExercise(); }}
-              className="p-1 rounded-lg bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 transition-colors"
-              title="Swap Exercise"
-              aria-label="Swap exercise for alternative"
-            >
-              <ArrowLeftRight size={12} />
-            </button>
-            {/* AI Form Coach button */}
-            <button
-              onClick={(e) => { e.stopPropagation(); onFormCoach(); }}
-              className="p-1 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-colors"
-              title="AI Form Coach"
-              aria-label="AI Form Coach"
-            >
-              <Camera size={12} />
-            </button>
-          </div>
+          <h3
+            className="font-medium truncate cursor-pointer hover:text-amber-400 transition-colors"
+            onClick={(e) => { e.stopPropagation(); onShowDetails(); }}
+          >
+            {exercise.name}
+          </h3>
           <p className="text-sm text-white/50">
             {completedSets}/{sets.length} sets • {rest_seconds}s rest
           </p>
         </div>
 
-        {/* Quick Superset Toggle - always visible */}
-        <div className="flex items-center gap-1 mr-2">
+        {/* Swap + Form Coach buttons - hidden on mobile, visible on larger screens */}
+        <div className="hidden sm:flex items-center gap-1">
+          <button
+            onClick={(e) => { e.stopPropagation(); onSwapExercise(); }}
+            className="p-1.5 rounded-lg bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 transition-colors"
+            title="Swap Exercise"
+            aria-label="Swap exercise for alternative"
+          >
+            <ArrowLeftRight size={14} />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onFormCoach(); }}
+            className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-colors"
+            title="AI Form Coach"
+            aria-label="AI Form Coach"
+          >
+            <Camera size={14} />
+          </button>
+        </div>
+
+        {/* Quick Superset Toggle - hidden on mobile */}
+        <div className="hidden sm:flex items-center gap-1 mr-2">
           {SUPERSET_GROUPS.slice(0, 3).map(group => (
             <button
               key={group}
