@@ -23,7 +23,7 @@ import {
   Loader2,
 } from 'lucide-react'
 import { format, subDays, addDays, isToday, startOfWeek, eachDayOfInterval, isSameDay } from 'date-fns'
-import JunctionConnect from './JunctionConnect'
+import EightSleepConnect from './EightSleepConnect'
 
 // Types
 interface SleepLog {
@@ -779,9 +779,7 @@ export function SleepTracker() {
 
       {/* Eight Sleep Connection */}
       <div className="mb-6">
-        <JunctionConnect
-          provider="eight_sleep"
-          providerName="Eight Sleep"
+        <EightSleepConnect
           onSync={handleSyncComplete}
           showSyncButton={true}
         />
