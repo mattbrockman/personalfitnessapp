@@ -50,41 +50,23 @@ export async function POST(request: NextRequest) {
             },
             {
               type: 'text',
-              text: `Extract sleep data from this Eight Sleep app screenshot.
+              text: `You are extracting sleep data from an Eight Sleep app screenshot.
 
-LOOK FOR THESE SPECIFIC UI ELEMENTS:
+Look at the image carefully and find:
+- DATE: Look for day/month at top (e.g., "Sun, Dec 29", "Dec 30"). Year is 2025 (or 2026 for January).
+- SLEEP SCORE: Large number 0-100, often in a circular ring labeled "Sleep Fitness"
+- TOTAL SLEEP: Duration like "6h 52m" - convert to total minutes (6*60+52=412)
+- BED/WAKE TIMES: When fell asleep and woke up (convert to 24hr format)
+- SLEEP STAGES: Deep, REM, Light, Awake times - convert each to minutes
+- HRV: Heart rate variability in ms (number like 42)
+- RESTING HR: Heart rate in bpm (number like 52)
+- RESPIRATORY RATE: Breaths per minute (number like 15.2)
 
-1. DATE - Usually at the very top, like "Sun, Dec 29" or "December 29". Current year is 2025.
+Return ONLY a JSON object with these exact keys. No markdown, no explanation, just the JSON:
 
-2. SLEEP FITNESS/SCORE - A large prominent number 0-100, often in a circular gauge or ring. This is the main score.
+{"log_date":"2025-12-29","bedtime":"23:30","wake_time":"06:30","total_sleep_minutes":412,"deep_sleep_minutes":74,"rem_sleep_minutes":119,"light_sleep_minutes":219,"awake_minutes":23,"sleep_score":85,"hrv_avg":42,"resting_hr":52,"respiratory_rate":15.2,"recovery_score":null}
 
-3. TIME ASLEEP - Shows total sleep duration like "6h 52m" or "7h 15m". Convert to minutes.
-
-4. IN BED / TIME IN BED - When you went to bed and woke up, like "11:30 PM - 6:30 AM" or separate "Fell asleep" and "Woke up" times.
-
-5. SLEEP STAGES section showing:
-   - Deep sleep (e.g., "1h 14m")
-   - REM sleep (e.g., "1h 59m")
-   - Light sleep (e.g., "3h 39m")
-   - Awake time (e.g., "23m")
-
-6. HEALTH METRICS section showing:
-   - HRV: Heart Rate Variability in ms (e.g., "42 ms" or just "42")
-   - Resting Heart Rate in bpm (e.g., "52 bpm" or just "52")
-   - Respiratory Rate in breaths/min (e.g., "15.2")
-
-7. RECOVERY - Sometimes shown as a percentage
-
-OUTPUT THIS EXACT JSON (no markdown, no backticks):
-{"log_date":"YYYY-MM-DD","bedtime":"HH:MM","wake_time":"HH:MM","total_sleep_minutes":number,"deep_sleep_minutes":number,"rem_sleep_minutes":number,"light_sleep_minutes":number,"awake_minutes":number,"sleep_score":number,"hrv_avg":number,"resting_hr":number,"respiratory_rate":number,"recovery_score":number}
-
-CONVERSION RULES:
-- Date: "Dec 29" = "2025-12-29", "Jan 2" = "2026-01-02"
-- Duration to minutes: "6h 52m" = 412, "1h 14m" = 74, "23m" = 23
-- Time to 24hr: "11:30 PM" = "23:30", "6:30 AM" = "06:30"
-- Use null only if truly not visible
-
-${dateHint ? `Date context: ${dateHint}` : 'Date context: Late December 2025 / Early January 2026'}`
+Use null for any field not visible in the image. Convert all durations to minutes.`
             }
           ],
         }
@@ -100,12 +82,19 @@ ${dateHint ? `Date context: ${dateHint}` : 'Date context: Late December 2025 / E
     // Parse the JSON from Claude's response
     let parsedData
     try {
-      // Try to extract JSON from the response (in case Claude adds extra text)
-      const jsonMatch = textContent.text.match(/\{[\s\S]*\}/)
+      let jsonText = textContent.text.trim()
+
+      // Remove markdown code block if present
+      if (jsonText.startsWith('```')) {
+        jsonText = jsonText.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '')
+      }
+
+      // Try to extract JSON object from the response
+      const jsonMatch = jsonText.match(/\{[\s\S]*\}/)
       if (jsonMatch) {
         parsedData = JSON.parse(jsonMatch[0])
       } else {
-        parsedData = JSON.parse(textContent.text)
+        parsedData = JSON.parse(jsonText)
       }
     } catch (parseError) {
       console.error('Failed to parse Claude response:', textContent.text)
