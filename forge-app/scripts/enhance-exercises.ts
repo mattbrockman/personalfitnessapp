@@ -66,7 +66,7 @@ interface EnhancedData {
   is_compound: boolean
   is_unilateral: boolean
   galpin_adaptations: string[]
-  description: string
+  description: string | null
 }
 
 async function main() {
