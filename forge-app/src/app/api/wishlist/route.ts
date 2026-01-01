@@ -12,7 +12,7 @@ export async function GET() {
 
     const adminClient = createAdminClient()
 
-    const { data: items, error } = await adminClient
+    const { data: items, error } = await (adminClient as any)
       .from('wishlist_items')
       .select('*')
       .order('created_at', { ascending: false })
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
 
     const adminClient = createAdminClient()
 
-    const { data, error } = await adminClient
+    const { data, error } = await (adminClient as any)
       .from('wishlist_items')
       .insert({
         user_id: session.user.id,
@@ -98,7 +98,7 @@ export async function PATCH(request: NextRequest) {
       updates.completed_at = completed ? new Date().toISOString() : null
     }
 
-    const { data, error } = await adminClient
+    const { data, error } = await (adminClient as any)
       .from('wishlist_items')
       .update(updates)
       .eq('id', id)
@@ -136,7 +136,7 @@ export async function DELETE(request: NextRequest) {
 
     const adminClient = createAdminClient()
 
-    const { error } = await adminClient
+    const { error } = await (adminClient as any)
       .from('wishlist_items')
       .delete()
       .eq('id', id)
