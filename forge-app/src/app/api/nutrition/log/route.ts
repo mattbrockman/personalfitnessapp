@@ -272,3 +272,92 @@ export async function DELETE(request: NextRequest) {
     )
   }
 }
+
+// PATCH /api/nutrition/log - Edit a food item
+export async function PATCH(request: NextRequest) {
+  try {
+    const supabase = await createClient()
+    const adminClient = createAdminClient()
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const body = await request.json()
+    const {
+      food_id,
+      servings,
+      serving_size,
+      calories,
+      protein_g,
+      carbs_g,
+      fat_g,
+      fiber_g,
+    } = body
+
+    if (!food_id) {
+      return NextResponse.json(
+        { error: 'food_id is required' },
+        { status: 400 }
+      )
+    }
+
+    // Verify ownership via nutrition_log -> user_id
+    const { data: food } = await (adminClient as any)
+      .from('nutrition_foods')
+      .select('id, nutrition_log_id, nutrition_logs!inner(user_id)')
+      .eq('id', food_id)
+      .single()
+
+    if (!food || (food as any).nutrition_logs?.user_id !== user.id) {
+      return NextResponse.json(
+        { error: 'Food item not found' },
+        { status: 404 }
+      )
+    }
+
+    // Build update object with only provided fields
+    const updates: Record<string, any> = {
+      updated_at: new Date().toISOString(),
+    }
+    if (servings !== undefined) updates.serving_size = parseServingSize(servings)
+    if (serving_size !== undefined) updates.serving_size = parseServingSize(serving_size)
+    if (calories !== undefined) updates.calories = calories
+    if (protein_g !== undefined) updates.protein_g = protein_g
+    if (carbs_g !== undefined) updates.carbs_g = carbs_g
+    if (fat_g !== undefined) updates.fat_g = fat_g
+    if (fiber_g !== undefined) updates.fiber_g = fiber_g
+
+    // Update the food item
+    const { data: updatedFood, error: updateError } = await (adminClient as any)
+      .from('nutrition_foods')
+      .update(updates)
+      .eq('id', food_id)
+      .select()
+      .single()
+
+    if (updateError) {
+      throw updateError
+    }
+
+    // Get updated totals (trigger should have updated them)
+    const { data: updatedLog } = await (adminClient as any)
+      .from('nutrition_logs')
+      .select('total_calories, total_protein_g, total_carbs_g, total_fat_g')
+      .eq('id', food.nutrition_log_id)
+      .single()
+
+    return NextResponse.json({
+      success: true,
+      food: updatedFood,
+      daily_totals: updatedLog,
+    })
+  } catch (error) {
+    console.error('Edit food error:', error)
+    return NextResponse.json(
+      { error: 'Failed to edit food item' },
+      { status: 500 }
+    )
+  }
+}

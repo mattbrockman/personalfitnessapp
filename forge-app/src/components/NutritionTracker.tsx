@@ -24,6 +24,9 @@ import {
   Apple,
   Clock,
   Loader2,
+  Star,
+  Barcode,
+  ScanLine,
 } from 'lucide-react'
 
 // Types
@@ -87,16 +90,15 @@ const MEAL_COLORS = {
   snack: 'bg-sky-500/20 text-sky-400',
 }
 
-// Mock favorites
-const FAVORITE_FOODS: FoodItem[] = [
-  { id: 'fav1', name: 'Chicken Breast', brand: 'Generic', servings: 1, serving_unit: '6oz', calories: 280, protein_g: 52, carbs_g: 0, fat_g: 6, source: 'favorite' },
-  { id: 'fav2', name: 'Greek Yogurt', brand: 'Fage 0%', servings: 1, serving_unit: 'container', calories: 90, protein_g: 18, carbs_g: 5, fat_g: 0, source: 'favorite' },
-  { id: 'fav3', name: 'Oatmeal', brand: 'Quaker', servings: 1, serving_unit: 'cup dry', calories: 150, protein_g: 5, carbs_g: 27, fat_g: 3, fiber_g: 4, source: 'favorite' },
-  { id: 'fav4', name: 'Eggs', brand: 'Generic', servings: 2, serving_unit: 'large', calories: 140, protein_g: 12, carbs_g: 0, fat_g: 10, source: 'favorite' },
-  { id: 'fav5', name: 'Protein Shake', brand: 'Optimum Nutrition', servings: 1, serving_unit: 'scoop', calories: 120, protein_g: 24, carbs_g: 3, fat_g: 1, source: 'favorite' },
-  { id: 'fav6', name: 'Rice', brand: 'Jasmine', servings: 1, serving_unit: 'cup cooked', calories: 200, protein_g: 4, carbs_g: 45, fat_g: 0, source: 'favorite' },
-  { id: 'fav7', name: 'Salmon', brand: 'Wild Caught', servings: 1, serving_unit: '6oz', calories: 350, protein_g: 34, carbs_g: 0, fat_g: 22, source: 'favorite' },
-  { id: 'fav8', name: 'Avocado', brand: 'Generic', servings: 1, serving_unit: 'medium', calories: 240, protein_g: 3, carbs_g: 12, fat_g: 22, fiber_g: 10, source: 'favorite' },
+// Serving size presets for quick selection
+const SERVING_PRESETS = [
+  { value: 0.25, label: '1/4' },
+  { value: 0.5, label: '1/2' },
+  { value: 0.75, label: '3/4' },
+  { value: 1, label: '1' },
+  { value: 1.5, label: '1.5' },
+  { value: 2, label: '2' },
+  { value: 3, label: '3' },
 ]
 
 // Macro Ring Component
@@ -407,13 +409,17 @@ function AddFoodModal({
   mealType,
   onAdd,
   onClose,
+  favorites,
+  favoritesLoading,
 }: {
   mealType: string
   onAdd: (food: FoodItem) => void
   onClose: () => void
+  favorites: FoodItem[]
+  favoritesLoading: boolean
 }) {
   const [search, setSearch] = useState('')
-  const [tab, setTab] = useState<'favorites' | 'search' | 'manual'>('favorites')
+  const [tab, setTab] = useState<'favorites' | 'search' | 'barcode' | 'manual'>('favorites')
   const [manualFood, setManualFood] = useState({
     name: '',
     calories: '',
@@ -426,6 +432,15 @@ function AddFoodModal({
   const [isSearching, setIsSearching] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Barcode state
+  const [barcodeInput, setBarcodeInput] = useState('')
+  const [isScanning, setIsScanning] = useState(false)
+  const [barcodeResult, setBarcodeResult] = useState<FoodItem | null>(null)
+  const [barcodeError, setBarcodeError] = useState<string | null>(null)
+  const [barcodeLoading, setBarcodeLoading] = useState(false)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
 
   // Debounced search effect
   useEffect(() => {
@@ -486,9 +501,120 @@ function AddFoodModal({
     }
   }, [search, tab])
 
-  const filteredFavorites = FAVORITE_FOODS.filter(f =>
+  // Cleanup camera stream on unmount
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop())
+      }
+    }
+  }, [])
+
+  const filteredFavorites = favorites.filter(f =>
     f.name.toLowerCase().includes(search.toLowerCase())
   )
+
+  // Start camera for barcode scanning
+  const startBarcodeScanner = async () => {
+    setBarcodeError(null)
+    setIsScanning(true)
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }
+      })
+      streamRef.current = stream
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        videoRef.current.play()
+      }
+
+      // Check if BarcodeDetector is available
+      if ('BarcodeDetector' in window) {
+        const barcodeDetector = new (window as any).BarcodeDetector({
+          formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39']
+        })
+
+        const detectBarcode = async () => {
+          if (!videoRef.current || !isScanning) return
+
+          try {
+            const barcodes = await barcodeDetector.detect(videoRef.current)
+            if (barcodes.length > 0) {
+              const code = barcodes[0].rawValue
+              stopBarcodeScanner()
+              handleBarcodeSubmit(code)
+              return
+            }
+          } catch (err) {
+            // Detection failed, continue scanning
+          }
+
+          if (isScanning) {
+            requestAnimationFrame(detectBarcode)
+          }
+        }
+
+        detectBarcode()
+      } else {
+        // BarcodeDetector not supported, user will need to enter manually
+        setBarcodeError('Camera scanning not supported on this browser. Please enter the barcode manually.')
+        stopBarcodeScanner()
+      }
+    } catch (err) {
+      console.error('Camera error:', err)
+      setBarcodeError('Could not access camera. Please enter the barcode manually.')
+      setIsScanning(false)
+    }
+  }
+
+  const stopBarcodeScanner = () => {
+    setIsScanning(false)
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop())
+      streamRef.current = null
+    }
+  }
+
+  const handleBarcodeSubmit = async (code: string) => {
+    if (!code.trim()) return
+
+    setBarcodeLoading(true)
+    setBarcodeError(null)
+    setBarcodeResult(null)
+
+    try {
+      const response = await fetch(`/api/nutrition/barcode?code=${encodeURIComponent(code.trim())}`)
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Product not found')
+      }
+
+      const data = await response.json()
+
+      const food: FoodItem = {
+        id: `barcode-${Date.now()}`,
+        name: data.product_name,
+        brand: data.brand,
+        servings: 1,
+        serving_unit: data.serving_size || 'serving',
+        calories: data.calories || 0,
+        protein_g: data.protein_g || 0,
+        carbs_g: data.carbs_g || 0,
+        fat_g: data.fat_g || 0,
+        fiber_g: data.fiber_g,
+        source: 'barcode',
+      }
+
+      setBarcodeResult(food)
+    } catch (err: any) {
+      setBarcodeError(err.message || 'Failed to lookup barcode')
+    } finally {
+      setBarcodeLoading(false)
+    }
+  }
 
   const handleAddFavorite = (food: FoodItem) => {
     onAdd({ ...food, id: `food-${Date.now()}` })
@@ -540,16 +666,21 @@ function AddFoodModal({
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-2 mt-3">
-            {(['favorites', 'search', 'manual'] as const).map(t => (
+          <div className="flex gap-2 mt-3 overflow-x-auto">
+            {(['favorites', 'search', 'barcode', 'manual'] as const).map(t => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
-                className={`px-3 py-1.5 rounded-lg text-sm capitalize transition-colors ${
+                className={`px-3 py-1.5 rounded-lg text-sm capitalize transition-colors whitespace-nowrap ${
                   tab === t ? 'bg-amber-500 text-black' : 'bg-white/10 text-white/60 hover:bg-white/20'
                 }`}
               >
-                {t}
+                {t === 'barcode' ? (
+                  <span className="flex items-center gap-1">
+                    <Barcode size={14} />
+                    Scan
+                  </span>
+                ) : t}
               </button>
             ))}
           </div>
@@ -558,17 +689,33 @@ function AddFoodModal({
         <div className="overflow-y-auto max-h-[60vh] p-4">
           {tab === 'favorites' && (
             <div className="space-y-2">
-              {filteredFavorites.map(food => (
+              {favoritesLoading && (
+                <div className="text-center py-8">
+                  <Loader2 className="w-8 h-8 mx-auto animate-spin text-amber-500" />
+                  <p className="text-sm text-tertiary mt-2">Loading favorites...</p>
+                </div>
+              )}
+
+              {!favoritesLoading && filteredFavorites.length === 0 && (
+                <div className="text-center py-8">
+                  <Star className="w-12 h-12 mx-auto text-white/20 mb-3" />
+                  <p className="text-tertiary">No favorites yet</p>
+                  <p className="text-sm text-white/40 mt-1">Add foods to favorites from your meal log</p>
+                </div>
+              )}
+
+              {!favoritesLoading && filteredFavorites.map(food => (
                 <button
                   key={food.id}
                   onClick={() => handleAddFavorite(food)}
                   className="w-full p-3 bg-white/5 hover:bg-white/10 rounded-lg flex items-center gap-3 text-left transition-colors"
                 >
-                  <div className="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center">
-                    <Utensils size={18} className="text-emerald-400" />
+                  <div className="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                    <Star size={18} className="text-amber-400" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">{food.name}</p>
+                    {food.brand && <p className="text-xs text-tertiary truncate">{food.brand}</p>}
                     <p className="text-sm text-tertiary">
                       {food.calories} cal • {food.protein_g}g P • {food.carbs_g}g C • {food.fat_g}g F
                     </p>
@@ -628,6 +775,143 @@ function AddFoodModal({
                   <Plus size={18} className="text-secondary flex-shrink-0" />
                 </button>
               ))}
+            </div>
+          )}
+
+          {tab === 'barcode' && (
+            <div className="space-y-4">
+              {/* Barcode Result Preview */}
+              {barcodeResult && (
+                <div className="p-4 bg-white/5 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <div className="w-12 h-12 rounded-lg bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
+                      <Check size={24} className="text-emerald-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium">{barcodeResult.name}</p>
+                      {barcodeResult.brand && (
+                        <p className="text-sm text-tertiary">{barcodeResult.brand}</p>
+                      )}
+                      <p className="text-sm text-tertiary mt-1">
+                        {barcodeResult.calories} cal • {barcodeResult.protein_g}g P • {barcodeResult.carbs_g}g C • {barcodeResult.fat_g}g F
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 mt-4">
+                    <button
+                      onClick={() => {
+                        setBarcodeResult(null)
+                        setBarcodeInput('')
+                      }}
+                      className="flex-1 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm"
+                    >
+                      Scan Another
+                    </button>
+                    <button
+                      onClick={() => {
+                        onAdd(barcodeResult)
+                        onClose()
+                      }}
+                      className="flex-1 py-2 bg-amber-500 hover:bg-amber-400 text-black font-medium rounded-lg text-sm flex items-center justify-center gap-2"
+                    >
+                      <Plus size={16} />
+                      Add to {mealType}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Camera Scanner */}
+              {isScanning && !barcodeResult && (
+                <div className="relative aspect-[4/3] bg-black rounded-lg overflow-hidden">
+                  <video
+                    ref={videoRef}
+                    className="w-full h-full object-cover"
+                    playsInline
+                    muted
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-64 h-32 border-2 border-amber-500 rounded-lg flex items-center justify-center">
+                      <ScanLine size={32} className="text-amber-500 animate-pulse" />
+                    </div>
+                  </div>
+                  <button
+                    onClick={stopBarcodeScanner}
+                    className="absolute top-2 right-2 p-2 bg-black/50 rounded-lg"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+              )}
+
+              {/* Initial State */}
+              {!isScanning && !barcodeResult && !barcodeLoading && (
+                <>
+                  <button
+                    onClick={startBarcodeScanner}
+                    className="w-full py-8 border-2 border-dashed border-white/20 rounded-xl text-center hover:border-amber-500/50 transition-colors"
+                  >
+                    <Barcode size={48} className="mx-auto text-secondary mb-3" />
+                    <p className="font-medium">Tap to Scan Barcode</p>
+                    <p className="text-sm text-tertiary mt-1">Use your camera to scan product barcodes</p>
+                  </button>
+
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-white/10" />
+                    </div>
+                    <div className="relative flex justify-center">
+                      <span className="px-3 bg-zinc-900 text-sm text-tertiary">or enter manually</span>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={barcodeInput}
+                      onChange={e => setBarcodeInput(e.target.value)}
+                      placeholder="Enter barcode number..."
+                      className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-white/30 focus:outline-none focus:border-amber-500/50"
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          handleBarcodeSubmit(barcodeInput)
+                        }
+                      }}
+                    />
+                    <button
+                      onClick={() => handleBarcodeSubmit(barcodeInput)}
+                      disabled={!barcodeInput.trim()}
+                      className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black font-medium rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Look Up
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {/* Loading State */}
+              {barcodeLoading && (
+                <div className="text-center py-8">
+                  <Loader2 className="w-8 h-8 mx-auto animate-spin text-amber-500" />
+                  <p className="text-sm text-tertiary mt-2">Looking up product...</p>
+                </div>
+              )}
+
+              {/* Error State */}
+              {barcodeError && (
+                <div className="p-4 bg-red-500/10 rounded-lg text-center">
+                  <p className="text-red-400 text-sm mb-3">{barcodeError}</p>
+                  <button
+                    onClick={() => {
+                      setBarcodeError(null)
+                      setBarcodeInput('')
+                    }}
+                    className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm"
+                  >
+                    Try Again
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -720,11 +1004,15 @@ function MealCard({
   meal,
   onAddFood,
   onRemoveFood,
+  onEditFood,
+  onAddToFavorites,
   onPhotoCapture,
 }: {
   meal: Meal
-  onAddFood: (food: FoodItem) => void
+  onAddFood: () => void
   onRemoveFood: (foodId: string) => void
+  onEditFood: (food: FoodItem) => void
+  onAddToFavorites: (food: FoodItem) => void
   onPhotoCapture: () => void
 }) {
   const [expanded, setExpanded] = useState(true)
@@ -736,26 +1024,37 @@ function MealCard({
   const mealCarbs = meal.foods.reduce((sum, f) => sum + (f.carbs_g * f.servings), 0)
   const mealFat = meal.foods.reduce((sum, f) => sum + (f.fat_g * f.servings), 0)
 
+  // Format serving display with proper pluralization
+  const formatServing = (food: FoodItem) => {
+    const unit = food.serving_unit || 'serving'
+    if (food.servings === 1) {
+      return `1 ${unit}`
+    }
+    // Simple pluralization for common units
+    const pluralUnit = unit.endsWith('s') || unit.endsWith('oz') ? unit : `${unit}s`
+    return `${food.servings} ${pluralUnit}`
+  }
+
   return (
     <div className="glass rounded-xl overflow-hidden">
       {/* Header */}
-      <div 
+      <div
         className="p-4 flex items-center gap-3 cursor-pointer hover:bg-white/[0.02] transition-colors"
         onClick={() => setExpanded(!expanded)}
       >
         <div className={`w-10 h-10 rounded-lg ${colorClass} flex items-center justify-center`}>
           <Icon size={20} />
         </div>
-        
+
         <div className="flex-1">
           <h3 className="font-medium capitalize">{meal.type}</h3>
           <p className="text-sm text-tertiary">
-            {meal.foods.length} items • {mealCalories} cal
+            {meal.foods.length} items • {Math.round(mealCalories)} cal
           </p>
         </div>
 
         <div className="text-right text-sm">
-          <p>{mealProtein}g P • {mealCarbs}g C • {mealFat}g F</p>
+          <p>{Math.round(mealProtein)}g P • {Math.round(mealCarbs)}g C • {Math.round(mealFat)}g F</p>
         </div>
       </div>
 
@@ -764,25 +1063,42 @@ function MealCard({
         <div className="px-4 pb-4">
           {/* Foods list */}
           {meal.foods.map(food => (
-            <div 
+            <div
               key={food.id}
-              className="flex items-center gap-3 py-2 border-b border-white/5 last:border-0"
+              className="flex items-center gap-2 py-2 border-b border-white/5 last:border-0 group"
             >
               <div className="flex-1 min-w-0">
                 <p className="truncate">{food.name}</p>
                 <p className="text-sm text-tertiary">
-                  {food.servings} {food.serving_unit}
+                  {formatServing(food)}
                 </p>
               </div>
-              <div className="text-right text-sm text-white/60">
-                <p>{food.calories * food.servings} cal</p>
+              <div className="text-right text-sm text-white/60 mr-1">
+                <p>{Math.round(food.calories * food.servings)} cal</p>
               </div>
-              <button 
-                onClick={() => onRemoveFood(food.id)}
-                className="p-1.5 hover:bg-white/10 rounded-lg text-secondary hover:text-red-400 transition-colors"
-              >
-                <X size={16} />
-              </button>
+              <div className="flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
+                <button
+                  onClick={() => onAddToFavorites(food)}
+                  className="p-1.5 hover:bg-white/10 rounded-lg text-secondary hover:text-amber-400 transition-colors"
+                  title="Add to favorites"
+                >
+                  <Star size={14} />
+                </button>
+                <button
+                  onClick={() => onEditFood(food)}
+                  className="p-1.5 hover:bg-white/10 rounded-lg text-secondary hover:text-white transition-colors"
+                  title="Edit"
+                >
+                  <Edit2 size={14} />
+                </button>
+                <button
+                  onClick={() => onRemoveFood(food.id)}
+                  className="p-1.5 hover:bg-white/10 rounded-lg text-secondary hover:text-red-400 transition-colors"
+                  title="Remove"
+                >
+                  <X size={14} />
+                </button>
+              </div>
             </div>
           ))}
 
@@ -808,6 +1124,129 @@ function MealCard({
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// Edit Food Modal
+function EditFoodModal({
+  food,
+  onSave,
+  onClose,
+}: {
+  food: FoodItem
+  onSave: (updatedFood: FoodItem) => void
+  onClose: () => void
+}) {
+  const [servings, setServings] = useState(food.servings.toString())
+  const [isSaving, setIsSaving] = useState(false)
+
+  // Calculate adjusted macros based on servings
+  const baseCalories = food.calories / food.servings
+  const baseProtein = food.protein_g / food.servings
+  const baseCarbs = food.carbs_g / food.servings
+  const baseFat = food.fat_g / food.servings
+
+  const currentServings = parseFloat(servings) || 1
+
+  const handleSave = async () => {
+    setIsSaving(true)
+
+    try {
+      const response = await fetch('/api/nutrition/log', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          food_id: food.id,
+          servings: currentServings,
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to update food')
+      }
+
+      onSave({
+        ...food,
+        servings: currentServings,
+        calories: Math.round(baseCalories * currentServings),
+        protein_g: Math.round(baseProtein * currentServings * 10) / 10,
+        carbs_g: Math.round(baseCarbs * currentServings * 10) / 10,
+        fat_g: Math.round(baseFat * currentServings * 10) / 10,
+      })
+    } catch (err) {
+      console.error('Failed to update food:', err)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80" onClick={onClose}>
+      <div
+        className="bg-zinc-900 rounded-2xl w-full max-w-sm overflow-hidden border border-white/10 animate-slide-up"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="p-4 border-b border-white/10 flex items-center justify-between">
+          <h3 className="font-semibold">Edit Serving</h3>
+          <button onClick={onClose} className="p-1 hover:bg-white/10 rounded-lg">
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="p-4 space-y-4">
+          <div>
+            <p className="font-medium">{food.name}</p>
+            {food.brand && <p className="text-sm text-tertiary">{food.brand}</p>}
+          </div>
+
+          <div>
+            <label className="block text-sm text-white/60 mb-2">Number of servings</label>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {SERVING_PRESETS.map(preset => (
+                <button
+                  key={preset.value}
+                  onClick={() => setServings(preset.value.toString())}
+                  className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                    parseFloat(servings) === preset.value
+                      ? 'bg-amber-500 text-black'
+                      : 'bg-white/10 hover:bg-white/20'
+                  }`}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+            <input
+              type="number"
+              value={servings}
+              onChange={e => setServings(e.target.value)}
+              step="0.25"
+              min="0.25"
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-amber-500/50"
+            />
+          </div>
+
+          <div className="p-3 bg-white/5 rounded-lg">
+            <p className="text-sm text-tertiary mb-2">Adjusted nutrition:</p>
+            <div className="flex justify-between text-sm">
+              <span>{Math.round(baseCalories * currentServings)} cal</span>
+              <span>{Math.round(baseProtein * currentServings)}g P</span>
+              <span>{Math.round(baseCarbs * currentServings)}g C</span>
+              <span>{Math.round(baseFat * currentServings)}g F</span>
+            </div>
+          </div>
+
+          <button
+            onClick={handleSave}
+            disabled={isSaving || currentServings <= 0}
+            className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-black font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {isSaving && <Loader2 size={18} className="animate-spin" />}
+            Save Changes
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -850,6 +1289,13 @@ export function NutritionTracker() {
     fiber_g: 30,
   })
 
+  // Favorites state
+  const [favorites, setFavorites] = useState<FoodItem[]>([])
+  const [favoritesLoading, setFavoritesLoading] = useState(true)
+
+  // Edit food state
+  const [editingFood, setEditingFood] = useState<{ mealId: string; food: FoodItem } | null>(null)
+
   // Load nutrition data on mount
   useEffect(() => {
     const loadNutritionData = async () => {
@@ -859,10 +1305,11 @@ export function NutritionTracker() {
       try {
         const today = format(new Date(), 'yyyy-MM-dd')
 
-        // Fetch today's nutrition log and targets in parallel
-        const [nutritionResponse, targetsResponse] = await Promise.all([
+        // Fetch today's nutrition log, targets, and favorites in parallel
+        const [nutritionResponse, targetsResponse, favoritesResponse] = await Promise.all([
           fetch(`/api/nutrition/log?date=${today}`),
           fetch('/api/nutrition/targets'),
+          fetch('/api/nutrition/favorites'),
         ])
 
         if (!nutritionResponse.ok) {
@@ -893,11 +1340,18 @@ export function NutritionTracker() {
             fiber_g: 30,
           })
         }
+
+        // Load favorites
+        if (favoritesResponse.ok) {
+          const favoritesData = await favoritesResponse.json()
+          setFavorites(favoritesData.favorites || [])
+        }
       } catch (err) {
         console.error('Failed to load nutrition data:', err)
         setError('Failed to load nutrition data')
       } finally {
         setIsLoading(false)
+        setFavoritesLoading(false)
       }
     }
 
@@ -1023,6 +1477,62 @@ export function NutritionTracker() {
     setShowPhotoCapture(null)
   }
 
+  // Add food to favorites
+  const handleAddToFavorites = async (food: FoodItem) => {
+    try {
+      const response = await fetch('/api/nutrition/favorites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          food_name: food.name,
+          brand: food.brand,
+          serving_size: food.servings,
+          serving_unit: food.serving_unit,
+          calories: food.calories,
+          protein_g: food.protein_g,
+          carbs_g: food.carbs_g,
+          fat_g: food.fat_g,
+          fiber_g: food.fiber_g,
+          original_source: food.source,
+        })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        // Add to local favorites if not already there
+        setFavorites(prev => {
+          const exists = prev.some(f => f.id === data.favorite.id)
+          if (exists) return prev
+          return [data.favorite, ...prev]
+        })
+      }
+    } catch (err) {
+      console.error('Failed to add favorite:', err)
+    }
+  }
+
+  // Handle food edit
+  const handleEditFood = (mealId: string, food: FoodItem) => {
+    setEditingFood({ mealId, food })
+  }
+
+  // Save edited food
+  const handleSaveEditedFood = (updatedFood: FoodItem) => {
+    if (!editingFood) return
+
+    setMeals(prev => prev.map(meal =>
+      meal.id === editingFood.mealId
+        ? {
+            ...meal,
+            foods: meal.foods.map(f =>
+              f.id === updatedFood.id ? updatedFood : f
+            )
+          }
+        : meal
+    ))
+    setEditingFood(null)
+  }
+
   const caloriesRemaining = targets.calories - totals.calories
 
   // Loading state
@@ -1131,6 +1641,8 @@ export function NutritionTracker() {
             meal={meal}
             onAddFood={() => setShowAddFood(meal.id)}
             onRemoveFood={(foodId) => removeFoodFromMeal(meal.id, foodId)}
+            onEditFood={(food) => handleEditFood(meal.id, food)}
+            onAddToFavorites={handleAddToFavorites}
             onPhotoCapture={() => setShowPhotoCapture(meal.id)}
           />
         ))}
@@ -1145,6 +1657,8 @@ export function NutritionTracker() {
             setShowAddFood(null)
           }}
           onClose={() => setShowAddFood(null)}
+          favorites={favorites}
+          favoritesLoading={favoritesLoading}
         />
       )}
 
@@ -1154,6 +1668,15 @@ export function NutritionTracker() {
           mealType={showPhotoCapture}
           onCapture={(foods) => handlePhotoCapture(showPhotoCapture, foods)}
           onClose={() => setShowPhotoCapture(null)}
+        />
+      )}
+
+      {/* Edit Food Modal */}
+      {editingFood && (
+        <EditFoodModal
+          food={editingFood.food}
+          onSave={handleSaveEditedFood}
+          onClose={() => setEditingFood(null)}
         />
       )}
     </div>

@@ -23,6 +23,7 @@ import {
   Unlink,
   Eye,
   EyeOff,
+  Utensils,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Profile, Integration } from '@/types/database'
@@ -97,6 +98,13 @@ export function SettingsView({ user, profile, integrations }: SettingsViewProps)
   const [eightSleepEmail, setEightSleepEmail] = useState('')
   const [eightSleepPassword, setEightSleepPassword] = useState('')
   const [showEightSleepPassword, setShowEightSleepPassword] = useState(false)
+
+  // Nutrition targets state
+  const [calorieTarget, setCalorieTarget] = useState((profile as any)?.calorie_target?.toString() || '2400')
+  const [proteinTarget, setProteinTarget] = useState((profile as any)?.protein_target_g?.toString() || '180')
+  const [carbTarget, setCarbTarget] = useState((profile as any)?.carb_target_g?.toString() || '250')
+  const [fatTarget, setFatTarget] = useState((profile as any)?.fat_target_g?.toString() || '80')
+  const [isSavingNutrition, setIsSavingNutrition] = useState(false)
 
   const supabase = createClient() as any
   const stravaIntegration = integrations.find(i => i.service === 'strava')
@@ -256,6 +264,30 @@ export function SettingsView({ user, profile, integrations }: SettingsViewProps)
       console.error('Save AI settings error:', error)
     } finally {
       setIsSavingAI(false)
+    }
+  }
+
+  const handleSaveNutritionTargets = async () => {
+    setIsSavingNutrition(true)
+    try {
+      const response = await fetch('/api/nutrition/targets', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          calorie_target: parseInt(calorieTarget) || 2400,
+          protein_target_g: parseInt(proteinTarget) || 180,
+          carb_target_g: parseInt(carbTarget) || 250,
+          fat_target_g: parseInt(fatTarget) || 80,
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to save nutrition targets')
+      }
+    } catch (error) {
+      console.error('Save nutrition targets error:', error)
+    } finally {
+      setIsSavingNutrition(false)
     }
   }
 
@@ -671,6 +703,69 @@ export function SettingsView({ user, profile, integrations }: SettingsViewProps)
             )}
           </>
         )}
+      </section>
+
+      {/* Nutrition Targets Section */}
+      <section className="glass rounded-xl p-6 mb-6">
+        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+          <Utensils size={20} className="text-secondary" />
+          Nutrition Targets
+        </h2>
+        <p className="text-sm text-tertiary mb-4">
+          Set your daily calorie and macro goals for nutrition tracking.
+        </p>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+          <div>
+            <label className="block text-sm text-white/60 mb-2">Calories</label>
+            <input
+              type="number"
+              value={calorieTarget}
+              onChange={e => setCalorieTarget(e.target.value)}
+              placeholder="2400"
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-white/30 focus:outline-none focus:border-amber-500/50"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-white/60 mb-2">Protein (g)</label>
+            <input
+              type="number"
+              value={proteinTarget}
+              onChange={e => setProteinTarget(e.target.value)}
+              placeholder="180"
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-white/30 focus:outline-none focus:border-amber-500/50"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-white/60 mb-2">Carbs (g)</label>
+            <input
+              type="number"
+              value={carbTarget}
+              onChange={e => setCarbTarget(e.target.value)}
+              placeholder="250"
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-white/30 focus:outline-none focus:border-amber-500/50"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-white/60 mb-2">Fat (g)</label>
+            <input
+              type="number"
+              value={fatTarget}
+              onChange={e => setFatTarget(e.target.value)}
+              placeholder="80"
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-white/30 focus:outline-none focus:border-amber-500/50"
+            />
+          </div>
+        </div>
+
+        <button
+          onClick={handleSaveNutritionTargets}
+          disabled={isSavingNutrition}
+          className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black font-medium rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+        >
+          {isSavingNutrition && <Loader2 size={16} className="animate-spin" />}
+          Save Targets
+        </button>
       </section>
 
       {/* Training Zones Section */}
