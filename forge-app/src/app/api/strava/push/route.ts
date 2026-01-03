@@ -122,16 +122,24 @@ export async function POST(request: NextRequest) {
     }
     description = description ? `${description}\n\nTracked with Forge` : 'Tracked with Forge'
 
-    // Calculate elapsed time in seconds
-    const elapsedTime = workout.duration_minutes
-      ? workout.duration_minutes * 60
-      : 60 * 60 // Default 1 hour
+    // Calculate elapsed time in seconds (prefer actual over planned)
+    const durationMinutes = workout.actual_duration_minutes || workout.planned_duration_minutes
+    const elapsedTime = durationMinutes
+      ? durationMinutes * 60
+      : 60 * 60 // Default 1 hour if no duration
+
+    // Get the workout date - prefer scheduled_date, fall back to completed_at or created_at
+    const workoutDate = workout.scheduled_date || workout.completed_at || workout.created_at
+    // Ensure we have a proper ISO timestamp with time component
+    const startDateLocal = workoutDate
+      ? (workoutDate.includes('T') ? workoutDate : `${workoutDate}T09:00:00`)
+      : new Date().toISOString()
 
     // Create Strava activity
     const stravaActivity = await createStravaActivity(accessToken, {
       name: workout.name || `${workout.category} - ${workout.workout_type}`,
       sport_type: sportType,
-      start_date_local: workout.date || new Date().toISOString(),
+      start_date_local: startDateLocal,
       elapsed_time: elapsedTime,
       description: description,
       distance: workout.distance_miles ? workout.distance_miles * 1609.344 : undefined,
