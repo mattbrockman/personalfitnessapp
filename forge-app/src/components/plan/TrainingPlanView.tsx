@@ -27,6 +27,10 @@ import { ProgramArchitectureTable } from './ProgramArchitectureTable'
 import { AssessmentCheckpoint } from './AssessmentCheckpoint'
 import { RecoveryProtocolsView } from './RecoveryProtocolsView'
 import { ExerciseSubstitutionModal } from './ExerciseSubstitutionModal'
+import { RecommendationsWidget } from './RecommendationsWidget'
+import { WeeklyReviewSummary } from './WeeklyReviewSummary'
+import { PhaseTimelineWidget } from './PhaseTimelineWidget'
+import { PlanModeSettings } from './PlanModeSettings'
 import { WeatherDay } from '@/lib/weather'
 import { startOfWeek, format } from 'date-fns'
 import {
@@ -82,6 +86,9 @@ export function TrainingPlanView() {
 
   // Exercise substitution modal state
   const [showSubstitutionModal, setShowSubstitutionModal] = useState(false)
+
+  // Plan mode settings modal state
+  const [showPlanModeSettings, setShowPlanModeSettings] = useState(false)
 
   // Fetch active plan
   const fetchPlan = useCallback(async () => {
@@ -577,6 +584,27 @@ export function TrainingPlanView() {
         </div>
       )}
 
+      {/* Adaptation Widgets */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+        <WeeklyReviewSummary
+          planId={plan.id}
+          onRunReview={() => {
+            // Refresh recommendations when review is run
+          }}
+        />
+        <RecommendationsWidget
+          planId={plan.id}
+          onRecommendationApplied={() => {
+            // Refresh workouts when a recommendation is applied
+            fetchSuggestedWorkouts(plan.id)
+          }}
+        />
+        <PhaseTimelineWidget
+          planId={plan.id}
+          compact={false}
+        />
+      </div>
+
       {/* Quick Stats Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <StatCard
@@ -591,10 +619,13 @@ export function TrainingPlanView() {
           label="Upcoming Events"
           value={String(upcomingEvents.length)}
         />
-        <StatCard
-          label="Plan Duration"
-          value={plan.end_date ? formatDuration(plan.start_date, plan.end_date) : 'Rolling'}
-        />
+        <button
+          onClick={() => setShowPlanModeSettings(true)}
+          className="glass rounded-xl p-4 text-left hover:bg-white/10 transition-colors"
+        >
+          <p className="text-sm text-tertiary">Plan Duration</p>
+          <p className="text-xl font-semibold">{plan.end_date ? formatDuration(plan.start_date, plan.end_date) : 'Rolling'}</p>
+        </button>
       </div>
 
       {/* Upcoming Events */}
@@ -805,6 +836,18 @@ export function TrainingPlanView() {
           // TODO: Implement exercise substitution in workout
         }}
       />
+
+      {/* Plan Mode Settings Modal */}
+      {showPlanModeSettings && (
+        <PlanModeSettings
+          planId={plan.id}
+          onClose={() => setShowPlanModeSettings(false)}
+          onModeChanged={() => {
+            // Refresh plan data when mode changes
+            fetchPlan()
+          }}
+        />
+      )}
     </div>
   )
 }

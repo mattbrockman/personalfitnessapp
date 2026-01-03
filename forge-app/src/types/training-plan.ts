@@ -721,3 +721,475 @@ export interface AIEnhancedPlanResponse extends AIGeneratePlanResponse {
     training_parameters?: TrainingParameters
   }>
 }
+
+// ============================================================================
+// ADAPTIVE PERIODIZATION SYSTEM
+// ============================================================================
+
+// Recommendation types by scope
+export type PhaseRecommendationType = 'phase_extension' | 'phase_shorten' | 'phase_insert' | 'phase_reorder'
+export type WeekRecommendationType = 'week_volume_adjust' | 'week_type_change' | 'week_activity_shift' | 'week_zone_adjust'
+export type WorkoutRecommendationType = 'workout_intensity_scale' | 'workout_substitute' | 'workout_reschedule' | 'workout_skip'
+export type PlanRecommendationType = 'plan_convert' | 'plan_pause' | 'plan_resume' | 'deload_trigger'
+export type RecommendationType = PhaseRecommendationType | WeekRecommendationType | WorkoutRecommendationType | PlanRecommendationType
+
+export type RecommendationScope = 'phase' | 'week' | 'workout' | 'plan'
+export type TriggerType = 'time' | 'performance' | 'event' | 'readiness' | 'user'
+export type RecommendationStatus = 'pending' | 'accepted' | 'modified' | 'dismissed' | 'expired' | 'superseded'
+export type PlanMode = 'rolling' | 'goal_based'
+
+// Trigger data structures
+export interface TimeTriggerData {
+  trigger: 'weekly_review' | 'phase_end' | 'mid_phase'
+  week_number?: number
+  phase_id?: string
+  days_until_phase_end?: number
+}
+
+export interface PerformanceTriggerData {
+  tsb?: number
+  compliance_rate?: number
+  plateaued_exercises?: string[]
+  progress_ahead_percent?: number
+  progress_behind_percent?: number
+  consecutive_low_compliance_weeks?: number
+}
+
+export interface EventTriggerData {
+  event_type: 'vacation' | 'injury' | 'competition' | 'milestone'
+  event_id?: string
+  event_name?: string
+  start_date?: string
+  end_date?: string
+  days_until_event?: number
+}
+
+export interface ReadinessTriggerData {
+  readiness_score: number
+  hrv_percent_baseline?: number
+  sleep_hours?: number
+  subjective_readiness?: number
+  trend?: 'improving' | 'stable' | 'declining'
+  days_declining?: number
+}
+
+export type TriggerData = TimeTriggerData | PerformanceTriggerData | EventTriggerData | ReadinessTriggerData
+
+// Proposed changes structures
+export interface PhaseExtensionChange {
+  days_to_extend: number
+  new_end_date: string
+  reason: 'performance_behind' | 'recovery_needed' | 'life_event'
+}
+
+export interface PhaseShortenChange {
+  days_to_shorten: number
+  new_end_date: string
+  reason: 'performance_ahead' | 'event_date_change'
+}
+
+export interface PhaseInsertChange {
+  phase_type: PhaseType
+  duration_days: number
+  insert_after_phase_id: string
+  shift_subsequent_phases: boolean
+  reason: 'injury' | 'vacation' | 'severe_fatigue' | 'life_event'
+}
+
+export interface WeekVolumeAdjustChange {
+  target_hours: { current: number; proposed: number }
+  target_tss?: { current: number; proposed: number }
+  percent_change: number
+  reason: 'over_compliance' | 'under_compliance' | 'fatigue_accumulation' | 'readiness_high'
+}
+
+export interface WeekTypeChange {
+  current_type: WeekType
+  proposed_type: WeekType
+  reason: 'recovery_metrics' | 'planned_deload' | 'upcoming_event'
+}
+
+export interface WorkoutIntensityScaleChange {
+  adjustment_factor: number
+  apply_to: 'all' | 'strength' | 'cardio' | 'specific_exercises'
+  specific_exercises?: string[]
+  reason: 'readiness_low' | 'readiness_high' | 'accumulated_fatigue'
+  original_intensity?: string
+  scaled_intensity?: string
+}
+
+export interface WorkoutSubstituteChange {
+  substitutions: Array<{
+    original_exercise: string
+    substitute_exercise: string
+    reason: 'injury' | 'equipment' | 'preference' | 'fatigue'
+  }>
+}
+
+export type ProposedChanges =
+  | { type: 'phase_extension'; changes: PhaseExtensionChange }
+  | { type: 'phase_shorten'; changes: PhaseShortenChange }
+  | { type: 'phase_insert'; changes: PhaseInsertChange }
+  | { type: 'week_volume_adjust'; changes: WeekVolumeAdjustChange }
+  | { type: 'week_type_change'; changes: WeekTypeChange }
+  | { type: 'workout_intensity_scale'; changes: WorkoutIntensityScaleChange }
+  | { type: 'workout_substitute'; changes: WorkoutSubstituteChange }
+
+// Evidence summary for recommendations
+export interface EvidenceSummary {
+  training_load?: {
+    ctl?: number
+    atl?: number
+    tsb?: number
+    tsb_trend?: 'improving' | 'stable' | 'declining'
+  }
+  compliance?: {
+    hours_percent?: number
+    tss_percent?: number
+    activity_distribution?: Record<string, number>
+  }
+  readiness?: {
+    current?: number
+    avg_7day?: number
+    trend?: 'improving' | 'stable' | 'declining'
+  }
+  strength_progress?: Record<string, {
+    start?: number
+    current?: number
+    target?: number
+    percent_complete?: number
+  }>
+  recovery_quality?: {
+    sleep_avg?: number
+    hrv_trend?: 'improving' | 'stable' | 'declining'
+  }
+}
+
+// Impact projection for recommendations
+export interface ProjectedImpact {
+  weekly_hours_delta?: number
+  tss_delta?: number
+  affected_workouts?: number
+  affected_phases?: string[]
+  affected_weeks?: string[]
+  event_date_impact?: string | null
+  event_still_achievable?: boolean
+  taper_weeks_preserved?: number
+}
+
+// Main recommendation interface
+export interface PlanRecommendation {
+  id: string
+  plan_id: string
+  user_id: string
+
+  // Type and scope
+  recommendation_type: RecommendationType
+  scope: RecommendationScope
+
+  // Trigger
+  trigger_type: TriggerType
+  trigger_date: string
+  trigger_data: TriggerData
+
+  // Target references
+  target_phase_id?: string | null
+  target_week_id?: string | null
+  target_workout_id?: string | null
+
+  // Proposed changes (JSONB in DB)
+  proposed_changes: Record<string, unknown>
+
+  // AI reasoning
+  reasoning: string
+  confidence_score?: number | null
+  evidence_summary?: EvidenceSummary | null
+
+  // Impact preview
+  projected_impact?: ProjectedImpact | null
+
+  // Priority and urgency
+  priority: number
+  expires_at?: string | null
+
+  // User response
+  status: RecommendationStatus
+  user_notes?: string | null
+  modified_changes?: Record<string, unknown> | null
+  responded_at?: string | null
+  applied_at?: string | null
+
+  // Metadata
+  created_at: string
+  updated_at: string
+}
+
+// Adaptation evaluation (audit trail)
+export interface AdaptationEvaluation {
+  id: string
+  plan_id: string
+  user_id: string
+
+  // Context
+  evaluation_type: 'scheduled' | 'on_demand' | 'event_triggered'
+  evaluation_trigger?: string | null
+  evaluation_date: string
+
+  // Scope
+  scopes_evaluated: RecommendationScope[]
+
+  // Metrics snapshot
+  metrics_snapshot: {
+    training_load?: {
+      ctl: number
+      atl: number
+      tsb: number
+      acwr?: number
+    }
+    compliance?: {
+      hours_percent: number
+      tss_percent: number
+      activity_distribution?: Record<string, number>
+    }
+    phase_progress?: {
+      current_phase: string
+      percent_complete: number
+      days_remaining: number
+    }
+    readiness?: {
+      current: number
+      avg_7day: number
+      trend: 'improving' | 'stable' | 'declining'
+    }
+    strength_progress?: Record<string, {
+      start: number
+      current: number
+      target: number
+      percent: number
+    }>
+    recovery_quality?: {
+      sleep_avg: number
+      hrv_trend: 'improving' | 'stable' | 'declining'
+    }
+  }
+
+  // Results
+  recommendations_generated: number
+  recommendation_ids?: string[]
+  no_action_reason?: string | null
+
+  // Processing
+  processing_ms?: number
+  error_message?: string | null
+
+  created_at: string
+}
+
+// Plan mode configuration
+export interface PlanModeConfig {
+  plan_id: string
+  plan_mode: PlanMode
+
+  // Rolling mode
+  rolling_cycle?: {
+    sequence: PhaseType[]
+    repeat: boolean
+  }
+  rolling_phase_durations?: Record<PhaseType, number>
+  auto_generate_weeks?: number
+  regenerate_threshold?: number
+
+  // Goal mode
+  target_event_id?: string | null
+  target_event_date?: string | null
+  peak_readiness_target?: number
+  taper_weeks?: number
+  taper_volume_reduction?: number
+
+  // Conversion
+  converted_from?: PlanMode | null
+  converted_at?: string | null
+  conversion_reason?: string | null
+
+  created_at: string
+  updated_at: string
+}
+
+// User adaptation settings
+export interface AdaptationSettings {
+  user_id: string
+
+  // Evaluation frequency
+  auto_evaluate: boolean
+  weekly_review_day: 'sunday' | 'monday'
+  weekly_review_enabled: boolean
+  phase_end_evaluate: boolean
+  mid_phase_evaluate: boolean
+
+  // Notifications
+  notify_pending_recommendations: boolean
+  notify_urgent_only: boolean
+  max_pending_recommendations: number
+
+  // Performance thresholds
+  compliance_alert_threshold: number
+  compliance_consecutive_weeks: number
+  tsb_alert_threshold: number
+  readiness_alert_threshold: number
+  plateau_weeks_threshold: number
+  plateau_exercise_count: number
+  progress_ahead_threshold: number
+  progress_behind_threshold: number
+
+  // Day-of adjustments
+  day_of_adjustment_enabled: boolean
+  day_of_readiness_threshold: number
+  auto_apply_workout_adjustments: boolean
+
+  created_at: string
+  updated_at: string
+}
+
+// Extended TrainingPlan with adaptive fields
+export interface AdaptiveTrainingPlan extends TrainingPlan {
+  plan_mode?: PlanMode
+  last_adaptation_eval?: string | null
+  pending_recommendations_count?: number
+  mode_config?: PlanModeConfig
+  recommendations?: PlanRecommendation[]
+}
+
+// Extended TrainingPhase with adaptation tracking
+export interface AdaptiveTrainingPhase extends TrainingPhase {
+  original_end_date?: string | null
+  adaptation_history?: Array<{
+    date: string
+    type: string
+    days?: number
+    reason: string
+  }>
+  completion_metrics?: {
+    compliance: number
+    strength_progress?: Record<string, unknown>
+    tsb_final?: number
+  }
+}
+
+// Extended WeeklyTarget with compliance tracking
+export interface AdaptiveWeeklyTarget extends WeeklyTarget {
+  actual_hours?: number | null
+  actual_tss?: number | null
+  compliance_percentage?: number | null
+  adaptation_adjustments?: Array<{
+    date: string
+    type: string
+    from_hours?: number
+    to_hours?: number
+  }>
+}
+
+// Extended SuggestedWorkout with readiness adjustment tracking
+export interface AdaptiveSuggestedWorkout extends SuggestedWorkout {
+  readiness_adjusted?: boolean
+  original_intensity?: string | null
+  adjustment_factor?: number | null
+  substitution_reason?: string | null
+}
+
+// API Request/Response types for recommendations
+export interface CreateRecommendationRequest {
+  plan_id: string
+  recommendation_type: RecommendationType
+  scope: RecommendationScope
+  trigger_type: TriggerType
+  trigger_data: TriggerData
+  target_phase_id?: string
+  target_week_id?: string
+  target_workout_id?: string
+  proposed_changes: Record<string, unknown>
+  reasoning: string
+  confidence_score?: number
+  evidence_summary?: EvidenceSummary
+  projected_impact?: ProjectedImpact
+  priority?: number
+  expires_at?: string
+}
+
+export interface RespondToRecommendationRequest {
+  action: 'accept' | 'modify' | 'dismiss'
+  modified_changes?: Record<string, unknown>
+  notes?: string
+}
+
+export interface PreviewRecommendationResponse {
+  affected_phases: string[]
+  affected_weeks: string[]
+  affected_workouts: string[]
+  metric_changes: {
+    weekly_hours_delta: number
+    tss_delta: number
+    event_date_impact: string | null
+  }
+  conflicting_recommendations: string[]
+}
+
+export interface TriggerEvaluationRequest {
+  plan_id: string
+  scope?: RecommendationScope | 'all'
+  force_regenerate?: boolean
+}
+
+export interface TriggerEvaluationResponse {
+  evaluation_id: string
+  recommendations_generated: number
+  recommendations: PlanRecommendation[]
+  metrics_snapshot: AdaptationEvaluation['metrics_snapshot']
+}
+
+// UI helpers for recommendations
+export const RECOMMENDATION_TYPE_LABELS: Record<RecommendationType, string> = {
+  phase_extension: 'Extend Phase',
+  phase_shorten: 'Shorten Phase',
+  phase_insert: 'Insert Phase',
+  phase_reorder: 'Reorder Phases',
+  week_volume_adjust: 'Adjust Weekly Volume',
+  week_type_change: 'Change Week Type',
+  week_activity_shift: 'Shift Activity Focus',
+  week_zone_adjust: 'Adjust Zone Distribution',
+  workout_intensity_scale: 'Scale Workout Intensity',
+  workout_substitute: 'Substitute Exercises',
+  workout_reschedule: 'Reschedule Workout',
+  workout_skip: 'Skip Workout',
+  plan_convert: 'Convert Plan Mode',
+  plan_pause: 'Pause Plan',
+  plan_resume: 'Resume Plan',
+  deload_trigger: 'Deload Recommended',
+}
+
+export const RECOMMENDATION_SCOPE_COLORS: Record<RecommendationScope, string> = {
+  phase: 'bg-purple-500',
+  week: 'bg-blue-500',
+  workout: 'bg-green-500',
+  plan: 'bg-orange-500',
+}
+
+export const RECOMMENDATION_PRIORITY_LABELS: Record<number, string> = {
+  1: 'Critical',
+  2: 'Urgent',
+  3: 'High',
+  4: 'Medium-High',
+  5: 'Normal',
+  6: 'Medium-Low',
+  7: 'Low',
+  8: 'Very Low',
+  9: 'Minor',
+  10: 'Suggestion',
+}
+
+export const TRIGGER_TYPE_ICONS: Record<TriggerType, string> = {
+  time: '⏰',
+  performance: '📊',
+  event: '📅',
+  readiness: '💪',
+  user: '👤',
+}
