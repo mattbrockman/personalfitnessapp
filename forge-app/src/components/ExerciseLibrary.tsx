@@ -172,14 +172,14 @@ export function ExerciseLibrary() {
         <div className="flex-1 relative">
           <Search
             size={18}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary"
           />
           <input
             type="text"
             placeholder="Search exercises..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:border-violet-500/50"
+            className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-secondary focus:outline-none focus:border-violet-500/50"
           />
         </div>
 
@@ -220,7 +220,7 @@ export function ExerciseLibrary() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
             {/* Body Part Filter */}
             <div>
-              <label className="block text-xs text-white/40 mb-1">Body Part</label>
+              <label className="block text-xs text-secondary mb-1">Body Part</label>
               <select
                 value={filters.bodyPart}
                 onChange={(e) => setFilters({ ...filters, bodyPart: e.target.value })}
@@ -237,7 +237,7 @@ export function ExerciseLibrary() {
 
             {/* Equipment Filter */}
             <div>
-              <label className="block text-xs text-white/40 mb-1">Equipment</label>
+              <label className="block text-xs text-secondary mb-1">Equipment</label>
               <select
                 value={filters.equipment}
                 onChange={(e) => setFilters({ ...filters, equipment: e.target.value })}
@@ -254,7 +254,7 @@ export function ExerciseLibrary() {
 
             {/* Difficulty Filter */}
             <div>
-              <label className="block text-xs text-white/40 mb-1">Difficulty</label>
+              <label className="block text-xs text-secondary mb-1">Difficulty</label>
               <select
                 value={filters.difficulty}
                 onChange={(e) => setFilters({ ...filters, difficulty: e.target.value })}
@@ -271,7 +271,7 @@ export function ExerciseLibrary() {
 
             {/* Adaptation Filter */}
             <div>
-              <label className="block text-xs text-white/40 mb-1">Training Goal</label>
+              <label className="block text-xs text-secondary mb-1">Training Goal</label>
               <select
                 value={filters.adaptation}
                 onChange={(e) => setFilters({ ...filters, adaptation: e.target.value })}
@@ -288,7 +288,7 @@ export function ExerciseLibrary() {
 
             {/* Compound/Isolation Filter */}
             <div>
-              <label className="block text-xs text-white/40 mb-1">Type</label>
+              <label className="block text-xs text-secondary mb-1">Type</label>
               <select
                 value={filters.isCompound}
                 onChange={(e) => setFilters({ ...filters, isCompound: e.target.value })}
@@ -306,19 +306,19 @@ export function ExerciseLibrary() {
       {/* Exercise Grid */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 size={32} className="animate-spin text-white/40" />
+          <Loader2 size={32} className="animate-spin text-secondary" />
         </div>
       ) : exercises.length === 0 ? (
         <div className="text-center py-12">
           <Dumbbell size={48} className="mx-auto mb-4 text-white/20" />
-          <p className="text-white/40">No exercises found</p>
-          <p className="text-sm text-white/30 mt-1">Try adjusting your filters</p>
+          <p className="text-secondary">No exercises found</p>
+          <p className="text-sm text-muted mt-1">Try adjusting your filters</p>
         </div>
       ) : (
         <>
         {/* Subtle searching indicator */}
         {isSearching && (
-          <div className="flex items-center gap-2 text-xs text-white/40 mb-4">
+          <div className="flex items-center gap-2 text-xs text-secondary mb-4">
             <Loader2 size={12} className="animate-spin" />
             Searching...
           </div>
@@ -405,7 +405,7 @@ function ExerciseCard({
           {exercise.equipment && (
             <>
               <span className="text-white/20">•</span>
-              <span className="text-xs text-white/40 capitalize">
+              <span className="text-xs text-secondary capitalize">
                 {exercise.equipment.replace(/_/g, ' ')}
               </span>
             </>
@@ -413,7 +413,7 @@ function ExerciseCard({
           {exercise.difficulty && (
             <>
               <span className="text-white/20">•</span>
-              <span className="text-xs text-white/40 capitalize">
+              <span className="text-xs text-secondary capitalize">
                 {exercise.difficulty}
               </span>
             </>
@@ -426,7 +426,7 @@ function ExerciseCard({
             {exercise.galpin_adaptations.slice(0, 3).map((a) => (
               <span
                 key={a}
-                className="px-1.5 py-0.5 bg-white/5 rounded text-[10px] text-white/50"
+                className="px-1.5 py-0.5 bg-white/5 rounded text-xs text-tertiary"
               >
                 {ADAPTATION_LABELS[a] || a}
               </span>
@@ -522,14 +522,14 @@ function ExerciseDetailModal({
           {/* Muscles */}
           <div className="flex gap-4">
             <div>
-              <h4 className="text-xs text-white/40 mb-1">Primary</h4>
+              <h4 className="text-xs text-secondary mb-1">Primary</h4>
               <span className="px-2 py-1 bg-violet-500/20 text-violet-400 rounded text-sm capitalize">
                 {exercise.primary_muscle?.replace(/_/g, ' ')}
               </span>
             </div>
             {exercise.secondary_muscles && exercise.secondary_muscles.length > 0 && (
               <div>
-                <h4 className="text-xs text-white/40 mb-1">Secondary</h4>
+                <h4 className="text-xs text-secondary mb-1">Secondary</h4>
                 <div className="flex flex-wrap gap-1">
                   {exercise.secondary_muscles.map((m) => (
                     <span
@@ -547,7 +547,7 @@ function ExerciseDetailModal({
           {/* Adaptations */}
           {exercise.galpin_adaptations && exercise.galpin_adaptations.length > 0 && (
             <div>
-              <h4 className="text-xs text-white/40 mb-2">Training Adaptations</h4>
+              <h4 className="text-xs text-secondary mb-2">Training Adaptations</h4>
               <div className="flex flex-wrap gap-2">
                 {exercise.galpin_adaptations.map((a) => (
                   <span
@@ -564,7 +564,7 @@ function ExerciseDetailModal({
           {/* Description */}
           {exercise.description && (
             <div>
-              <h4 className="text-xs text-white/40 mb-1">Description</h4>
+              <h4 className="text-xs text-secondary mb-1">Description</h4>
               <p className="text-sm text-white/70">{exercise.description}</p>
             </div>
           )}
@@ -602,7 +602,7 @@ function ExerciseDetailModal({
           {/* Instructions */}
           {exercise.instructions && (
             <div>
-              <h4 className="text-xs text-white/40 mb-1">Instructions</h4>
+              <h4 className="text-xs text-secondary mb-1">Instructions</h4>
               <p className="text-sm text-white/70">{exercise.instructions}</p>
             </div>
           )}

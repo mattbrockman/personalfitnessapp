@@ -189,7 +189,7 @@ export function GlucoseModal({
               className={`flex-1 py-3 text-sm font-medium transition-colors ${
                 activeTab === tab.id
                   ? 'text-amber-400 border-b-2 border-amber-400'
-                  : 'text-white/50 hover:text-white/80'
+                  : 'text-tertiary hover:text-white/80'
               }`}
             >
               {tab.label}
@@ -207,15 +207,15 @@ export function GlucoseModal({
                   <h4 className="text-sm font-medium text-white/60 mb-3">7-Day Summary</h4>
                   <div className="grid grid-cols-3 gap-4 text-center">
                     <div>
-                      <span className="text-white/40 text-xs">Average</span>
+                      <span className="text-secondary text-xs">Average</span>
                       <p className={`text-xl font-bold ${getGlucoseColor(avgGlucose)}`}>{avgGlucose}</p>
                     </div>
                     <div>
-                      <span className="text-white/40 text-xs">Readings</span>
+                      <span className="text-secondary text-xs">Readings</span>
                       <p className="text-xl font-bold">{last7Days.length}</p>
                     </div>
                     <div>
-                      <span className="text-white/40 text-xs">In Range</span>
+                      <span className="text-secondary text-xs">In Range</span>
                       <p className="text-xl font-bold text-green-400">
                         {Math.round((last7Days.filter(r => r.glucose_mg_dl >= 70 && r.glucose_mg_dl <= 140).length / last7Days.length) * 100)}%
                       </p>
@@ -249,20 +249,20 @@ export function GlucoseModal({
                           <span className={`text-lg font-bold ${getGlucoseColor(reading.glucose_mg_dl)}`}>
                             {reading.glucose_mg_dl}
                           </span>
-                          <div className="text-xs text-white/40">
+                          <div className="text-xs text-secondary">
                             <p>{format(parseISO(reading.reading_time), 'MMM d, h:mm a')}</p>
                             {reading.meal_context && (
-                              <p className="text-white/30">{reading.meal_context.replace(/_/g, ' ')}</p>
+                              <p className="text-muted">{reading.meal_context.replace(/_/g, ' ')}</p>
                             )}
                           </div>
                         </div>
-                        <span className="text-xs text-white/30">{reading.source}</span>
+                        <span className="text-xs text-muted">{reading.source}</span>
                       </div>
                     ))}
                   </div>
                 </div>
               ) : (
-                <div className="text-center py-8 text-white/40">
+                <div className="text-center py-8 text-secondary">
                   <Activity size={32} className="mx-auto mb-2 opacity-50" />
                   <p>No glucose readings yet</p>
                   <p className="text-sm">Log manually or import from CGM</p>
@@ -376,7 +376,7 @@ export function GlucoseModal({
                   onClick={() => fileInputRef.current?.click()}
                   className="w-full p-4 border-2 border-dashed border-white/20 rounded-lg hover:border-amber-500/50 transition-colors"
                 >
-                  <Upload size={24} className="mx-auto mb-2 text-white/40" />
+                  <Upload size={24} className="mx-auto mb-2 text-secondary" />
                   <p className="text-sm text-white/60">
                     {importFile ? importFile.name : 'Click to select CSV file'}
                   </p>
@@ -393,7 +393,7 @@ export function GlucoseModal({
                 </div>
               )}
 
-              <div className="p-3 bg-white/5 rounded-lg text-xs text-white/50">
+              <div className="p-3 bg-white/5 rounded-lg text-xs text-tertiary">
                 <p className="font-medium mb-1">Expected CSV format:</p>
                 <p>timestamp, glucose_mg_dl, ...</p>
                 <p className="mt-1">Example: 2024-01-15T08:30:00, 95</p>

@@ -68,7 +68,7 @@ function DraggableWorkoutItem({
       <div
         {...listeners}
         {...attributes}
-        className="cursor-grab active:cursor-grabbing p-1 -ml-1 text-white/30 hover:text-white/60 touch-none"
+        className="cursor-grab active:cursor-grabbing p-1 -ml-1 text-muted hover:text-white/60 touch-none"
       >
         <GripVertical size={16} />
       </div>
@@ -88,7 +88,7 @@ function DraggableWorkoutItem({
             )}
             <span className="font-medium truncate">{workout.name}</span>
           </div>
-          <div className="flex items-center gap-2 text-xs text-white/50 mt-0.5">
+          <div className="flex items-center gap-2 text-xs text-tertiary mt-0.5">
             <span className="capitalize">{workout.workout_type}</span>
             {workout.planned_duration_minutes && (
               <>
@@ -131,7 +131,7 @@ function DroppableDayContainer({
       ref={setNodeRef}
       className={`transition-all ${showHighlight ? 'ring-2 ring-amber-400/50 ring-offset-2 ring-offset-[#1a1a2e] rounded-lg' : ''}`}
     >
-      <p className="text-xs text-white/50 font-medium mb-2">
+      <p className="text-xs text-tertiary font-medium mb-2">
         {format(parseISO(date), 'EEEE, MMM d')}
       </p>
       <div className={`space-y-2 min-h-[60px] p-2 -m-2 rounded-lg ${showHighlight ? 'bg-amber-500/5' : ''}`}>
@@ -174,16 +174,6 @@ export function BulkScheduleModal({
     })
   )
 
-  // Group workouts by date
-  const workoutsByDate = useMemo(() => {
-    return localWorkouts.reduce((acc, workout) => {
-      const date = workout.suggested_date
-      if (!acc[date]) acc[date] = []
-      acc[date].push(workout)
-      return acc
-    }, {} as Record<string, SuggestedWorkout[]>)
-  }, [localWorkouts])
-
   // Generate full week (Monday-Sunday) based on the workouts
   const weekDates = useMemo(() => {
     if (localWorkouts.length === 0) return []
@@ -195,6 +185,16 @@ export function BulkScheduleModal({
 
     // Generate all 7 days
     return Array.from({ length: 7 }, (_, i) => format(addDays(weekStart, i), 'yyyy-MM-dd'))
+  }, [localWorkouts])
+
+  // Group workouts by their suggested_date directly
+  const workoutsByDate = useMemo(() => {
+    return localWorkouts.reduce((acc, workout) => {
+      const date = workout.suggested_date
+      if (!acc[date]) acc[date] = []
+      acc[date].push(workout)
+      return acc
+    }, {} as Record<string, SuggestedWorkout[]>)
   }, [localWorkouts])
 
   // Get active workout for drag overlay
@@ -331,7 +331,7 @@ export function BulkScheduleModal({
             </div>
             <div>
               <h2 className="text-lg font-semibold">Schedule Workouts</h2>
-              <p className="text-sm text-white/50">
+              <p className="text-sm text-tertiary">
                 {localWorkouts.length} workout{localWorkouts.length !== 1 ? 's' : ''} available
               </p>
             </div>
@@ -363,14 +363,14 @@ export function BulkScheduleModal({
                 <Dumbbell size={14} />
                 <span className="text-lg font-semibold text-white">{strengthCount}</span>
               </div>
-              <p className="text-xs text-white/40">Strength</p>
+              <p className="text-xs text-secondary">Strength</p>
             </div>
             <div className="text-center">
               <div className="flex items-center justify-center gap-1 text-white/60">
                 <Bike size={14} />
                 <span className="text-lg font-semibold text-white">{cardioCount}</span>
               </div>
-              <p className="text-xs text-white/40">Cardio</p>
+              <p className="text-xs text-secondary">Cardio</p>
             </div>
             <div className="text-center">
               <div className="flex items-center justify-center gap-1 text-white/60">
@@ -379,7 +379,7 @@ export function BulkScheduleModal({
                   {Math.round(totalDuration / 60 * 10) / 10}h
                 </span>
               </div>
-              <p className="text-xs text-white/40">Total</p>
+              <p className="text-xs text-secondary">Total</p>
             </div>
           </div>
         </div>
@@ -407,7 +407,7 @@ export function BulkScheduleModal({
                       />
                     ))
                   ) : (
-                    <div className="text-center py-4 text-white/30 text-sm">
+                    <div className="text-center py-4 text-muted text-sm">
                       Rest day — drag workouts here
                     </div>
                   )}

@@ -170,7 +170,7 @@ export async function PATCH(
     const allowedFields = [
       'name', 'status', 'notes', 'perceived_exertion',
       'actual_duration_minutes', 'actual_distance_miles', 'actual_calories',
-      'avg_heart_rate', 'max_heart_rate', 'completed_at'
+      'actual_tss', 'avg_heart_rate', 'max_heart_rate', 'completed_at'
     ]
 
     const updates: Record<string, any> = {}

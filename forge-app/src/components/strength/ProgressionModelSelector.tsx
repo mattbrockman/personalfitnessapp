@@ -104,14 +104,14 @@ export function ProgressionModelSelector({ onClose, onSave }: ProgressionModelSe
         </div>
         {onClose && (
           <button onClick={onClose} className="p-1.5 hover:bg-white/10 rounded-lg">
-            <X size={18} className="text-white/50" />
+            <X size={18} className="text-tertiary" />
           </button>
         )}
       </div>
 
       {/* Model selection */}
       <div className="mb-6">
-        <label className="text-sm text-white/50 mb-2 block">Progression Model</label>
+        <label className="text-sm text-tertiary mb-2 block">Progression Model</label>
         <div className="space-y-2">
           {models.map((model) => {
             const Icon = model.icon
@@ -124,12 +124,12 @@ export function ProgressionModelSelector({ onClose, onSave }: ProgressionModelSe
                   isSelected ? 'bg-blue-500/20 border border-blue-500/50' : 'bg-dark-700/50 hover:bg-dark-700'
                 }`}
               >
-                <Icon size={20} className={isSelected ? 'text-blue-400' : 'text-white/30'} />
+                <Icon size={20} className={isSelected ? 'text-blue-400' : 'text-muted'} />
                 <div>
                   <div className={`font-medium ${isSelected ? 'text-blue-400' : 'text-white/80'}`}>
                     {model.label}
                   </div>
-                  <div className="text-xs text-white/40 mt-0.5">{model.description}</div>
+                  <div className="text-xs text-secondary mt-0.5">{model.description}</div>
                 </div>
               </button>
             )
@@ -141,7 +141,7 @@ export function ProgressionModelSelector({ onClose, onSave }: ProgressionModelSe
       {preferences.progression_model === 'linear' && (
         <div className="space-y-4 mb-6">
           <div>
-            <label className="text-sm text-white/50 mb-1 block">Lower Body Increment (lbs)</label>
+            <label className="text-sm text-tertiary mb-1 block">Lower Body Increment (lbs)</label>
             <input
               type="number"
               value={preferences.linear_increment_lbs || 5}
@@ -152,7 +152,7 @@ export function ProgressionModelSelector({ onClose, onSave }: ProgressionModelSe
             />
           </div>
           <div>
-            <label className="text-sm text-white/50 mb-1 block">Upper Body Increment (lbs)</label>
+            <label className="text-sm text-tertiary mb-1 block">Upper Body Increment (lbs)</label>
             <input
               type="number"
               value={preferences.linear_increment_upper_lbs || 2.5}
@@ -169,7 +169,7 @@ export function ProgressionModelSelector({ onClose, onSave }: ProgressionModelSe
         <div className="space-y-4 mb-6">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-sm text-white/50 mb-1 block">Rep Target (Low)</label>
+              <label className="text-sm text-tertiary mb-1 block">Rep Target (Low)</label>
               <input
                 type="number"
                 value={preferences.double_rep_target_low || 8}
@@ -180,7 +180,7 @@ export function ProgressionModelSelector({ onClose, onSave }: ProgressionModelSe
               />
             </div>
             <div>
-              <label className="text-sm text-white/50 mb-1 block">Rep Target (High)</label>
+              <label className="text-sm text-tertiary mb-1 block">Rep Target (High)</label>
               <input
                 type="number"
                 value={preferences.double_rep_target_high || 12}
@@ -192,7 +192,7 @@ export function ProgressionModelSelector({ onClose, onSave }: ProgressionModelSe
             </div>
           </div>
           <div>
-            <label className="text-sm text-white/50 mb-1 block">Weight Increase (lbs)</label>
+            <label className="text-sm text-tertiary mb-1 block">Weight Increase (lbs)</label>
             <input
               type="number"
               value={preferences.double_weight_increase_lbs || 5}
@@ -201,7 +201,7 @@ export function ProgressionModelSelector({ onClose, onSave }: ProgressionModelSe
               step="2.5"
               min="2.5"
             />
-            <p className="text-xs text-white/30 mt-1">
+            <p className="text-xs text-muted mt-1">
               Weight added when you hit {preferences.double_rep_target_high || 12} reps on all sets
             </p>
           </div>
@@ -212,7 +212,7 @@ export function ProgressionModelSelector({ onClose, onSave }: ProgressionModelSe
         <div className="space-y-4 mb-6">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-sm text-white/50 mb-1 block">Target RPE (Low)</label>
+              <label className="text-sm text-tertiary mb-1 block">Target RPE (Low)</label>
               <input
                 type="number"
                 value={preferences.rpe_target_low || 7}
@@ -224,7 +224,7 @@ export function ProgressionModelSelector({ onClose, onSave }: ProgressionModelSe
               />
             </div>
             <div>
-              <label className="text-sm text-white/50 mb-1 block">Target RPE (High)</label>
+              <label className="text-sm text-tertiary mb-1 block">Target RPE (High)</label>
               <input
                 type="number"
                 value={preferences.rpe_target_high || 9}
@@ -236,7 +236,7 @@ export function ProgressionModelSelector({ onClose, onSave }: ProgressionModelSe
               />
             </div>
           </div>
-          <p className="text-xs text-white/30">
+          <p className="text-xs text-muted">
             Increase weight if RPE &lt; {preferences.rpe_target_low}, decrease if RPE &gt; {preferences.rpe_target_high}
           </p>
         </div>

@@ -33,7 +33,7 @@ export function PlateauAlertCard({ plateau, onDismiss, onViewSuggestions }: Plat
             {onDismiss && (
               <button
                 onClick={onDismiss}
-                className="text-xs text-white/40 hover:text-white/60"
+                className="text-xs text-secondary hover:text-white/60"
               >
                 Dismiss
               </button>
@@ -45,7 +45,7 @@ export function PlateauAlertCard({ plateau, onDismiss, onViewSuggestions }: Plat
           </p>
 
           {last_pr_date && last_pr_e1rm && (
-            <div className="flex items-center gap-2 mt-2 text-xs text-white/40">
+            <div className="flex items-center gap-2 mt-2 text-xs text-secondary">
               <TrendingUp size={12} />
               <span>
                 Last PR: {last_pr_e1rm} lbs e1RM on{' '}
@@ -125,13 +125,13 @@ export function PlateauSuggestions({ exerciseName }: { exerciseName: string }) {
 
   return (
     <div className="space-y-3">
-      <h4 className="text-sm font-medium text-white/50">
+      <h4 className="text-sm font-medium text-tertiary">
         Breaking the {exerciseName} Plateau
       </h4>
       {suggestions.map((s, i) => (
         <div key={i} className="p-3 bg-dark-700/30 rounded-lg">
           <div className="font-medium text-sm">{s.title}</div>
-          <div className="text-xs text-white/50 mt-0.5">{s.description}</div>
+          <div className="text-xs text-tertiary mt-0.5">{s.description}</div>
           <div className="text-xs text-amber-400/70 mt-1">{s.example}</div>
         </div>
       ))}

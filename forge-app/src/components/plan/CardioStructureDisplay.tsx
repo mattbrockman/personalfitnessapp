@@ -42,7 +42,7 @@ export function CardioStructureDisplay({ structure, compact = false }: CardioStr
           title={`Warmup: ${structure.warmup_minutes}min`}
         >
           {structure.warmup_minutes >= 5 && (
-            <span className="text-[10px] text-white/70">W</span>
+            <span className="text-xs text-white/70">W</span>
           )}
         </div>
 
@@ -60,7 +60,7 @@ export function CardioStructureDisplay({ structure, compact = false }: CardioStr
               title={`${interval.intensity.toUpperCase()}: ${interval.duration_minutes}min${repeats > 1 ? ` x${repeats}` : ''}`}
             >
               {widthPct >= 10 && (
-                <span className="text-[10px] text-black/70 font-medium">
+                <span className="text-xs text-black/70 font-medium">
                   {interval.intensity.toUpperCase()}
                 </span>
               )}
@@ -75,7 +75,7 @@ export function CardioStructureDisplay({ structure, compact = false }: CardioStr
           title={`Cooldown: ${structure.cooldown_minutes}min`}
         >
           {structure.cooldown_minutes >= 5 && (
-            <span className="text-[10px] text-white/70">C</span>
+            <span className="text-xs text-white/70">C</span>
           )}
         </div>
       </div>

@@ -104,7 +104,7 @@ export function SupplementsCard({
           </div>
           <div>
             <h3 className="font-medium">Supplements</h3>
-            <p className="text-xs text-white/50">{activeSupplements.length} active</p>
+            <p className="text-xs text-tertiary">{activeSupplements.length} active</p>
           </div>
         </div>
         <div className="flex items-center gap-1">
@@ -112,13 +112,13 @@ export function SupplementsCard({
             onClick={() => setShowInfo(!showInfo)}
             className="p-1 hover:bg-white/10 rounded-lg"
           >
-            <Info size={16} className="text-white/40" />
+            <Info size={16} className="text-secondary" />
           </button>
           <button
             onClick={() => setShowAddForm(!showAddForm)}
             className="p-1 hover:bg-white/10 rounded-lg"
           >
-            <Plus size={16} className="text-white/40" />
+            <Plus size={16} className="text-secondary" />
           </button>
         </div>
       </div>
@@ -197,7 +197,7 @@ export function SupplementsCard({
                 <div>
                   <p className="text-sm font-medium">{supplement.name}</p>
                   {supplement.dosage && (
-                    <p className="text-xs text-white/40">{supplement.dosage} • {supplement.frequency}</p>
+                    <p className="text-xs text-secondary">{supplement.dosage} • {supplement.frequency}</p>
                   )}
                 </div>
               </div>
@@ -205,18 +205,18 @@ export function SupplementsCard({
                 onClick={() => handleToggleActive(supplement.id, supplement.is_active)}
                 className="p-1 hover:bg-white/10 rounded"
               >
-                <X size={14} className="text-white/30 hover:text-red-400" />
+                <X size={14} className="text-muted hover:text-red-400" />
               </button>
             </div>
           ))}
           {activeSupplements.length > 6 && (
-            <p className="text-xs text-white/40 text-center">
+            <p className="text-xs text-secondary text-center">
               +{activeSupplements.length - 6} more
             </p>
           )}
         </div>
       ) : (
-        <div className="text-center py-4 text-white/40 text-sm">
+        <div className="text-center py-4 text-secondary text-sm">
           <Pill size={24} className="mx-auto mb-1 opacity-50" />
           <p>No supplements tracked</p>
           <button

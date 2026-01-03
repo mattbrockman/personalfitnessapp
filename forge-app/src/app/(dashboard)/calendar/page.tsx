@@ -1,14 +1,10 @@
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/server'
 import { CalendarView } from '@/components/CalendarView'
 import { format, startOfMonth, endOfMonth, subMonths, addMonths } from 'date-fns'
 import { Workout } from '@/types/database'
 
 export default async function CalendarPage() {
   const supabase = await createClient()
-  const adminClient = createAdminClient()
-
-  // Get current user
-  const { data: { user } } = await supabase.auth.getUser()
 
   // Get expanded date range (3 months back, 3 months forward)
   const now = new Date()
@@ -17,46 +13,13 @@ export default async function CalendarPage() {
   const startStr = format(rangeStart, 'yyyy-MM-dd')
   const endStr = format(rangeEnd, 'yyyy-MM-dd')
 
-  // Fetch regular workouts
+  // Fetch only actual workouts (not suggested ones - those belong in Plan view)
   const { data: workouts } = await supabase
     .from('workouts')
     .select('*')
     .gte('scheduled_date', startStr)
     .lte('scheduled_date', endStr)
     .order('scheduled_date', { ascending: true })
-
-  // Fetch suggested workouts from active plan
-  // Look up active plan directly from training_plans table
-  let suggestedWorkouts: any[] = []
-  if (user) {
-    const { data: activePlan } = await (adminClient as any)
-      .from('training_plans')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('status', 'active')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single()
-
-    if (activePlan?.id) {
-      const { data: sw } = await (adminClient as any)
-        .from('suggested_workouts')
-        .select('*')
-        .eq('plan_id', activePlan.id)
-        .gte('suggested_date', startStr)
-        .lte('suggested_date', endStr)
-        .order('suggested_date', { ascending: true })
-
-      suggestedWorkouts = (sw || []).map((w: any) => ({
-        ...w,
-        scheduled_date: w.suggested_date,
-        source: 'suggested',
-      }))
-    }
-  }
-
-  // Combine workouts
-  const allWorkouts = [...(workouts || []), ...suggestedWorkouts]
 
   // Check Strava connection
   const { data: stravaIntegration } = await (supabase
@@ -67,7 +30,7 @@ export default async function CalendarPage() {
 
   return (
     <CalendarView
-      initialWorkouts={(allWorkouts as Workout[]) || []}
+      initialWorkouts={(workouts as Workout[]) || []}
       stravaConnected={!!stravaIntegration}
       lastSyncAt={stravaIntegration?.updated_at ?? null}
     />

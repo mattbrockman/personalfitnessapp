@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, createContext, useContext } from 'react'
 import {
   Bot,
   X,
@@ -28,7 +28,35 @@ const QUICK_PROMPTS = [
   { icon: Moon, label: 'Recovery check', prompt: "Am I recovered enough to train hard today?" },
 ]
 
-export function AIChatBubble() {
+// Context for controlling AI chat from anywhere
+interface AIChatContextType {
+  isOpen: boolean
+  openChat: () => void
+  closeChat: () => void
+  toggleChat: () => void
+}
+
+const AIChatContext = createContext<AIChatContextType | null>(null)
+
+export function useAIChat() {
+  const context = useContext(AIChatContext)
+  if (!context) {
+    // Return no-op functions if not within provider (graceful degradation)
+    return {
+      isOpen: false,
+      openChat: () => {},
+      closeChat: () => {},
+      toggleChat: () => {},
+    }
+  }
+  return context
+}
+
+interface AIChatBubbleProps {
+  showFloatingButton?: boolean // Set to false to hide the floating bubble
+}
+
+export function AIChatBubble({ showFloatingButton = true }: AIChatBubbleProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
@@ -184,16 +212,41 @@ export function AIChatBubble() {
     return () => document.removeEventListener('keydown', handleEscapeKey)
   }, [handleEscapeKey])
 
+  // Context value for external control
+  const contextValue: AIChatContextType = {
+    isOpen,
+    openChat: () => setIsOpen(true),
+    closeChat: () => setIsOpen(false),
+    toggleChat: () => setIsOpen(prev => !prev),
+  }
+
+  // Listen for custom events to open/close chat
+  useEffect(() => {
+    const handleOpenChat = () => setIsOpen(true)
+    const handleCloseChat = () => setIsOpen(false)
+    const handleToggleChat = () => setIsOpen(prev => !prev)
+
+    window.addEventListener('ai-chat-open', handleOpenChat)
+    window.addEventListener('ai-chat-close', handleCloseChat)
+    window.addEventListener('ai-chat-toggle', handleToggleChat)
+
+    return () => {
+      window.removeEventListener('ai-chat-open', handleOpenChat)
+      window.removeEventListener('ai-chat-close', handleCloseChat)
+      window.removeEventListener('ai-chat-toggle', handleToggleChat)
+    }
+  }, [])
+
   return (
-    <>
-      {/* Chat bubble button */}
-      {!isOpen && (
+    <AIChatContext.Provider value={contextValue}>
+      {/* Chat bubble button - only show if showFloatingButton is true */}
+      {showFloatingButton && !isOpen && (
         <button
           onClick={() => setIsOpen(true)}
           aria-label="Open AI Coach chat"
           aria-expanded={isOpen}
           aria-controls="ai-chat-window"
-          className="fixed bottom-6 right-6 w-14 h-14 bg-violet-500 hover:bg-violet-400 rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-105 z-50"
+          className="fixed bottom-20 lg:bottom-6 right-4 lg:right-6 w-14 h-14 bg-violet-500 hover:bg-violet-400 rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-105 z-50"
         >
           <Bot size={24} className="text-white" aria-hidden="true" />
           <span className="absolute -top-1 -right-1 w-4 h-4 bg-amber-400 rounded-full flex items-center justify-center" aria-hidden="true">
@@ -209,7 +262,7 @@ export function AIChatBubble() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="ai-chat-title"
-          className="fixed bottom-6 right-6 w-[380px] h-[500px] bg-zinc-900 rounded-2xl shadow-2xl border border-white/10 flex flex-col overflow-hidden z-50 animate-slide-up focus-trap"
+          className="fixed bottom-20 lg:bottom-6 right-2 left-2 lg:left-auto lg:right-6 lg:w-[380px] h-[70vh] max-h-[500px] bg-zinc-900 rounded-2xl shadow-2xl border border-white/10 flex flex-col overflow-hidden z-50 animate-slide-up focus-trap"
         >
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-white/10 bg-violet-500/10">
@@ -249,7 +302,7 @@ export function AIChatBubble() {
           >
             {!historyLoaded ? (
               <div className="flex items-center justify-center h-full" aria-label="Loading chat history">
-                <Loader2 size={24} className="animate-spin text-white/40" aria-hidden="true" />
+                <Loader2 size={24} className="animate-spin text-secondary" aria-hidden="true" />
                 <span className="sr-only">Loading chat history...</span>
               </div>
             ) : (
@@ -360,7 +413,7 @@ export function AIChatBubble() {
                 spellCheck="false"
                 data-form-type="other"
                 enterKeyHint="send"
-                className="flex-1 px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-sm text-white placeholder:text-white/50 focus:outline-none focus:border-violet-500/50 resize-none max-h-[100px] disabled:opacity-50"
+                className="flex-1 px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-sm text-white placeholder:text-tertiary focus:outline-none focus:border-violet-500/50 resize-none max-h-[100px] disabled:opacity-50"
               />
               <span id="chat-hint" className="sr-only">Press Enter to send, Shift+Enter for new line</span>
               <button
@@ -379,6 +432,25 @@ export function AIChatBubble() {
           </div>
         </div>
       )}
-    </>
+    </AIChatContext.Provider>
   )
+}
+
+// Helper function to trigger AI chat open from anywhere
+export function openAIChat() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('ai-chat-open'))
+  }
+}
+
+export function closeAIChat() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('ai-chat-close'))
+  }
+}
+
+export function toggleAIChat() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('ai-chat-toggle'))
+  }
 }

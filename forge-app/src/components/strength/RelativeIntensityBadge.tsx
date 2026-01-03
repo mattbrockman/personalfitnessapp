@@ -87,18 +87,18 @@ export function RelativeIntensityTooltip({
   return (
     <div className="bg-dark-700 rounded-lg p-3 text-sm">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-white/50">Weight</span>
+        <span className="text-tertiary">Weight</span>
         <span className="font-medium">{weight} lbs</span>
       </div>
       <div className="flex items-center justify-between mb-2">
-        <span className="text-white/50">Estimated 1RM</span>
+        <span className="text-tertiary">Estimated 1RM</span>
         <span className="font-medium">{estimated1RM} lbs</span>
       </div>
       <div className="flex items-center justify-between mb-2">
-        <span className="text-white/50">Relative Intensity</span>
+        <span className="text-tertiary">Relative Intensity</span>
         <span className="font-medium text-amber-400">{relativeIntensity}%</span>
       </div>
-      <div className="pt-2 border-t border-white/10 text-xs text-white/40">
+      <div className="pt-2 border-t border-white/10 text-xs text-secondary">
         {getZoneDescription(relativeIntensity)}
       </div>
     </div>

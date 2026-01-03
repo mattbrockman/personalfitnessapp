@@ -122,7 +122,7 @@ export function BodyCompModal({
               className={`flex-1 py-3 text-sm font-medium transition-colors ${
                 activeTab === tab.id
                   ? 'text-amber-400 border-b-2 border-amber-400'
-                  : 'text-white/50 hover:text-white/80'
+                  : 'text-tertiary hover:text-white/80'
               }`}
             >
               {tab.label}
@@ -140,19 +140,19 @@ export function BodyCompModal({
                   <h4 className="text-sm font-medium text-white/60 mb-3">Current Composition</h4>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <span className="text-white/40 text-xs">Weight</span>
+                      <span className="text-secondary text-xs">Weight</span>
                       <p className="text-xl font-bold">{latestLog.weight_lbs?.toFixed(1)} lbs</p>
                     </div>
                     <div>
-                      <span className="text-white/40 text-xs">Lean Mass</span>
+                      <span className="text-secondary text-xs">Lean Mass</span>
                       <p className="text-xl font-bold text-green-400">{latestLog.lean_mass_lbs?.toFixed(1)} lbs</p>
                     </div>
                     <div>
-                      <span className="text-white/40 text-xs">Body Fat</span>
+                      <span className="text-secondary text-xs">Body Fat</span>
                       <p className="text-xl font-bold">{latestLog.body_fat_pct?.toFixed(1)}%</p>
                     </div>
                     <div>
-                      <span className="text-white/40 text-xs">Muscle Mass</span>
+                      <span className="text-secondary text-xs">Muscle Mass</span>
                       <p className="text-xl font-bold">{latestLog.muscle_mass_lbs?.toFixed(1) || '--'} lbs</p>
                     </div>
                   </div>
@@ -196,7 +196,7 @@ export function BodyCompModal({
                           <p className="font-medium">
                             {log.weight_lbs?.toFixed(1)} lbs • {log.body_fat_pct?.toFixed(1)}% BF
                           </p>
-                          <p className="text-xs text-white/40">
+                          <p className="text-xs text-secondary">
                             {format(parseISO(log.log_date), 'MMM d, yyyy')} • {log.source}
                           </p>
                         </div>
@@ -208,7 +208,7 @@ export function BodyCompModal({
                   </div>
                 </div>
               ) : (
-                <div className="text-center py-8 text-white/40">
+                <div className="text-center py-8 text-secondary">
                   <Scale size={32} className="mx-auto mb-2 opacity-50" />
                   <p>No logs recorded yet</p>
                 </div>
@@ -242,7 +242,7 @@ export function BodyCompModal({
                       }`}
                     >
                       <p className="font-medium">{opt.label}</p>
-                      <p className="text-xs text-white/40">{opt.description}</p>
+                      <p className="text-xs text-secondary">{opt.description}</p>
                     </button>
                   ))}
                 </div>
@@ -365,7 +365,7 @@ export function BodyCompModal({
                     <span className="text-white/60 text-sm">FFMI (Fat-Free Mass Index)</span>
                     <span className="font-bold">{ffmi.toFixed(1)}</span>
                   </div>
-                  <p className="text-xs text-white/40 mt-1">
+                  <p className="text-xs text-secondary mt-1">
                     {ffmi >= 25 ? 'Elite (possible with PEDs)' :
                      ffmi >= 22 ? 'Excellent (natural limit area)' :
                      ffmi >= 20 ? 'Good (trained)' :

@@ -60,7 +60,7 @@ export function WeatherBadge({ weather, onClick, size = 'sm' }: WeatherBadgeProp
       title={`${weather.weatherDescription}\nHigh: ${weather.tempHigh}°F, Low: ${weather.tempLow}°F\n${weather.precipProbability}% chance of rain\nWind: ${weather.windSpeed}/${weather.windGusts} mph`}
     >
       <IconComponent size={isSmall ? 12 : 16} className={iconColor} />
-      <span className={`text-white/70 ${isSmall ? 'text-[10px]' : 'text-xs'}`}>
+      <span className={`text-white/70 ${isSmall ? 'text-xs' : 'text-xs'}`}>
         {weather.tempHigh}°/{weather.tempLow}°
       </span>
     </button>
@@ -75,11 +75,11 @@ export function WeatherBadgeCompact({ weather, onClick }: { weather: WeatherDay;
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-0.5 hover:bg-white/10 rounded px-0.5 transition-colors"
+      className="flex items-center gap-0.5 hover:bg-white/10 rounded px-1 py-0.5 transition-colors"
       title={weather.weatherDescription}
     >
-      <IconComponent size={10} className={iconColor} />
-      <span className="text-[9px] text-white/60">{weather.tempHigh}°</span>
+      <IconComponent size={12} className={iconColor} />
+      <span className="text-[9px] text-tertiary">{Math.round(weather.tempHigh)}°/{Math.round(weather.tempLow)}°</span>
     </button>
   )
 }

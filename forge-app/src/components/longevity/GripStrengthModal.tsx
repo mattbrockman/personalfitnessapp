@@ -147,7 +147,7 @@ export function GripStrengthModal({
               className={`flex-1 py-3 text-sm font-medium transition-colors ${
                 activeTab === tab.id
                   ? 'text-amber-400 border-b-2 border-amber-400'
-                  : 'text-white/50 hover:text-white/80'
+                  : 'text-tertiary hover:text-white/80'
               }`}
             >
               {tab.label}
@@ -164,12 +164,12 @@ export function GripStrengthModal({
                 <div className="p-4 bg-white/5 rounded-xl">
                   <div className="grid grid-cols-2 gap-4 mb-3">
                     <div>
-                      <span className="text-white/40 text-xs">Left Hand</span>
-                      <p className="text-2xl font-bold">{leftGrip || '--'} <span className="text-sm text-white/50">lbs</span></p>
+                      <span className="text-secondary text-xs">Left Hand</span>
+                      <p className="text-2xl font-bold">{leftGrip || '--'} <span className="text-sm text-tertiary">lbs</span></p>
                     </div>
                     <div>
-                      <span className="text-white/40 text-xs">Right Hand</span>
-                      <p className="text-2xl font-bold">{rightGrip || '--'} <span className="text-sm text-white/50">lbs</span></p>
+                      <span className="text-secondary text-xs">Right Hand</span>
+                      <p className="text-2xl font-bold">{rightGrip || '--'} <span className="text-sm text-tertiary">lbs</span></p>
                     </div>
                   </div>
                   <div className="text-sm text-white/60">
@@ -182,11 +182,11 @@ export function GripStrengthModal({
               <div className="p-3 bg-white/5 rounded-lg">
                 <h4 className="text-sm font-medium mb-2">Reference Values ({sex}, {bracket})</h4>
                 <div className="grid grid-cols-5 gap-2 text-xs text-center">
-                  <div className="text-white/40">10th</div>
-                  <div className="text-white/40">25th</div>
-                  <div className="text-white/40">50th</div>
-                  <div className="text-white/40">75th</div>
-                  <div className="text-white/40">90th</div>
+                  <div className="text-secondary">10th</div>
+                  <div className="text-secondary">25th</div>
+                  <div className="text-secondary">50th</div>
+                  <div className="text-secondary">75th</div>
+                  <div className="text-secondary">90th</div>
                   <div className="text-red-400">{percentiles[10]}</div>
                   <div className="text-amber-400">{percentiles[25]}</div>
                   <div className="text-white">{percentiles[50]}</div>
@@ -209,7 +209,7 @@ export function GripStrengthModal({
                           <p className="font-medium">
                             L: {reading.left} / R: {reading.right} lbs
                           </p>
-                          <p className="text-xs text-white/40">
+                          <p className="text-xs text-secondary">
                             {format(parseISO(reading.date), 'MMM d, yyyy')}
                           </p>
                         </div>
@@ -218,7 +218,7 @@ export function GripStrengthModal({
                   </div>
                 </div>
               ) : (
-                <div className="text-center py-8 text-white/40">
+                <div className="text-center py-8 text-secondary">
                   <Grip size={32} className="mx-auto mb-2 opacity-50" />
                   <p>No tests recorded yet</p>
                 </div>
@@ -291,11 +291,11 @@ export function GripStrengthModal({
                   </div>
                   <div className="grid grid-cols-2 gap-4 text-center">
                     <div>
-                      <span className="text-white/40 text-xs">Left</span>
+                      <span className="text-secondary text-xs">Left</span>
                       <p className="text-xl font-bold">{previewLeft || '--'}</p>
                     </div>
                     <div>
-                      <span className="text-white/40 text-xs">Right</span>
+                      <span className="text-secondary text-xs">Right</span>
                       <p className="text-xl font-bold">{previewRight || '--'}</p>
                     </div>
                   </div>

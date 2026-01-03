@@ -1,15 +1,15 @@
 import { NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
-import { 
-  refreshStravaToken, 
-  getStravaActivities, 
+import {
+  refreshStravaToken,
+  getStravaActivities,
   getStravaActivityZones,
   mapStravaTypeToWorkoutType,
   metersToMiles,
   metersToFeet,
-  estimateTSS,
   StravaActivity,
 } from '@/lib/strava'
+import { estimateStravaActivityTSS } from '@/lib/calculate-workout-tss'
 
 export async function POST(request: Request) {
   const supabase = createClient()
@@ -68,14 +68,19 @@ export async function POST(request: Request) {
       per_page: 100,
     })
 
-    // Get user's FTP for TSS calculation
+    // Get user's profile for TSS calculation
     const { data: profile } = await adminSupabase
       .from('profiles')
-      .select('ftp_watts')
+      .select('ftp_watts, lthr_bpm, resting_hr, max_hr_bpm')
       .eq('id', session.user.id)
       .single()
 
-    const ftp = profile?.ftp_watts
+    const userProfile = {
+      ftp_watts: profile?.ftp_watts,
+      lthr_bpm: profile?.lthr_bpm,
+      resting_hr: profile?.resting_hr,
+      max_hr_bpm: profile?.max_hr_bpm,
+    }
 
     // Process each activity
     const results: {
@@ -121,6 +126,9 @@ export async function POST(request: Request) {
           .or(`workout_type.eq.${workoutType},category.eq.${category}`)
           .single()
 
+        // Calculate TSS for the activity
+        const activityTSS = estimateStravaActivityTSS(activity, userProfile)
+
         // Actual data from Strava - populate proper columns
         const actualData = {
           status: 'completed' as const,
@@ -132,6 +140,7 @@ export async function POST(request: Request) {
           actual_avg_power: activity.average_watts ? Math.round(activity.average_watts) : null,
           actual_np: activity.weighted_average_watts ? Math.round(activity.weighted_average_watts) : null,
           actual_elevation_ft: activity.total_elevation_gain ? Math.round(metersToFeet(activity.total_elevation_gain)) : null,
+          actual_tss: activityTSS,
           notes: `[v4] Strava: ${activity.name} | https://www.strava.com/activities/${activity.id}`,
         }
 

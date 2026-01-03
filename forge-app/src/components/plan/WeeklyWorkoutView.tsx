@@ -19,6 +19,10 @@ import {
   Loader2,
   RefreshCw,
   Plus,
+  Circle,
+  Check,
+  Calendar,
+  X,
 } from 'lucide-react'
 import {
   SuggestedWorkout,
@@ -115,15 +119,27 @@ export function WeeklyWorkoutView({
       workoutsByDay[day.toLowerCase()] = []
     })
 
+    console.log('WeeklyWorkoutView - filtering workouts:', {
+      totalWorkouts: suggestedWorkouts.length,
+      weekStart: format(currentWeekStart, 'yyyy-MM-dd'),
+      weekEnd: format(weekEnd, 'yyyy-MM-dd'),
+      firstWorkoutDate: suggestedWorkouts[0]?.suggested_date,
+    })
+
     suggestedWorkouts.forEach(workout => {
       const workoutDate = parseISO(workout.suggested_date)
       if (workoutDate >= currentWeekStart && workoutDate <= weekEnd) {
-        const dayKey = workout.day_of_week?.toLowerCase() || format(workoutDate, 'EEEE').toLowerCase()
+        // Always use suggested_date to determine the day column (not day_of_week)
+        // This ensures consistency with BulkScheduleModal
+        const dayKey = format(workoutDate, 'EEEE').toLowerCase()
         if (workoutsByDay[dayKey]) {
           workoutsByDay[dayKey].push(workout)
         }
       }
     })
+
+    const totalInWeek = Object.values(workoutsByDay).flat().length
+    console.log('WeeklyWorkoutView - workouts in current week:', totalInWeek)
 
     return workoutsByDay
   }, [suggestedWorkouts, currentWeekStart])
@@ -215,7 +231,7 @@ export function WeeklyWorkoutView({
               <p className="font-semibold">
                 Week {weekNumber || '—'}
               </p>
-              <p className="text-sm text-white/50">
+              <p className="text-sm text-tertiary">
                 {format(currentWeekStart, 'MMM d')} - {format(addDays(currentWeekStart, 6), 'MMM d, yyyy')}
               </p>
             </div>
@@ -245,7 +261,7 @@ export function WeeklyWorkoutView({
               <div className={`w-2 h-2 rounded-full ${PHASE_COLORS[currentPhase.phase_type]}`} />
               <span className="text-sm">
                 {currentPhase.name}
-                <span className="text-white/50 ml-1">({PHASE_LABELS[currentPhase.phase_type]})</span>
+                <span className="text-tertiary ml-1">({PHASE_LABELS[currentPhase.phase_type]})</span>
               </span>
             </div>
           )}
@@ -317,7 +333,7 @@ export function WeeklyWorkoutView({
                     <div className={`px-3 py-2 flex items-center justify-between ${isToday ? 'bg-amber-500/10' : 'bg-white/5'}`}>
                       <div className="flex items-center gap-2">
                         <div>
-                          <p className="text-xs text-white/50">{day.slice(0, 3)}</p>
+                          <p className="text-xs text-tertiary">{day.slice(0, 3)}</p>
                           <p className={`font-semibold ${isToday ? 'text-amber-400' : ''}`}>
                             {format(dayDate, 'd')}
                           </p>
@@ -336,7 +352,7 @@ export function WeeklyWorkoutView({
                           className="p-1 hover:bg-white/10 rounded transition-colors"
                           title="Add workout"
                         >
-                          <Plus size={16} className="text-white/40 hover:text-white/70" />
+                          <Plus size={16} className="text-secondary hover:text-white/70" />
                         </button>
                       )}
                     </div>
@@ -382,7 +398,7 @@ export function WeeklyWorkoutView({
       {/* No workouts message */}
       {!isLoading && Object.values(weekWorkouts).every(w => w.length === 0) && (
         <div className="glass rounded-xl p-8 text-center">
-          <p className="text-white/50">No workouts generated for this week yet.</p>
+          <p className="text-tertiary">No workouts generated for this week yet.</p>
           {onRefresh && (
             <button
               onClick={onRefresh}
@@ -391,6 +407,29 @@ export function WeeklyWorkoutView({
               Generate Workouts
             </button>
           )}
+        </div>
+      )}
+
+      {/* Status Legend */}
+      {!isLoading && Object.values(weekWorkouts).some(w => w.length > 0) && (
+        <div className="flex flex-wrap items-center gap-4 text-xs text-tertiary">
+          <span className="font-medium text-white/60">Status:</span>
+          <div className="flex items-center gap-1.5">
+            <Circle size={10} className="text-white/40" />
+            <span>Suggested</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Calendar size={10} className="text-green-400" />
+            <span>Scheduled</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Check size={10} className="text-emerald-400" />
+            <span>Completed</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <X size={10} className="text-white/30" />
+            <span>Skipped</span>
+          </div>
         </div>
       )}
 
@@ -403,25 +442,25 @@ export function WeeklyWorkoutView({
               <p className="text-2xl font-semibold">
                 {Object.values(weekWorkouts).flat().length}
               </p>
-              <p className="text-xs text-white/50">Total Workouts</p>
+              <p className="text-xs text-tertiary">Total Workouts</p>
             </div>
             <div>
               <p className="text-2xl font-semibold">
                 {Object.values(weekWorkouts).flat().filter(w => w.category === 'strength').length}
               </p>
-              <p className="text-xs text-white/50">Strength</p>
+              <p className="text-xs text-tertiary">Strength</p>
             </div>
             <div>
               <p className="text-2xl font-semibold">
                 {Object.values(weekWorkouts).flat().filter(w => w.category === 'cardio').length}
               </p>
-              <p className="text-xs text-white/50">Cardio</p>
+              <p className="text-xs text-tertiary">Cardio</p>
             </div>
             <div>
               <p className="text-2xl font-semibold">
                 {Math.round(Object.values(weekWorkouts).flat().reduce((acc, w) => acc + (w.planned_duration_minutes || 0), 0) / 60 * 10) / 10}h
               </p>
-              <p className="text-xs text-white/50">Total Hours</p>
+              <p className="text-xs text-tertiary">Total Hours</p>
             </div>
           </div>
         </div>

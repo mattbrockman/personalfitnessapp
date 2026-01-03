@@ -154,7 +154,7 @@ export function WorkoutEditor({ workout, onSave, onClose }: WorkoutEditorProps) 
             )}
             <div>
               <h2 className="text-lg font-semibold">Edit Workout</h2>
-              <p className="text-sm text-white/50">{workout.suggested_date}</p>
+              <p className="text-sm text-tertiary">{workout.suggested_date}</p>
             </div>
           </div>
           <button
@@ -247,7 +247,7 @@ export function WorkoutEditor({ workout, onSave, onClose }: WorkoutEditorProps) 
                     className="bg-white/5 rounded-lg p-3 space-y-3"
                   >
                     <div className="flex items-center gap-2">
-                      <GripVertical size={16} className="text-white/30" />
+                      <GripVertical size={16} className="text-muted" />
                       <input
                         type="text"
                         value={ex.exercise_name}
@@ -265,7 +265,7 @@ export function WorkoutEditor({ workout, onSave, onClose }: WorkoutEditorProps) 
 
                     <div className="grid grid-cols-4 gap-2 text-sm">
                       <div>
-                        <label className="text-xs text-white/50">Sets</label>
+                        <label className="text-xs text-tertiary">Sets</label>
                         <input
                           type="number"
                           value={ex.sets}
@@ -274,7 +274,7 @@ export function WorkoutEditor({ workout, onSave, onClose }: WorkoutEditorProps) 
                         />
                       </div>
                       <div>
-                        <label className="text-xs text-white/50">Min Reps</label>
+                        <label className="text-xs text-tertiary">Min Reps</label>
                         <input
                           type="number"
                           value={ex.reps_min}
@@ -283,7 +283,7 @@ export function WorkoutEditor({ workout, onSave, onClose }: WorkoutEditorProps) 
                         />
                       </div>
                       <div>
-                        <label className="text-xs text-white/50">Max Reps</label>
+                        <label className="text-xs text-tertiary">Max Reps</label>
                         <input
                           type="number"
                           value={ex.reps_max}
@@ -292,7 +292,7 @@ export function WorkoutEditor({ workout, onSave, onClose }: WorkoutEditorProps) 
                         />
                       </div>
                       <div>
-                        <label className="text-xs text-white/50">Rest (s)</label>
+                        <label className="text-xs text-tertiary">Rest (s)</label>
                         <input
                           type="number"
                           value={ex.rest_seconds}
@@ -305,7 +305,7 @@ export function WorkoutEditor({ workout, onSave, onClose }: WorkoutEditorProps) 
                 ))}
 
                 {exercises.length === 0 && (
-                  <p className="text-center text-white/40 py-4">
+                  <p className="text-center text-secondary py-4">
                     No exercises added yet
                   </p>
                 )}
@@ -383,7 +383,7 @@ export function WorkoutEditor({ workout, onSave, onClose }: WorkoutEditorProps) 
                             onChange={e => updateInterval(idx, { duration_minutes: Number(e.target.value) })}
                             className="w-16 px-2 py-1 bg-white/5 border border-white/10 rounded text-sm"
                           />
-                          <span className="text-sm text-white/50">min @</span>
+                          <span className="text-sm text-tertiary">min @</span>
                           <select
                             value={interval.intensity}
                             onChange={e => updateInterval(idx, { intensity: e.target.value as PrimaryIntensity })}
@@ -395,7 +395,7 @@ export function WorkoutEditor({ workout, onSave, onClose }: WorkoutEditorProps) 
                               </option>
                             ))}
                           </select>
-                          <span className="text-sm text-white/50">x</span>
+                          <span className="text-sm text-tertiary">x</span>
                           <input
                             type="number"
                             value={interval.repeats || 1}
@@ -403,7 +403,7 @@ export function WorkoutEditor({ workout, onSave, onClose }: WorkoutEditorProps) 
                             className="w-12 px-2 py-1 bg-white/5 border border-white/10 rounded text-sm"
                             min={1}
                           />
-                          <span className="text-xs text-white/50">repeats</span>
+                          <span className="text-xs text-tertiary">repeats</span>
                           <button
                             onClick={() => removeInterval(idx)}
                             className="ml-auto p-1 hover:bg-red-500/20 text-red-400 rounded"

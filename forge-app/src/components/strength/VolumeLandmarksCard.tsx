@@ -21,7 +21,7 @@ export function VolumeLandmarksCard({ status, showDetails = true }: VolumeLandma
       case 'in_mav': return 'text-green-400'
       case 'approaching_mrv': return 'text-amber-400'
       case 'over_mrv': return 'text-red-400'
-      default: return 'text-white/50'
+      default: return 'text-tertiary'
     }
   }
 
@@ -41,7 +41,7 @@ export function VolumeLandmarksCard({ status, showDetails = true }: VolumeLandma
       case 'below_mev': return <AlertTriangle size={14} className="text-yellow-400" />
       case 'in_mav': return <CheckCircle size={14} className="text-green-400" />
       case 'over_mrv': return <AlertTriangle size={14} className="text-red-400" />
-      default: return <Info size={14} className="text-white/30" />
+      default: return <Info size={14} className="text-muted" />
     }
   }
 
@@ -81,7 +81,7 @@ export function VolumeLandmarksCard({ status, showDetails = true }: VolumeLandma
             {getStatusLabel(volumeStatus)}
           </span>
           {showDetails && (
-            expanded ? <ChevronUp size={14} className="text-white/30" /> : <ChevronDown size={14} className="text-white/30" />
+            expanded ? <ChevronUp size={14} className="text-muted" /> : <ChevronDown size={14} className="text-muted" />
           )}
         </div>
       </div>
@@ -112,7 +112,7 @@ export function VolumeLandmarksCard({ status, showDetails = true }: VolumeLandma
         </div>
 
         {/* Labels */}
-        <div className="flex justify-between mt-1 text-[10px] text-white/40">
+        <div className="flex justify-between mt-1 text-xs text-secondary">
           <span>0</span>
           <span style={{ position: 'absolute', left: `${mevPct}%`, transform: 'translateX(-50%)' }}>
             MEV ({landmarks.mev})
@@ -129,23 +129,23 @@ export function VolumeLandmarksCard({ status, showDetails = true }: VolumeLandma
         <div className="mt-3 pt-3 border-t border-white/10 text-sm">
           <div className="grid grid-cols-4 gap-2 mb-2">
             <div>
-              <div className="text-[10px] text-white/40">MEV</div>
+              <div className="text-xs text-secondary">MEV</div>
               <div className="text-yellow-400">{landmarks.mev}</div>
             </div>
             <div>
-              <div className="text-[10px] text-white/40">MAV Low</div>
+              <div className="text-xs text-secondary">MAV Low</div>
               <div className="text-green-400">{landmarks.mavLow}</div>
             </div>
             <div>
-              <div className="text-[10px] text-white/40">MAV High</div>
+              <div className="text-xs text-secondary">MAV High</div>
               <div className="text-green-400">{landmarks.mavHigh}</div>
             </div>
             <div>
-              <div className="text-[10px] text-white/40">MRV</div>
+              <div className="text-xs text-secondary">MRV</div>
               <div className="text-red-400">{landmarks.mrv}</div>
             </div>
           </div>
-          <p className="text-xs text-white/50">{recommendation}</p>
+          <p className="text-xs text-tertiary">{recommendation}</p>
         </div>
       )}
     </div>
@@ -161,7 +161,7 @@ export function VolumeLandmarksInline({ status }: { status: VolumeLandmarkStatus
       case 'below_mev': return 'text-yellow-400'
       case 'in_mav': return 'text-green-400'
       case 'over_mrv': return 'text-red-400'
-      default: return 'text-white/50'
+      default: return 'text-tertiary'
     }
   }
 

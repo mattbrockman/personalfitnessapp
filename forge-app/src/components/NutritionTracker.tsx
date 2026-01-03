@@ -140,7 +140,7 @@ function MacroRing({
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className="text-lg font-bold">{current}</span>
-          <span className="text-[10px] text-white/40">/{target}g</span>
+          <span className="text-xs text-secondary">/{target}g</span>
         </div>
       </div>
       <span className="mt-1 text-xs text-white/60">{label}</span>
@@ -268,7 +268,7 @@ function PhotoCaptureModal({
                 <Sparkles size={32} className="text-amber-500" />
               </div>
               <p className="font-medium">Analyzing your food...</p>
-              <p className="text-sm text-white/50 mt-1">AI is identifying ingredients and estimating nutrition</p>
+              <p className="text-sm text-tertiary mt-1">AI is identifying ingredients and estimating nutrition</p>
             </div>
           )}
 
@@ -296,11 +296,11 @@ function PhotoCaptureModal({
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <p className="font-medium">{food.food_name}</p>
-                      <p className="text-sm text-white/50">{food.portion_size}</p>
+                      <p className="text-sm text-tertiary">{food.portion_size}</p>
                     </div>
                     <button
                       onClick={() => handleRemoveFood(index)}
-                      className="p-1 hover:bg-white/10 rounded text-white/40 hover:text-red-400"
+                      className="p-1 hover:bg-white/10 rounded text-secondary hover:text-red-400"
                     >
                       <X size={16} />
                     </button>
@@ -312,7 +312,7 @@ function PhotoCaptureModal({
                     <span className="text-yellow-400">{food.fat_g}f</span>
                   </div>
                   <div className="mt-1">
-                    <div className="flex items-center gap-1 text-xs text-white/40">
+                    <div className="flex items-center gap-1 text-xs text-secondary">
                       <span>Confidence:</span>
                       <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
                         <div
@@ -351,7 +351,7 @@ function PhotoCaptureModal({
           {/* Empty Detected Foods */}
           {detectedFoods && detectedFoods.length === 0 && (
             <div className="text-center py-4">
-              <p className="text-white/50 mb-4">No foods detected in the image</p>
+              <p className="text-tertiary mb-4">No foods detected in the image</p>
               <button
                 onClick={() => {
                   setDetectedFoods(null)
@@ -372,9 +372,9 @@ function PhotoCaptureModal({
                 onClick={() => fileInputRef.current?.click()}
                 className="border-2 border-dashed border-white/20 rounded-xl p-8 text-center cursor-pointer hover:border-amber-500/50 transition-colors"
               >
-                <Camera size={48} className="mx-auto text-white/40 mb-4" />
+                <Camera size={48} className="mx-auto text-secondary mb-4" />
                 <p className="font-medium">Take or upload a photo</p>
-                <p className="text-sm text-white/50 mt-1">AI will estimate nutrition from the image</p>
+                <p className="text-sm text-tertiary mt-1">AI will estimate nutrition from the image</p>
               </div>
 
               <div className="mt-4 p-3 bg-amber-500/10 rounded-lg">
@@ -464,7 +464,7 @@ function AddFoodModal({
           
           {/* Search */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted" />
             <input
               type="text"
               value={search}
@@ -504,18 +504,18 @@ function AddFoodModal({
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">{food.name}</p>
-                    <p className="text-sm text-white/50">
+                    <p className="text-sm text-tertiary">
                       {food.calories} cal • {food.protein_g}g P • {food.carbs_g}g C • {food.fat_g}g F
                     </p>
                   </div>
-                  <Plus size={18} className="text-white/40" />
+                  <Plus size={18} className="text-secondary" />
                 </button>
               ))}
             </div>
           )}
 
           {tab === 'search' && (
-            <div className="text-center py-8 text-white/40">
+            <div className="text-center py-8 text-secondary">
               <Search size={32} className="mx-auto mb-2" />
               <p>Food database search coming soon</p>
             </div>
@@ -639,7 +639,7 @@ function MealCard({
         
         <div className="flex-1">
           <h3 className="font-medium capitalize">{meal.type}</h3>
-          <p className="text-sm text-white/50">
+          <p className="text-sm text-tertiary">
             {meal.foods.length} items • {mealCalories} cal
           </p>
         </div>
@@ -660,7 +660,7 @@ function MealCard({
             >
               <div className="flex-1 min-w-0">
                 <p className="truncate">{food.name}</p>
-                <p className="text-sm text-white/50">
+                <p className="text-sm text-tertiary">
                   {food.servings} {food.serving_unit}
                 </p>
               </div>
@@ -669,7 +669,7 @@ function MealCard({
               </div>
               <button 
                 onClick={() => onRemoveFood(food.id)}
-                className="p-1.5 hover:bg-white/10 rounded-lg text-white/40 hover:text-red-400 transition-colors"
+                className="p-1.5 hover:bg-white/10 rounded-lg text-secondary hover:text-red-400 transition-colors"
               >
                 <X size={16} />
               </button>
@@ -678,7 +678,7 @@ function MealCard({
 
           {/* Empty state */}
           {meal.foods.length === 0 && (
-            <p className="text-center text-white/30 py-4 text-sm">No foods logged</p>
+            <p className="text-center text-muted py-4 text-sm">No foods logged</p>
           )}
 
           {/* Add buttons */}
@@ -767,7 +767,7 @@ export function NutritionTracker() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-display font-semibold">Nutrition</h1>
-          <p className="text-white/50">
+          <p className="text-tertiary">
             {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
           </p>
         </div>
@@ -778,11 +778,11 @@ export function NutritionTracker() {
         <div className="flex items-center justify-between mb-4">
           <div>
             <p className="text-3xl font-bold">{totals.calories}</p>
-            <p className="text-white/50">of {targets.calories} cal</p>
+            <p className="text-tertiary">of {targets.calories} cal</p>
           </div>
           <div className={`text-right ${caloriesRemaining >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
             <p className="text-2xl font-bold">{Math.abs(caloriesRemaining)}</p>
-            <p className="text-white/50">{caloriesRemaining >= 0 ? 'remaining' : 'over'}</p>
+            <p className="text-tertiary">{caloriesRemaining >= 0 ? 'remaining' : 'over'}</p>
           </div>
         </div>
 
@@ -811,7 +811,7 @@ export function NutritionTracker() {
         </div>
         <div className="flex-1">
           <p className="font-medium">Water</p>
-          <p className="text-sm text-white/50">{waterOz} / 100 oz</p>
+          <p className="text-sm text-tertiary">{waterOz} / 100 oz</p>
         </div>
         <div className="flex items-center gap-2">
           <button 

@@ -9,12 +9,9 @@ import {
   endOfWeek,
   eachDayOfInterval,
   isSameMonth,
-  isSameDay,
   isSameWeek,
   addMonths,
   subMonths,
-  addWeeks,
-  subWeeks,
   addDays,
   subDays,
   isToday,
@@ -30,20 +27,12 @@ import {
   Waves,
   Clock,
   Route,
-  Gauge,
-  CheckCircle2,
-  RefreshCw,
   Loader2,
-  Link as LinkIcon,
-  Zap,
-  CalendarDays,
-  CalendarRange,
-  List,
   XCircle,
   AlertTriangle,
   CheckCircle,
-  Target,
-  Flag,
+  List,
+  Grid3X3,
 } from 'lucide-react'
 import { Workout } from '@/types/database'
 import { CreateWorkoutModal } from './CreateWorkoutModal'
@@ -53,6 +42,8 @@ import { WeatherBadge } from './WeatherBadge'
 import { WeatherDetailModal } from './WeatherDetailModal'
 import { WeatherDay } from '@/lib/weather'
 import { PhaseType, PHASE_COLORS, PHASE_LABELS, EventType, EVENT_TYPE_ICONS } from '@/types/training-plan'
+import { MonthViewStyles } from './MonthViewStyles'
+import { useToast } from './Toast'
 
 interface PlanData {
   plan: {
@@ -160,7 +151,7 @@ const workoutIcons: Record<string, any> = {
   default: Activity,
 }
 
-type ViewMode = 'month' | 'week' | 'list'
+type ViewMode = 'week' | 'month'
 
 // Hook to detect mobile viewport
 function useIsMobile() {
@@ -184,30 +175,42 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
   const [selectedWorkout, setSelectedWorkout] = useState<Workout | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [createModalDate, setCreateModalDate] = useState<Date | null>(null)
-  const [viewMode, setViewMode] = useState<ViewMode>('month')
+  const [viewMode, setViewMode] = useState<ViewMode>('week')
   const [planData, setPlanData] = useState<PlanData | null>(null)
   const [planLoading, setPlanLoading] = useState(true)
   const [weatherForecast, setWeatherForecast] = useState<WeatherDay[]>([])
   const [selectedWeather, setSelectedWeather] = useState<WeatherDay | null>(null)
   const [mounted, setMounted] = useState(false)
+  const [touchStart, setTouchStart] = useState<number | null>(null)
+  const [touchEnd, setTouchEnd] = useState<number | null>(null)
+  const [draggedWorkout, setDraggedWorkout] = useState<string | null>(null)
+  const [dropTargetDate, setDropTargetDate] = useState<string | null>(null)
+  const [timelineStart, setTimelineStart] = useState<Date | null>(null)
+  const [swipeOffset, setSwipeOffset] = useState(0) // For swipe visual feedback
+  const [isLoadingWorkouts, setIsLoadingWorkouts] = useState(false)
   const isMobile = useIsMobile()
+  const { addToast } = useToast()
 
   // Set dates after mount to avoid hydration mismatch
   useEffect(() => {
-    setCurrentDate(new Date())
-    setCreateModalDate(new Date())
+    const today = new Date()
+    setCurrentDate(today)
+    setCreateModalDate(today)
+    // Start timeline on today
+    setTimelineStart(today)
     setMounted(true)
   }, [])
 
-  // Auto-switch to list view on mobile
+  // Auto-switch to week view on mobile (avoid month view on small screens)
   useEffect(() => {
     if (mounted && isMobile && viewMode === 'month') {
-      setViewMode('list')
+      setViewMode('week')
     }
   }, [isMobile, mounted])
 
   // Fetch workouts from API
-  const fetchWorkouts = useCallback(async () => {
+  const fetchWorkouts = useCallback(async (showLoading = true) => {
+    if (showLoading) setIsLoadingWorkouts(true)
     try {
       const response = await fetch('/api/workouts')
       if (response.ok) {
@@ -216,6 +219,8 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
       }
     } catch (error) {
       console.error('Failed to fetch workouts:', error)
+    } finally {
+      setIsLoadingWorkouts(false)
     }
   }, [])
 
@@ -261,6 +266,28 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
       }
       localStorage.removeItem('workout-updated')
     }
+
+    // Auto-poll Strava for new activities (fallback when webhooks aren't working)
+    if (stravaConnected) {
+      const pollStrava = async () => {
+        try {
+          const res = await fetch('/api/strava/poll', { method: 'POST' })
+          if (res.ok) {
+            const data = await res.json()
+            if (data.synced && data.synced > 0) {
+              addToast(
+                'success',
+                `Synced ${data.synced} new ${data.synced === 1 ? 'activity' : 'activities'} from Strava`
+              )
+              fetchWorkouts()
+            }
+          }
+        } catch (error) {
+          console.error('Auto-poll Strava failed:', error)
+        }
+      }
+      pollStrava()
+    }
   }, [])
 
   // Listen for workout updates from AI Coach (same-page updates)
@@ -279,7 +306,7 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
     return (
       <div className="p-4 lg:p-6">
         <div className="flex items-center justify-center h-[600px]">
-          <Loader2 className="w-8 h-8 animate-spin text-white/40" />
+          <Loader2 className="w-8 h-8 animate-spin text-secondary" />
         </div>
       </div>
     )
@@ -298,23 +325,120 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
   // Navigation functions
   const navigatePrevious = () => {
     if (viewMode === 'month') {
-      setCurrentDate(subMonths(currentDate, 1))
-    } else if (viewMode === 'week') {
-      setCurrentDate(subWeeks(currentDate, 1))
+      setCurrentDate(prev => prev ? subMonths(prev, 1) : prev)
     } else {
-      // List view - navigate by day
-      setCurrentDate(subDays(currentDate, 1))
+      // Week view - shift timeline back
+      setTimelineStart(prev => prev ? subDays(prev, 7) : prev)
+      setCurrentDate(prev => prev ? subDays(prev, 7) : prev)
     }
+  }
+
+  // Touch/swipe handling for timeline
+  const minSwipeDistance = 50
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null)
+    setTouchStart(e.targetTouches[0].clientX)
+    setSwipeOffset(0)
+  }
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    const currentX = e.targetTouches[0].clientX
+    setTouchEnd(currentX)
+    // Calculate swipe offset for visual feedback (capped at ±100px)
+    if (touchStart !== null) {
+      const offset = Math.max(-100, Math.min(100, (currentX - touchStart) * 0.5))
+      setSwipeOffset(offset)
+    }
+  }
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) {
+      setSwipeOffset(0)
+      return
+    }
+    const distance = touchStart - touchEnd
+    const isLeftSwipe = distance > minSwipeDistance
+    const isRightSwipe = distance < -minSwipeDistance
+
+    if (isLeftSwipe) {
+      navigateNext()
+    } else if (isRightSwipe) {
+      navigatePrevious()
+    }
+    setSwipeOffset(0)
+  }
+
+  // Drag and drop handlers for workouts
+  const handleDragStart = (e: React.DragEvent, workoutId: string) => {
+    setDraggedWorkout(workoutId)
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', workoutId)
+  }
+
+  const handleDragEnd = () => {
+    setDraggedWorkout(null)
+    setDropTargetDate(null)
+  }
+
+  const handleDragOver = (e: React.DragEvent, dateKey: string) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDropTargetDate(dateKey)
+  }
+
+  const handleDragLeave = () => {
+    setDropTargetDate(null)
+  }
+
+  const handleDrop = async (e: React.DragEvent, newDate: string) => {
+    e.preventDefault()
+    const workoutId = e.dataTransfer.getData('text/plain')
+
+    if (!workoutId) return
+
+    const workout = workouts.find(w => w.id === workoutId)
+    if (!workout || workout.scheduled_date === newDate) {
+      setDraggedWorkout(null)
+      setDropTargetDate(null)
+      return
+    }
+
+    // Only allow moving planned workouts, not completed ones
+    if (workout.status === 'completed') {
+      setDraggedWorkout(null)
+      setDropTargetDate(null)
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/workouts/${workoutId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scheduled_date: newDate }),
+      })
+
+      if (response.ok) {
+        // Update local state
+        setWorkouts(prev => prev.map(w =>
+          w.id === workoutId ? { ...w, scheduled_date: newDate } : w
+        ))
+      }
+    } catch (error) {
+      console.error('Failed to move workout:', error)
+    }
+
+    setDraggedWorkout(null)
+    setDropTargetDate(null)
   }
 
   const navigateNext = () => {
     if (viewMode === 'month') {
-      setCurrentDate(addMonths(currentDate, 1))
-    } else if (viewMode === 'week') {
-      setCurrentDate(addWeeks(currentDate, 1))
+      setCurrentDate(prev => prev ? addMonths(prev, 1) : prev)
     } else {
-      // List view - navigate by day
-      setCurrentDate(addDays(currentDate, 1))
+      // Week view - shift timeline forward
+      setTimelineStart(prev => prev ? addDays(prev, 7) : prev)
+      setCurrentDate(prev => prev ? addDays(prev, 7) : prev)
     }
   }
 
@@ -322,18 +446,16 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
     if (viewMode === 'month') {
       return format(currentDate, 'MMMM yyyy')
     }
-    if (viewMode === 'list') {
-      // Show 7-day range for list view
-      const listEnd = addDays(currentDate, 6)
-      return `${format(currentDate, 'MMM d')} - ${format(listEnd, 'MMM d')}`
-    }
-    return `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d, yyyy')}`
+    // Week view - show "Week of [date]"
+    if (!timelineStart) return ''
+    return `Week of ${format(timelineStart, 'MMM d')}`
   }
 
-  // Get days for list view (7 days from current date)
-  const listViewDays = viewMode === 'list'
-    ? eachDayOfInterval({ start: currentDate, end: addDays(currentDate, 6) })
-    : []
+  // Get days for timeline view (7 days starting from timelineStart)
+  const timelineDays = timelineStart ? eachDayOfInterval({
+    start: timelineStart,
+    end: addDays(timelineStart, 6)
+  }) : []
 
   // Group workouts by date
   const workoutsByDate = workouts.reduce((acc, workout) => {
@@ -371,10 +493,11 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
 
       if (response.ok) {
         const { synced = 0, matched = 0, skipped = 0, errors = 0, total = 0, lastError, version = 0 } = data
-        // Show full response for debugging
-        alert(`v${version}: synced=${synced}, matched=${matched}, skipped=${skipped}, errors=${errors}, total=${total}${lastError ? `\nError: ${lastError}` : ''}`)
         if (synced > 0 || matched > 0) {
-          window.location.reload()
+          await fetchWorkouts(false)
+          addToast('success', `Synced ${synced + matched} workouts from Strava`)
+        } else if (total === 0) {
+          addToast('info', 'No new workouts to sync')
         }
       } else {
         alert(`Sync error (${response.status}): ${data.error || JSON.stringify(data)}`)
@@ -396,139 +519,63 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
     setShowCreateModal(true)
   }
 
-  const handleWorkoutCreated = () => {
-    // Refresh the page to get updated workouts
-    window.location.reload()
+  const handleWorkoutCreated = async () => {
+    await fetchWorkouts(false)
+    addToast('success', 'Workout created')
   }
 
   return (
     <div className="p-4 lg:p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={navigatePrevious}
-              className="p-2 hover:bg-white/5 rounded-lg transition-colors"
-            >
-              <ChevronLeft size={20} />
-            </button>
-            <h1 className="text-2xl font-display font-semibold min-w-[280px] text-center">
-              {getHeaderTitle()}
-            </h1>
-            <button
-              onClick={navigateNext}
-              className="p-2 hover:bg-white/5 rounded-lg transition-colors"
-            >
-              <ChevronRight size={20} />
-            </button>
-          </div>
+      {/* Navigation with view toggle */}
+      <div className="flex items-center justify-between mb-4">
+        {/* View toggle icons */}
+        <div className="flex items-center gap-1">
           <button
-            onClick={() => setCurrentDate(new Date())}
-            className="px-3 py-1.5 glass rounded-lg text-sm hover:bg-white/10 transition-colors"
+            onClick={() => setViewMode('week')}
+            aria-label="Week view"
+            className={`p-2 rounded-lg transition-colors ${viewMode === 'week' ? 'bg-amber-500/20 text-amber-400' : 'text-secondary hover:text-white/60 hover:bg-white/5'}`}
           >
-            Today
+            <List size={18} />
           </button>
-
-          {/* View toggle */}
-          <div className="flex items-center glass rounded-lg p-1" role="tablist" aria-label="Calendar view options">
-            <button
-              onClick={() => setViewMode('list')}
-              role="tab"
-              aria-selected={viewMode === 'list'}
-              aria-label="List view"
-              className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-md text-sm transition-colors min-h-touch ${
-                viewMode === 'list' ? 'bg-white/10 text-white' : 'text-white/60 hover:text-white/80'
-              }`}
-            >
-              <List size={16} aria-hidden="true" />
-              <span className="hidden sm:inline">List</span>
-            </button>
-            <button
-              onClick={() => setViewMode('week')}
-              role="tab"
-              aria-selected={viewMode === 'week'}
-              aria-label="Week view"
-              className={`flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-md text-sm transition-colors min-h-touch ${
-                viewMode === 'week' ? 'bg-white/10 text-white' : 'text-white/60 hover:text-white/80'
-              }`}
-            >
-              <CalendarRange size={16} aria-hidden="true" />
-              <span className="hidden sm:inline">Week</span>
-            </button>
-            <button
-              onClick={() => setViewMode('month')}
-              role="tab"
-              aria-selected={viewMode === 'month'}
-              aria-label="Month view"
-              className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-colors min-h-touch ${
-                viewMode === 'month' ? 'bg-white/10 text-white' : 'text-white/60 hover:text-white/80'
-              }`}
-            >
-              <CalendarDays size={16} aria-hidden="true" />
-              Month
-            </button>
-          </div>
+          <button
+            onClick={() => setViewMode('month')}
+            aria-label="Month view"
+            className={`p-2 rounded-lg transition-colors ${viewMode === 'month' ? 'bg-amber-500/20 text-amber-400' : 'text-secondary hover:text-white/60 hover:bg-white/5'}`}
+          >
+            <Grid3X3 size={18} />
+          </button>
         </div>
 
-        <div className="flex items-center gap-3">
-          {/* Strava sync */}
-          {stravaConnected ? (
-            <button
-              onClick={handleSync}
-              disabled={isSyncing}
-              className="flex items-center gap-2 px-4 py-2 glass rounded-lg text-sm hover:bg-white/10 transition-colors disabled:opacity-50"
-            >
-              {isSyncing ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <RefreshCw size={16} />
-              )}
-              {isSyncing ? 'Syncing...' : 'Sync Strava'}
-            </button>
-          ) : (
-            <a
-              href="/api/auth/strava"
-              className="flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-400 text-white rounded-lg text-sm transition-colors"
-            >
-              <LinkIcon size={16} />
-              Connect Strava
-            </a>
-          )}
-        </div>
-      </div>
-
-      {/* Last sync indicator */}
-      {lastSyncAt && (
-        <p className="text-xs text-white/40 mb-4">
-          Last synced: {format(new Date(lastSyncAt), 'MMM d, h:mm a')}
-        </p>
-      )}
-
-      {/* Legend */}
-      <div className="flex items-center gap-6 mb-4 text-xs">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded bg-sky-500" />
-            <span className="text-white/50">Cardio</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded bg-violet-500" />
-            <span className="text-white/50">Strength</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded bg-emerald-500" />
-            <span className="text-white/50">Other</span>
-          </div>
-        </div>
-        <div className="h-4 w-px bg-white/10" />
+        {/* Date navigation */}
         <div className="flex items-center gap-2">
-          {Object.entries(intensityZones).slice(0, 5).map(([key, zone]) => (
-            <span key={key} className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${zone.color} text-black`}>
-              {zone.label}
-            </span>
-          ))}
+          <button
+            onClick={navigatePrevious}
+            className="p-1.5 hover:bg-white/5 rounded-lg transition-colors"
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <h1 className="text-base font-display font-semibold min-w-[160px] text-center">
+            {getHeaderTitle()}
+          </h1>
+          <button
+            onClick={navigateNext}
+            className="p-1.5 hover:bg-white/5 rounded-lg transition-colors"
+          >
+            <ChevronRight size={18} />
+          </button>
         </div>
+
+        {/* Today button */}
+        <button
+          onClick={() => {
+            const today = new Date()
+            setCurrentDate(today)
+            setTimelineStart(today)
+          }}
+          className="px-2.5 py-1 text-xs text-white/60 hover:text-white/80 hover:bg-white/5 rounded-lg transition-colors"
+        >
+          Today
+        </button>
       </div>
 
       {/* Weekly Summary Bar */}
@@ -544,279 +591,214 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
         loading={planLoading}
       />
 
-      {/* Mobile List View */}
-      {viewMode === 'list' && (
-        <div className="space-y-4" role="list" aria-label="Upcoming workouts">
-          {listViewDays.map((day, idx) => {
-            const dateKey = format(day, 'yyyy-MM-dd')
-            const dayWorkouts = workoutsByDate[dateKey] || []
-            const isCurrentDay = isToday(day)
-            const dayWeather = weatherByDate[dateKey]
-            const showWeather = dayWeather && (isToday(day) || day > new Date())
+      {/* Week View - Timeline */}
+      {viewMode === 'week' && (
+        <div
+          className="relative overflow-hidden"
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+        >
+          {/* Swipe indicators */}
+          {swipeOffset !== 0 && (
+            <>
+              <div className={`absolute left-2 top-1/2 -translate-y-1/2 transition-opacity ${swipeOffset > 30 ? 'opacity-100' : 'opacity-0'}`}>
+                <ChevronLeft size={24} className="text-amber-400" />
+              </div>
+              <div className={`absolute right-2 top-1/2 -translate-y-1/2 transition-opacity ${swipeOffset < -30 ? 'opacity-100' : 'opacity-0'}`}>
+                <ChevronRight size={24} className="text-amber-400" />
+              </div>
+            </>
+          )}
 
-            return (
-              <div
-                key={idx}
-                className={`border border-white/10 rounded-xl overflow-hidden ${
-                  isCurrentDay ? 'ring-2 ring-amber-500/50' : ''
-                }`}
-                role="listitem"
-              >
-                {/* Day header */}
-                <div className={`flex items-center justify-between p-4 ${
-                  isCurrentDay ? 'bg-amber-500/10' : 'bg-white/5'
-                }`}>
-                  <div className="flex items-center gap-3">
-                    <div className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center ${
-                      isCurrentDay ? 'bg-amber-500 text-black' : 'bg-white/10'
+          {/* Vertical timeline line */}
+          <div className="absolute left-[60px] top-0 bottom-0 w-0.5 bg-white/10" />
+
+          <div
+            className="space-y-6 transition-transform duration-75"
+            style={{ transform: `translateX(${swipeOffset}px)` }}
+          >
+            {timelineDays.map((day, idx) => {
+              const dateKey = format(day, 'yyyy-MM-dd')
+              const dayWorkouts = workoutsByDate[dateKey] || []
+              const isCurrentDay = isToday(day)
+              const dayWeather = weatherByDate[dateKey]
+              const showWeather = dayWeather && (isToday(day) || day > new Date())
+
+              return (
+                <div key={idx} className="relative flex items-start gap-4">
+                  {/* Date marker */}
+                  <div className={`relative z-10 w-[52px] text-center flex-shrink-0 ${isCurrentDay ? 'text-amber-400' : 'text-white/60'}`}>
+                    <div className="text-xs font-medium uppercase">{format(day, 'EEE')}</div>
+                    <div className={`text-xl font-bold w-10 h-10 mx-auto flex items-center justify-center rounded-full ${
+                      isCurrentDay ? 'bg-amber-500 text-black' : 'bg-zinc-800'
                     }`}>
-                      <span className="text-xs font-medium uppercase">
-                        {format(day, 'EEE')}
-                      </span>
-                      <span className="text-lg font-bold">
-                        {format(day, 'd')}
-                      </span>
-                    </div>
-                    <div>
-                      <p className={`font-medium ${isCurrentDay ? 'text-amber-400' : 'text-white'}`}>
-                        {isCurrentDay ? 'Today' : format(day, 'EEEE')}
-                      </p>
-                      <p className="text-sm text-white/50">
-                        {format(day, 'MMMM d, yyyy')}
-                      </p>
+                      {format(day, 'd')}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {showWeather && dayWeather && (
-                      <WeatherBadge
-                        weather={dayWeather}
-                        onClick={() => setSelectedWeather(dayWeather)}
-                        size="sm"
-                      />
+
+                  {/* Timeline dot */}
+                  <div className={`absolute left-[56px] top-6 w-3 h-3 rounded-full border-2 ${
+                    isCurrentDay ? 'bg-amber-500 border-amber-500' : 'bg-zinc-900 border-white/20'
+                  }`} />
+
+                  {/* Workouts - drop zone */}
+                  <div
+                    className={`flex-1 space-y-2 pl-4 min-h-[60px] rounded-lg transition-colors ${
+                      dropTargetDate === dateKey ? 'bg-amber-500/10 ring-2 ring-amber-500/30' : ''
+                    }`}
+                    onDragOver={(e) => handleDragOver(e, dateKey)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleDrop(e, dateKey)}
+                  >
+                    {/* Loading skeleton */}
+                    {isLoadingWorkouts && idx < 3 && (
+                      <div className="animate-pulse flex items-center gap-3 p-3 rounded-xl bg-zinc-800/30">
+                        <div className="w-12 h-12 rounded-xl bg-zinc-700/50" />
+                        <div className="flex-1 space-y-2">
+                          <div className="h-4 bg-zinc-700/50 rounded w-3/4" />
+                          <div className="h-3 bg-zinc-700/30 rounded w-1/2" />
+                        </div>
+                      </div>
                     )}
-                    <button
-                      onClick={() => openCreateModal(day)}
-                      aria-label={`Add workout for ${format(day, 'MMMM d')}`}
-                      className="p-2 min-h-touch min-w-touch hover:bg-white/10 rounded-lg transition-colors flex items-center justify-center"
-                    >
-                      <Plus size={20} className="text-white/60" aria-hidden="true" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Workouts for this day */}
-                <div className="p-3 space-y-2">
-                  {dayWorkouts.length === 0 ? (
-                    <button
-                      onClick={() => openCreateModal(day)}
-                      className="w-full py-6 border border-dashed border-white/10 rounded-lg text-white/40 hover:text-white/60 hover:border-white/20 transition-all text-sm flex items-center justify-center gap-2"
-                    >
-                      <Plus size={16} aria-hidden="true" />
-                      Add workout
-                    </button>
-                  ) : (
-                    dayWorkouts.map(workout => {
-                      const colors = categoryColors[workout.category] || categoryColors.other
-                      const Icon = getWorkoutIcon(workout.workout_type)
-                      const statusIcon = getStatusIcon(workout)
-
-                      return (
+                    {!isLoadingWorkouts && dayWorkouts.length === 0 ? (
+                      <div className="flex items-center gap-3 py-2">
+                        <span className="text-sm text-muted italic">
+                          {dropTargetDate === dateKey ? 'Drop here' : 'Rest day'}
+                        </span>
+                        {showWeather && dayWeather && (
+                          <WeatherBadge weather={dayWeather} onClick={() => setSelectedWeather(dayWeather)} size="sm" />
+                        )}
                         <button
-                          key={workout.id}
-                          onClick={() => setSelectedWorkout(workout)}
-                          className={`w-full text-left rounded-xl overflow-hidden border ${colors.border} hover:translate-x-1 transition-all`}
-                          aria-label={`${workout.name || workout.workout_type} - ${workout.status === 'completed' && workout.actual_duration_minutes ? `${workout.actual_duration_minutes} minutes` : workout.planned_duration_minutes ? `${workout.planned_duration_minutes} minutes planned` : ''}`}
+                          onClick={() => openCreateModal(day)}
+                          className="ml-auto text-xs text-muted hover:text-tertiary"
                         >
-                          <div className={`h-1.5 ${colors.bg}`} />
-                          <div className="p-4 bg-zinc-800/90">
-                            <div className="flex items-start gap-3">
-                              <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${colors.light}`}>
-                                <Icon size={20} className={colors.text} aria-hidden="true" />
+                          + Add
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        {showWeather && dayWeather && (
+                          <div className="mb-2">
+                            <WeatherBadge weather={dayWeather} onClick={() => setSelectedWeather(dayWeather)} size="sm" />
+                          </div>
+                        )}
+                        {dayWorkouts.map(workout => {
+                          const colors = categoryColors[workout.category] || categoryColors.other
+                          const Icon = getWorkoutIcon(workout.workout_type)
+                          const statusIcon = getStatusIcon(workout)
+                          const isDragging = draggedWorkout === workout.id
+                          const canDrag = workout.status === 'planned'
+
+                          return (
+                            <div
+                              key={workout.id}
+                              draggable={canDrag}
+                              onDragStart={(e) => canDrag && handleDragStart(e, workout.id)}
+                              onDragEnd={handleDragEnd}
+                              onClick={() => setSelectedWorkout(workout)}
+                              className={`w-full flex items-center gap-3 p-3 rounded-xl border ${colors.border} bg-zinc-800/50 hover:bg-zinc-800 transition-all text-left cursor-pointer animate-fade-in ${
+                                isDragging ? 'opacity-50 scale-95' : ''
+                              } ${canDrag ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                              style={{ animationDelay: `${idx * 50}ms` }}
+                            >
+                              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${colors.light}`}>
+                                <Icon size={24} className={colors.text} />
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
                                   {statusIcon && (
-                                    <statusIcon.Icon size={14} className={`${statusIcon.color} flex-shrink-0`} aria-hidden="true" />
+                                    <statusIcon.Icon size={14} className={statusIcon.color} />
                                   )}
-                                  <span className="font-medium truncate">
+                                  <span className="font-medium truncate text-base">
                                     {workout.name || workout.workout_type}
                                   </span>
                                 </div>
-                                <div className="flex items-center gap-3 mt-1 text-sm text-white/50">
+                                <div className="flex items-center gap-3 mt-1 text-sm text-tertiary">
                                   {workout.status === 'completed' && workout.actual_duration_minutes ? (
                                     <span className="flex items-center gap-1">
-                                      <Clock size={14} aria-hidden="true" />
-                                      {workout.actual_duration_minutes}m
+                                      <Clock size={12} />
+                                      {workout.actual_duration_minutes} min
                                     </span>
                                   ) : workout.planned_duration_minutes ? (
                                     <span className="flex items-center gap-1">
-                                      <Clock size={14} aria-hidden="true" />
-                                      {workout.planned_duration_minutes}m planned
+                                      <Clock size={12} />
+                                      {workout.planned_duration_minutes} min
                                     </span>
                                   ) : null}
                                   {workout.actual_distance_miles && (
                                     <span className="flex items-center gap-1">
-                                      <Route size={14} aria-hidden="true" />
-                                      {workout.actual_distance_miles}mi
+                                      <Route size={12} />
+                                      {workout.actual_distance_miles} mi
                                     </span>
-                                  )}
-                                  {workout.status === 'completed' && (
-                                    <span className="text-emerald-400 text-xs">Completed</span>
                                   )}
                                 </div>
                               </div>
-                              <ChevronRight size={20} className="text-white/30 flex-shrink-0" aria-hidden="true" />
+                              <ChevronRight size={18} className="text-muted" />
                             </div>
-                          </div>
+                          )
+                        })}
+                        <button
+                          onClick={() => openCreateModal(day)}
+                          className="text-xs text-muted hover:text-tertiary py-1"
+                        >
+                          + Add workout
                         </button>
-                      )
-                    })
-                  )}
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )
-          })}
+              )
+            })}
+          </div>
         </div>
       )}
 
-      {/* Calendar grid (week/month views) */}
+      {/* Month View - Switchable styles */}
+      {viewMode === 'month' && (
+        <MonthViewStyles
+          currentDate={currentDate}
+          workouts={workouts}
+          workoutsByDate={workoutsByDate}
+          onSelectWorkout={setSelectedWorkout}
+          onSelectDate={openCreateModal}
+          weatherByDate={weatherByDate}
+          onWeatherClick={setSelectedWeather}
+          onWorkoutMove={async (workoutId, newDate) => {
+            try {
+              const response = await fetch(`/api/workouts/${workoutId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ scheduled_date: newDate }),
+              })
+              if (response.ok) {
+                setWorkouts(prev => prev.map(w =>
+                  w.id === workoutId ? { ...w, scheduled_date: newDate } : w
+                ))
+              }
+            } catch (error) {
+              console.error('Failed to move workout:', error)
+            }
+          }}
+        />
+      )}
+
+      {/* Legend - only on week/month, at bottom */}
       {(viewMode === 'week' || viewMode === 'month') && (
-      <div className="border border-white/10 rounded-xl overflow-hidden">
-        {/* Day headers */}
-        <div className="grid grid-cols-7 bg-white/5">
-          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
-            <div key={day} className="p-3 text-center text-sm text-white/40 font-medium border-b border-white/5">
-              {day}
-            </div>
-          ))}
+        <div className="flex items-center justify-center gap-4 mt-4 text-xs">
+          <div className="flex items-center gap-1.5">
+            <div className="w-2.5 h-2.5 rounded bg-sky-500" />
+            <span className="text-secondary">Cardio</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-2.5 h-2.5 rounded bg-violet-500" />
+            <span className="text-secondary">Strength</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-2.5 h-2.5 rounded bg-amber-500" />
+            <span className="text-secondary">Other</span>
+          </div>
         </div>
-
-        {/* Calendar days */}
-        <div className="grid grid-cols-7">
-          {days.map((day, idx) => {
-            const dateKey = format(day, 'yyyy-MM-dd')
-            const dayWorkouts = workoutsByDate[dateKey] || []
-            const isCurrentMonth = isSameMonth(day, currentDate)
-            const isCurrentDay = isToday(day)
-            const dayWeather = weatherByDate[dateKey]
-            const showWeather = dayWeather && (isToday(day) || day > new Date())
-
-            // In week view, show all workouts; in month view, limit to 3
-            const maxWorkoutsToShow = viewMode === 'week' ? 10 : 3
-
-            return (
-              <div
-                key={idx}
-                className={`${viewMode === 'week' ? 'min-h-[300px]' : 'min-h-[140px]'} p-2 border-b border-r border-white/5 transition-colors hover:bg-white/[0.02] ${
-                  !isCurrentMonth && viewMode === 'month' ? 'bg-white/[0.01]' : ''
-                }`}
-              >
-                {/* Day number, weather, and event marker */}
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-1">
-                    <span className={`text-sm font-medium w-7 h-7 flex items-center justify-center rounded-full ${
-                      isCurrentDay
-                        ? 'bg-amber-500 text-black'
-                        : isCurrentMonth
-                          ? 'text-white'
-                          : 'text-white/30'
-                    }`}>
-                      {format(day, 'd')}
-                    </span>
-                    {/* Plan event marker */}
-                    {planData?.events?.filter(e => e.event_date === dateKey).map(event => (
-                      <span
-                        key={event.id}
-                        className="text-xs cursor-help"
-                        title={`${event.name} (${event.event_type}, ${event.priority}-priority)`}
-                      >
-                        {EVENT_TYPE_ICONS[event.event_type] || '📅'}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    {/* Weather badge */}
-                    {showWeather && dayWeather && (
-                      <WeatherBadge
-                        weather={dayWeather}
-                        onClick={() => setSelectedWeather(dayWeather)}
-                        size="sm"
-                      />
-                    )}
-                    <button
-                      onClick={(e) => { e.stopPropagation(); openCreateModal(day); }}
-                      className="p-1 hover:bg-white/10 rounded opacity-0 hover:opacity-100 transition-opacity"
-                    >
-                      <Plus size={14} className="text-white/40" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Workouts */}
-                <div className="space-y-1.5">
-                  {dayWorkouts.slice(0, maxWorkoutsToShow).map(workout => {
-                    const colors = categoryColors[workout.category] || categoryColors.other
-                    const Icon = getWorkoutIcon(workout.workout_type)
-                    const statusIcon = getStatusIcon(workout)
-
-                    return (
-                      <div
-                        key={workout.id}
-                        onClick={() => setSelectedWorkout(workout)}
-                        className={`rounded-lg overflow-hidden cursor-pointer border ${colors.border} hover:translate-y-[-1px] transition-all`}
-                      >
-                        <div className={`h-1 ${colors.bg}`} />
-                        <div className="p-2 bg-zinc-800/90">
-                          <div className="flex items-start gap-1.5">
-                            <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 ${colors.light}`}>
-                              <Icon size={12} className={colors.text} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-1">
-                                {statusIcon && (
-                                  <statusIcon.Icon size={10} className={`${statusIcon.color} flex-shrink-0`} />
-                                )}
-                                <span className="text-xs font-medium truncate">
-                                  {workout.name || workout.workout_type}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-2 mt-0.5 text-[10px] text-white/40">
-                                {workout.status === 'completed' && workout.actual_duration_minutes ? (
-                                  <span>{workout.actual_duration_minutes}m</span>
-                                ) : workout.planned_duration_minutes ? (
-                                  <span>{workout.planned_duration_minutes}m planned</span>
-                                ) : null}
-                                {workout.actual_distance_miles && (
-                                  <span>{workout.actual_distance_miles}mi</span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
-
-                  {dayWorkouts.length > maxWorkoutsToShow && (
-                    <button className="w-full text-[10px] text-white/40 hover:text-white/60 py-1">
-                      +{dayWorkouts.length - maxWorkoutsToShow} more
-                    </button>
-                  )}
-
-                  {dayWorkouts.length === 0 && isCurrentMonth && (
-                    <button
-                      onClick={() => openCreateModal(day)}
-                      className="w-full py-3 border border-dashed border-white/10 rounded-lg text-white/20 hover:text-white/40 hover:border-white/20 transition-all text-xs flex items-center justify-center gap-1 opacity-0 hover:opacity-100"
-                    >
-                      <Plus size={12} />
-                    </button>
-                  )}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
       )}
 
       {/* Workout detail modal */}
@@ -824,7 +806,11 @@ export function CalendarView({ initialWorkouts, stravaConnected, lastSyncAt }: C
         <WorkoutDetailModal
           workout={selectedWorkout}
           onClose={() => setSelectedWorkout(null)}
-          onUpdate={() => window.location.reload()}
+          onUpdate={async () => {
+            await fetchWorkouts(false)
+            setSelectedWorkout(null)
+            addToast('success', 'Workout updated')
+          }}
         />
       )}
 

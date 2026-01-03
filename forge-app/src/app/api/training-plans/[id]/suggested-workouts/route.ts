@@ -38,10 +38,17 @@ export async function GET(
     const status = searchParams.get('status')
     const weekNumber = searchParams.get('week_number')
 
-    // Build query
+    // Build query - include linked workout status for completed detection
     let query = (adminClient as any)
       .from('suggested_workouts')
-      .select('*')
+      .select(`
+        *,
+        linked_workout:workouts!scheduled_workout_id (
+          id,
+          status,
+          completed_at
+        )
+      `)
       .eq('plan_id', planId)
       .order('suggested_date', { ascending: true })
       .order('order_in_day', { ascending: true })

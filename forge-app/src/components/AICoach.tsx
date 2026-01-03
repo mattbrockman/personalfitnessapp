@@ -224,7 +224,7 @@ function MessageBubble({ message }: { message: Message }) {
         {message.context && (
           <div className={`mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs ${
             isUser ? 'ml-auto' : ''
-          } bg-white/5 text-white/40`}>
+          } bg-white/5 text-secondary`}>
             {message.context.type === 'workout' && <Dumbbell size={10} />}
             {message.context.type === 'nutrition' && <Apple size={10} />}
             {message.context.type === 'sleep' && <Moon size={10} />}
@@ -237,7 +237,7 @@ function MessageBubble({ message }: { message: Message }) {
         )}
 
         {/* Timestamp */}
-        <p className={`text-xs text-white/30 mt-1 ${isUser ? 'text-right' : ''}`}>
+        <p className={`text-xs text-muted mt-1 ${isUser ? 'text-right' : ''}`}>
           {message.timestamp.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
         </p>
       </div>
@@ -456,12 +456,12 @@ export function AICoach() {
           </div>
           <div>
             <h1 className="font-semibold">AI Coach</h1>
-            <p className="text-sm text-white/50">Your personal training assistant</p>
+            <p className="text-sm text-tertiary">Your personal training assistant</p>
           </div>
         </div>
         <button
           onClick={resetChat}
-          className="p-2 hover:bg-white/10 rounded-lg transition-colors text-white/40 hover:text-white"
+          className="p-2 hover:bg-white/10 rounded-lg transition-colors text-secondary hover:text-white"
         >
           <RotateCcw size={18} />
         </button>
@@ -500,7 +500,7 @@ export function AICoach() {
       {/* Insights panel (shown initially) */}
       {showInsights && messages.length <= 1 && (
         <div className="px-4 pb-4 space-y-3">
-          <p className="text-sm text-white/40 flex items-center gap-2">
+          <p className="text-sm text-secondary flex items-center gap-2">
             <Sparkles size={14} />
             Today's Insights
           </p>
@@ -571,7 +571,7 @@ export function AICoach() {
             </button>
           </div>
         </div>
-        <p className="text-xs text-white/30 mt-2 text-center">
+        <p className="text-xs text-muted mt-2 text-center">
           AI coach can make changes to your workouts, log data, and answer questions
         </p>
       </div>

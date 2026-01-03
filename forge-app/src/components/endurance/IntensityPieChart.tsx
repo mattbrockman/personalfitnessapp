@@ -93,7 +93,7 @@ export function IntensityPieChart({
       {/* Compliance Score */}
       <div className="mb-4">
         <div className="flex items-center justify-between mb-1">
-          <span className="text-sm text-white/50">Compliance Score</span>
+          <span className="text-sm text-tertiary">Compliance Score</span>
           <span className="text-sm font-medium">{analysis.complianceScore}%</span>
         </div>
         <div className="h-2 bg-dark-700 rounded-full overflow-hidden">
@@ -150,7 +150,7 @@ export function IntensityPieChart({
         <div className="grid grid-cols-3 gap-2 mt-4">
           {polarizedData.map((item) => (
             <div key={item.name} className="text-center">
-              <div className="text-xs text-white/40 mb-1">{item.name}</div>
+              <div className="text-xs text-secondary mb-1">{item.name}</div>
               <div className="flex items-center justify-center gap-1">
                 <span
                   className={`text-sm font-medium ${
@@ -163,7 +163,7 @@ export function IntensityPieChart({
                 >
                   {item.value.toFixed(0)}%
                 </span>
-                <span className="text-xs text-white/30">/ {item.target}%</span>
+                <span className="text-xs text-muted">/ {item.target}%</span>
               </div>
             </div>
           ))}
@@ -182,8 +182,8 @@ export function IntensityPieChart({
           ].map(({ zone, seconds, color, label }) => (
             <div key={zone} className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
-              <span className="text-xs text-white/50 w-16">{zone}</span>
-              <span className="text-xs text-white/30 w-16">{label}</span>
+              <span className="text-xs text-tertiary w-16">{zone}</span>
+              <span className="text-xs text-muted w-16">{label}</span>
               <span className="text-xs text-white/70 ml-auto">
                 {zoneSecondsToHours(seconds)}h
               </span>

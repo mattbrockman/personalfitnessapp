@@ -117,22 +117,22 @@ export function WeatherDetailModal({ weather, onClose }: WeatherDetailModalProps
           <div className="text-center">
             <Thermometer size={18} className="mx-auto text-red-400 mb-1" />
             <p className="text-lg font-semibold">{weather.tempHigh}°</p>
-            <p className="text-xs text-white/40">High</p>
+            <p className="text-xs text-secondary">High</p>
           </div>
           <div className="text-center">
             <Thermometer size={18} className="mx-auto text-sky-400 mb-1" />
             <p className="text-lg font-semibold">{weather.tempLow}°</p>
-            <p className="text-xs text-white/40">Low</p>
+            <p className="text-xs text-secondary">Low</p>
           </div>
           <div className="text-center">
             <Droplets size={18} className="mx-auto text-sky-400 mb-1" />
             <p className="text-lg font-semibold">{weather.precipProbability}%</p>
-            <p className="text-xs text-white/40">Rain</p>
+            <p className="text-xs text-secondary">Rain</p>
           </div>
           <div className="text-center">
             <Wind size={18} className="mx-auto text-white/60 mb-1" />
-            <p className="text-lg font-semibold">{weather.windSpeed}<span className="text-white/40">/</span>{weather.windGusts}</p>
-            <p className="text-xs text-white/40">mph / gusts</p>
+            <p className="text-lg font-semibold">{weather.windSpeed}<span className="text-secondary">/</span>{weather.windGusts}</p>
+            <p className="text-xs text-secondary">mph / gusts</p>
           </div>
         </div>
 
@@ -140,7 +140,7 @@ export function WeatherDetailModal({ weather, onClose }: WeatherDetailModalProps
         <div className="p-4">
           <div className="flex items-center justify-between mb-3">
             <h4 className="text-sm font-medium text-white/60">Hourly Forecast</h4>
-            <div className="flex items-center gap-4 text-xs text-white/40">
+            <div className="flex items-center gap-4 text-xs text-secondary">
               <span className="flex items-center gap-1">
                 <span className="w-3 h-0.5 bg-amber-500 rounded"></span> Temp
               </span>

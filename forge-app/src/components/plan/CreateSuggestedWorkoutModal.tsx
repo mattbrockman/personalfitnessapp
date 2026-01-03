@@ -131,11 +131,11 @@ export function CreateSuggestedWorkoutModal({
         <div className="p-4 border-b border-white/10 flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold">Add Workout</h2>
-            <div className="flex items-center gap-2 text-sm text-white/50">
+            <div className="flex items-center gap-2 text-sm text-tertiary">
               <span>{format(date, 'EEEE, MMM d')}</span>
               {weather && WeatherIcon && (
                 <span className="flex items-center gap-1">
-                  <span className="text-white/30">•</span>
+                  <span className="text-muted">•</span>
                   <WeatherIcon size={14} className={weatherIconColor} />
                   <span>{weather.tempHigh}°/{weather.tempLow}°</span>
                   <span className="text-sky-400">{weather.precipProbability}%</span>

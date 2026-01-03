@@ -135,23 +135,23 @@ function StatCard({
       </div>
       <div className="flex items-baseline gap-1">
         {loading ? (
-          <Loader2 size={24} className="animate-spin text-white/40" />
+          <Loader2 size={24} className="animate-spin text-secondary" />
         ) : (
           <>
             <span className="text-2xl font-bold">{value ?? '—'}</span>
-            {unit && value !== null && <span className="text-white/40">{unit}</span>}
+            {unit && value !== null && <span className="text-secondary">{unit}</span>}
           </>
         )}
       </div>
       {change !== undefined && !loading && (
         <div className={`flex items-center gap-1 mt-1 text-sm ${
-          isPositive ? 'text-emerald-400' : isNegative ? 'text-red-400' : 'text-white/40'
+          isPositive ? 'text-emerald-400' : isNegative ? 'text-red-400' : 'text-secondary'
         }`}>
           {isPositive && <TrendingUp size={14} />}
           {isNegative && <TrendingDown size={14} />}
           {!isPositive && !isNegative && <Minus size={14} />}
           <span>{isPositive ? '+' : ''}{change}%</span>
-          {changeLabel && <span className="text-white/40">{changeLabel}</span>}
+          {changeLabel && <span className="text-secondary">{changeLabel}</span>}
         </div>
       )}
     </div>
@@ -171,7 +171,7 @@ function PRCard({ record }: { record: PersonalRecord }) {
       </div>
       <div className="flex-1">
         <h4 className="font-medium">{record.exercise}</h4>
-        <p className="text-sm text-white/50">
+        <p className="text-sm text-tertiary">
           {record.weight} lbs × {record.reps} rep{record.reps > 1 ? 's' : ''}
         </p>
       </div>
@@ -179,7 +179,7 @@ function PRCard({ record }: { record: PersonalRecord }) {
         {improvement !== null && improvement > 0 && (
           <span className="text-emerald-400 text-sm font-medium">+{improvement}%</span>
         )}
-        <p className="text-xs text-white/40">
+        <p className="text-xs text-secondary">
           {new Date(record.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
         </p>
       </div>
@@ -194,7 +194,7 @@ function EmptyState({ message }: { message: string }) {
       <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
         <Activity size={32} className="text-white/20" />
       </div>
-      <p className="text-white/40">{message}</p>
+      <p className="text-secondary">{message}</p>
     </div>
   )
 }
@@ -260,7 +260,7 @@ export function Progress() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-display font-semibold">Progress</h1>
-          <p className="text-white/50">Track your gains over time</p>
+          <p className="text-tertiary">Track your gains over time</p>
         </div>
 
         {/* Time range selector */}
@@ -274,7 +274,7 @@ export function Progress() {
               <option key={range.value} value={range.value}>{range.label}</option>
             ))}
           </select>
-          <ChevronDown size={16} className="absolute right-2 top-1/2 -translate-y-1/2 text-white/40 pointer-events-none" />
+          <ChevronDown size={16} className="absolute right-2 top-1/2 -translate-y-1/2 text-secondary pointer-events-none" />
         </div>
       </div>
 
@@ -352,7 +352,7 @@ export function Progress() {
         >
           <Camera size={18} className="text-amber-400" />
           <span>AI Body Scan</span>
-          <span className="text-xs text-white/50 ml-2">Analyze from photo</span>
+          <span className="text-xs text-tertiary ml-2">Analyze from photo</span>
         </button>
       )}
 
@@ -361,7 +361,7 @@ export function Progress() {
         <div className="h-80">
           {loading ? (
             <div className="h-full flex items-center justify-center">
-              <Loader2 size={32} className="animate-spin text-white/40" />
+              <Loader2 size={32} className="animate-spin text-secondary" />
             </div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
@@ -587,7 +587,7 @@ export function Progress() {
               </AreaChart>
             </ResponsiveContainer>
           </div>
-          <p className="text-center text-sm text-white/40 mt-2">
+          <p className="text-center text-sm text-secondary mt-2">
             Avg: {Math.round(weeklyData.reduce((sum, d) => sum + (d.proteinAvg || 0), 0) / weeklyData.filter(d => d.proteinAvg).length) || '—'}g/day
           </p>
         </div>
@@ -600,7 +600,7 @@ export function Progress() {
             <Activity size={40} className="text-amber-500/50" />
           </div>
           <h3 className="text-lg font-medium mb-2">No Progress Data Yet</h3>
-          <p className="text-white/50 max-w-sm mx-auto">
+          <p className="text-tertiary max-w-sm mx-auto">
             Start logging workouts, body weight, sleep, and nutrition to see your progress over time.
           </p>
         </div>

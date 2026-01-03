@@ -96,7 +96,7 @@ export function PlanTimelineHeader({
     <div className="glass rounded-xl p-4 mb-6">
       {/* Macro level - Phases */}
       <div className="mb-1">
-        <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1">Phases</p>
+        <p className="text-xs text-secondary uppercase tracking-wider mb-1">Phases</p>
         <div className="flex h-8 rounded-lg overflow-hidden">
           {phasesWithWeeks.map((phase, idx) => (
             <button
@@ -123,7 +123,7 @@ export function PlanTimelineHeader({
 
       {/* Meso level - Weeks */}
       <div className="relative mt-3">
-        <p className="text-[10px] text-white/40 uppercase tracking-wider mb-1">Weeks</p>
+        <p className="text-xs text-secondary uppercase tracking-wider mb-1">Weeks</p>
         <div className="flex h-6 bg-white/5 rounded overflow-hidden">
           {weekMarkers.map((week, idx) => {
             const isCurrentWeek = idx === currentWeekIndex
@@ -134,7 +134,7 @@ export function PlanTimelineHeader({
               <button
                 key={idx}
                 onClick={() => onWeekSelect(week.weekStart)}
-                className={`flex-1 min-w-0 text-[10px] font-medium transition-all border-r border-white/5 last:border-r-0 ${
+                className={`flex-1 min-w-0 text-xs font-medium transition-all border-r border-white/5 last:border-r-0 ${
                   isSelectedWeek
                     ? 'bg-amber-500 text-black'
                     : isCurrentWeek
@@ -166,15 +166,15 @@ export function PlanTimelineHeader({
           {currentWeekIndex >= 0 && (
             <div className="flex items-center gap-1.5">
               <div className="w-2 h-2 bg-red-500 rounded-full" />
-              <span className="text-white/50">Today</span>
+              <span className="text-tertiary">Today</span>
             </div>
           )}
           <div className="flex items-center gap-1.5">
             <div className="w-2 h-2 bg-amber-500 rounded-full" />
-            <span className="text-white/50">Selected</span>
+            <span className="text-tertiary">Selected</span>
           </div>
         </div>
-        <div className="text-white/40">
+        <div className="text-secondary">
           {format(currentWeekStart, 'MMM d')} - {format(addWeeks(currentWeekStart, 1), 'MMM d, yyyy')}
         </div>
       </div>

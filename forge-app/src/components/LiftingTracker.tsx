@@ -48,6 +48,7 @@ import { openAIChat } from '@/components/AIChatBubble'
 import { useDebounce } from '@/hooks/useDebounce'
 import { EquipmentIcon, formatEquipmentName } from '@/lib/equipment-icons'
 import { useWorkout } from '@/contexts/WorkoutContext'
+import { estimateTSSFromRPE } from '@/lib/training-load'
 
 // Strength training imports (Greg Nuckols evidence-based methods)
 import { RelativeIntensityBadge } from '@/components/strength/RelativeIntensityBadge'
@@ -499,7 +500,7 @@ function InlineRestTimer({
           onClick={() => {
             setTimeLeft(t => Math.max(0, t - 15))
           }}
-          className="px-1.5 py-0.5 text-xs text-white/50 hover:text-white hover:bg-white/10 rounded transition-colors"
+          className="px-1.5 py-0.5 text-xs text-tertiary hover:text-white hover:bg-white/10 rounded transition-colors"
         >
           -15
         </button>
@@ -507,7 +508,7 @@ function InlineRestTimer({
           onClick={() => {
             setTimeLeft(t => t + 30)
           }}
-          className="px-1.5 py-0.5 text-xs text-white/50 hover:text-white hover:bg-white/10 rounded transition-colors"
+          className="px-1.5 py-0.5 text-xs text-tertiary hover:text-white hover:bg-white/10 rounded transition-colors"
         >
           +30
         </button>
@@ -516,7 +517,7 @@ function InlineRestTimer({
       {/* Skip button */}
       <button
         onClick={onComplete}
-        className="p-1 text-white/40 hover:text-white transition-colors"
+        className="p-1 text-secondary hover:text-white transition-colors"
         title="Skip rest"
       >
         <SkipForward size={14} />
@@ -584,7 +585,7 @@ function ExerciseMenu({
           </div>
           <div className="flex-1">
             <h3 className="font-medium">{exercise.name}</h3>
-            <p className="text-xs text-white/50 capitalize">{exercise.primary_muscle}</p>
+            <p className="text-xs text-tertiary capitalize">{exercise.primary_muscle}</p>
           </div>
         </div>
 
@@ -781,7 +782,7 @@ function ExerciseSearchModal({
 
         <div className="p-4 border-b border-white/10">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted" />
             <input
               ref={inputRef}
               type="text"
@@ -817,12 +818,12 @@ function ExerciseSearchModal({
 
         <div className="overflow-y-auto max-h-[50vh]">
           {loading ? (
-            <div className="p-8 text-center text-white/40">Loading exercises...</div>
+            <div className="p-8 text-center text-secondary">Loading exercises...</div>
           ) : (
             <>
               {/* Subtle searching indicator - doesn't hide results */}
               {isSearching && (
-                <div className="px-4 py-2 text-xs text-white/40 flex items-center gap-2 border-b border-white/5">
+                <div className="px-4 py-2 text-xs text-secondary flex items-center gap-2 border-b border-white/5">
                   <Loader2 size={12} className="animate-spin" />
                   Searching...
                 </div>
@@ -849,7 +850,7 @@ function ExerciseSearchModal({
                         className="flex-1 min-w-0 text-left hover:text-amber-400 transition-colors"
                       >
                         <p className="font-medium">{exercise.name}</p>
-                        <p className="text-sm text-white/50 capitalize">{exercise.primary_muscle?.replace('_', ' ')} • {formatEquipmentName(exercise.equipment)}</p>
+                        <p className="text-sm text-tertiary capitalize">{exercise.primary_muscle?.replace('_', ' ')} • {formatEquipmentName(exercise.equipment)}</p>
                       </button>
 
                       {/* Add button - adds exercise to workout */}
@@ -890,7 +891,7 @@ function ExerciseSearchModal({
                     <div className="px-4 py-3 border-t border-white/10">
                       <button
                         onClick={() => setShowCreateExercise(true)}
-                        className="w-full py-2 text-sm text-white/50 hover:text-amber-400 transition-colors flex items-center justify-center gap-2"
+                        className="w-full py-2 text-sm text-tertiary hover:text-amber-400 transition-colors flex items-center justify-center gap-2"
                       >
                         <Plus size={16} />
                         Don't see it? Create "{debouncedSearch}"
@@ -900,7 +901,7 @@ function ExerciseSearchModal({
                 </>
               ) : (
                 <div className="p-8 text-center">
-                  <p className="text-white/40 mb-4">No exercises found for "{debouncedSearch}"</p>
+                  <p className="text-secondary mb-4">No exercises found for "{debouncedSearch}"</p>
                   <button
                     onClick={() => setShowCreateExercise(true)}
                     className="px-4 py-2 bg-amber-500/20 text-amber-400 rounded-lg hover:bg-amber-500/30 transition-colors inline-flex items-center gap-2"
@@ -981,7 +982,7 @@ function ExerciseSearchDetailPopup({
             </div>
             <div>
               <h3 className="text-lg font-semibold">{exercise.name}</h3>
-              <p className="text-sm text-white/50 capitalize">
+              <p className="text-sm text-tertiary capitalize">
                 {exercise.primary_muscle?.replace('_', ' ')} • {formatEquipmentName(exercise.equipment)}
               </p>
             </div>
@@ -1164,7 +1165,7 @@ function CreateExerciseModal({
               )}
             </button>
 
-            <p className="text-xs text-white/40 text-center mt-3">
+            <p className="text-xs text-secondary text-center mt-3">
               AI will suggest muscle groups, equipment, and coaching cues
             </p>
           </>
@@ -1253,7 +1254,7 @@ function CreateExerciseModal({
 
             <button
               onClick={() => setGeneratedExercise(null)}
-              className="w-full mt-2 py-2 text-sm text-white/40 hover:text-white/60 transition-colors"
+              className="w-full mt-2 py-2 text-sm text-secondary hover:text-white/60 transition-colors"
             >
               Start over with different name
             </button>
@@ -1480,7 +1481,7 @@ function SetRow({
 
           <button
             onClick={resetTimer}
-            className="p-1.5 rounded-lg bg-white/10 text-white/40 hover:text-white/60 transition-colors"
+            className="p-1.5 rounded-lg bg-white/10 text-secondary hover:text-white/60 transition-colors"
           >
             <RotateCcw size={12} />
           </button>
@@ -1495,7 +1496,7 @@ function SetRow({
             className={`w-8 h-8 rounded-full flex items-center justify-center transition-all outline-none ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 active:outline-none active:ring-0 ${
               set.completed
                 ? 'bg-emerald-500 text-white'
-                : 'bg-white/10 text-white/40 hover:bg-amber-500 hover:text-black active:bg-amber-600'
+                : 'bg-white/10 text-secondary hover:bg-amber-500 hover:text-black active:bg-amber-600'
             }`}
           >
             <Check size={18} strokeWidth={2.5} />
@@ -1546,7 +1547,7 @@ function SetRow({
               className="text-xs hover:bg-amber-500/20 px-1.5 py-0.5 rounded transition-colors group w-full"
               title="Tap to copy"
             >
-              <span className="text-white/50 font-medium group-hover:text-amber-400 tabular-nums">
+              <span className="text-tertiary font-medium group-hover:text-amber-400 tabular-nums">
                 {previousSet.weight}×{previousSet.reps}
               </span>
             </button>
@@ -1618,7 +1619,7 @@ function SetRow({
           className={`w-8 h-8 rounded-full flex items-center justify-center transition-all outline-none ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 active:outline-none active:ring-0 ${
             set.completed
               ? 'bg-emerald-500 text-white'
-              : 'bg-white/10 text-white/40 hover:bg-amber-500 hover:text-black active:bg-amber-600'
+              : 'bg-white/10 text-secondary hover:bg-amber-500 hover:text-black active:bg-amber-600'
           }`}
         >
           <Check size={18} strokeWidth={2.5} />
@@ -1705,7 +1706,7 @@ function ExerciseDetailModal({
             </div>
             <div className="flex-1">
               <h3 className="font-semibold text-lg">{exercise.name}</h3>
-              <p className="text-sm text-white/50 capitalize">
+              <p className="text-sm text-tertiary capitalize">
                 {exercise.primary_muscle?.replace('_', ' ')} • {formatEquipmentName(exercise.equipment)}
               </p>
             </div>
@@ -1757,17 +1758,17 @@ function ExerciseDetailModal({
                   />
                   {/* Show badge if it's a static image vs animated GIF */}
                   {!exercise.video_url && exercise.thumbnail_url && (
-                    <span className="absolute bottom-2 right-2 px-2 py-0.5 bg-black/60 rounded text-[10px] text-white/60">
+                    <span className="absolute bottom-2 right-2 px-2 py-0.5 bg-black/60 rounded text-xs text-white/60">
                       Static image
                     </span>
                   )}
                 </div>
               ) : (
                 <div className="aspect-video bg-white/5 rounded-lg flex items-center justify-center">
-                  <div className="text-center text-white/40">
+                  <div className="text-center text-secondary">
                     <Dumbbell size={48} className="mx-auto mb-2 opacity-50" />
                     <p className="text-sm">Exercise demonstration</p>
-                    <p className="text-xs text-white/30 mt-1">No image available</p>
+                    <p className="text-xs text-muted mt-1">No image available</p>
                   </div>
                 </div>
               )}
@@ -1790,7 +1791,7 @@ function ExerciseDetailModal({
               {/* Primary/Secondary Muscles */}
               <div className="flex gap-4">
                 <div>
-                  <h4 className="text-sm font-medium text-white/40 mb-1">Primary</h4>
+                  <h4 className="text-sm font-medium text-secondary mb-1">Primary</h4>
                   <span className="px-2 py-1 bg-violet-500/20 text-violet-400 rounded text-sm capitalize">
                     {exercise.primary_muscle?.replace('_', ' ')}
                   </span>
@@ -1803,7 +1804,7 @@ function ExerciseDetailModal({
           {activeTab === 'history' && (
             <div>
               {loading ? (
-                <div className="text-center py-8 text-white/40">Loading history...</div>
+                <div className="text-center py-8 text-secondary">Loading history...</div>
               ) : history.length > 0 ? (
                 <div className="space-y-3">
                   {history.map((session, i) => (
@@ -1823,12 +1824,12 @@ function ExerciseDetailModal({
                       <div className="space-y-1">
                         {session.sets?.filter((s: any) => s.completed).map((set: any, j: number) => (
                           <div key={j} className="flex items-center gap-2 text-sm">
-                            <span className="w-6 text-white/40">{set.set_number}</span>
+                            <span className="w-6 text-secondary">{set.set_number}</span>
                             <span className="font-medium">
                               {set.actual_weight_lbs || set.actual_weight}lbs × {set.actual_reps}
                             </span>
                             {(set.actual_rpe || set.actual_rir) && (
-                              <span className="text-white/40">
+                              <span className="text-secondary">
                                 {set.actual_rir ? `RIR ${set.actual_rir}` : `RPE ${set.actual_rpe}`}
                               </span>
                             )}
@@ -1841,8 +1842,8 @@ function ExerciseDetailModal({
               ) : (
                 <div className="text-center py-8">
                   <Clock size={32} className="mx-auto text-white/20 mb-2" />
-                  <p className="text-white/40">No history yet</p>
-                  <p className="text-sm text-white/30 mt-1">Complete sets to build your history</p>
+                  <p className="text-secondary">No history yet</p>
+                  <p className="text-sm text-muted mt-1">Complete sets to build your history</p>
                 </div>
               )}
             </div>
@@ -1856,11 +1857,11 @@ function ExerciseDetailModal({
                 <div className="grid grid-cols-3 gap-2 mb-4">
                   <div className="p-3 bg-white/5 rounded-lg text-center">
                     <p className="text-lg font-bold text-amber-400">{stats.total_sessions}</p>
-                    <p className="text-xs text-white/50">Sessions</p>
+                    <p className="text-xs text-tertiary">Sessions</p>
                   </div>
                   <div className="p-3 bg-white/5 rounded-lg text-center">
                     <p className="text-lg font-bold text-amber-400">{stats.total_sets}</p>
-                    <p className="text-xs text-white/50">Total Sets</p>
+                    <p className="text-xs text-tertiary">Total Sets</p>
                   </div>
                   <div className="p-3 bg-white/5 rounded-lg text-center">
                     <p className="text-lg font-bold text-amber-400">
@@ -1868,7 +1869,7 @@ function ExerciseDetailModal({
                         ? `${(stats.total_volume_lbs / 1000).toFixed(1)}k`
                         : stats.total_volume_lbs}
                     </p>
-                    <p className="text-xs text-white/50">Volume (lbs)</p>
+                    <p className="text-xs text-tertiary">Volume (lbs)</p>
                   </div>
                 </div>
               )}
@@ -1908,7 +1909,7 @@ function ExerciseDetailModal({
                     </ResponsiveContainer>
                   </div>
                 ) : (
-                  <div className="h-32 bg-white/5 rounded-lg flex items-center justify-center text-white/30 text-sm">
+                  <div className="h-32 bg-white/5 rounded-lg flex items-center justify-center text-muted text-sm">
                     Not enough data
                   </div>
                 )}
@@ -1983,8 +1984,8 @@ function ExerciseDetailModal({
                         return (
                           <div key={repKey} className="p-3 bg-white/5 rounded-lg">
                             <p className="text-lg font-bold">{(data as any).weight}lbs</p>
-                            <p className="text-sm text-white/50">{reps} rep{reps !== '1' ? 's' : ''}</p>
-                            <p className="text-xs text-white/30">
+                            <p className="text-sm text-tertiary">{reps} rep{reps !== '1' ? 's' : ''}</p>
+                            <p className="text-xs text-muted">
                               {new Date((data as any).date).toLocaleDateString()}
                             </p>
                           </div>
@@ -1992,7 +1993,7 @@ function ExerciseDetailModal({
                       })}
                   </div>
                 ) : (
-                  <div className="text-center py-4 text-white/30 text-sm">
+                  <div className="text-center py-4 text-muted text-sm">
                     No records yet
                   </div>
                 )}
@@ -2145,7 +2146,7 @@ function FormCoachingModal({
               <Camera size={20} className="text-amber-400" />
               AI Form Coach
             </h3>
-            <p className="text-sm text-white/50">{exercise.name}</p>
+            <p className="text-sm text-tertiary">{exercise.name}</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg">
             <X size={20} />
@@ -2166,11 +2167,11 @@ function FormCoachingModal({
                   playsInline
                 />
                 {!isRecording && !videoRef.current?.srcObject && (
-                  <div className="absolute inset-0 flex items-center justify-center text-white/40">
+                  <div className="absolute inset-0 flex items-center justify-center text-secondary">
                     <div className="text-center">
                       <Video size={48} className="mx-auto mb-2 opacity-50" />
                       <p className="text-sm">Position yourself in frame</p>
-                      <p className="text-xs text-white/30 mt-1">Then click record</p>
+                      <p className="text-xs text-muted mt-1">Then click record</p>
                     </div>
                   </div>
                 )}
@@ -2258,9 +2259,9 @@ function FormCoachingModal({
               <div className="flex items-center justify-center gap-4 p-4 bg-white/5 rounded-xl">
                 <div className="text-center">
                   <p className="text-4xl font-bold text-amber-400">{feedback.overall_score}</p>
-                  <p className="text-sm text-white/50">Form Score</p>
+                  <p className="text-sm text-tertiary">Form Score</p>
                 </div>
-                <div className="text-xs text-white/40 text-left">
+                <div className="text-xs text-secondary text-left">
                   <p>100 = Perfect form</p>
                   <p>80+ = Good form</p>
                   <p>60+ = Needs work</p>
@@ -2463,7 +2464,7 @@ function ExerciseCard({
         onClick={() => onUpdate({ collapsed: !collapsed })}
       >
         {superset_group && supersetColor && (
-          <span className={`px-1.5 py-0.5 text-[10px] font-bold ${supersetColor.bg} ${supersetColor.text} rounded`}>
+          <span className={`px-1.5 py-0.5 text-xs font-bold ${supersetColor.bg} ${supersetColor.text} rounded`}>
             {superset_group}
           </span>
         )}
@@ -2486,7 +2487,7 @@ function ExerciseCard({
           <span className={`text-xs font-medium px-2 py-0.5 rounded ${
             allSetsComplete
               ? 'bg-emerald-500/20 text-emerald-400'
-              : 'bg-white/10 text-white/50'
+              : 'bg-white/10 text-tertiary'
           }`}>
             {allSetsComplete ? (
               <span className="flex items-center gap-1">
@@ -2501,12 +2502,12 @@ function ExerciseCard({
         {/* 3-dot menu */}
         <button
           onClick={(e) => { e.stopPropagation(); onOpenMenu(); }}
-          className="p-2 text-white/40 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+          className="p-2 text-secondary hover:text-white hover:bg-white/10 rounded-lg transition-colors"
         >
           <MoreVertical size={18} />
         </button>
 
-        {collapsed ? <ChevronDown size={18} className="text-white/40" /> : <ChevronUp size={18} className="text-white/40" />}
+        {collapsed ? <ChevronDown size={18} className="text-secondary" /> : <ChevronUp size={18} className="text-secondary" />}
       </div>
 
       {/* Sets (collapsible) */}
@@ -2530,7 +2531,7 @@ function ExerciseCard({
           )}
 
           {/* Header row - compact */}
-          <div className="flex items-center gap-2 text-[10px] text-white/30 mb-1 px-1 uppercase tracking-wider">
+          <div className="flex items-center gap-2 text-xs text-muted mb-1 px-1 uppercase tracking-wider">
             <div className="w-8 text-center">Set</div>
             <div className="w-16 text-center">Prev</div>
             <div className="w-14 text-center">Lbs</div>
@@ -2567,7 +2568,7 @@ function ExerciseCard({
           {/* Add set button - minimal */}
           <button
             onClick={addSet}
-            className="w-full mt-2 py-1.5 text-white/30 hover:text-white/60 transition-colors flex items-center justify-center gap-1.5 text-xs"
+            className="w-full mt-2 py-1.5 text-muted hover:text-white/60 transition-colors flex items-center justify-center gap-1.5 text-xs"
           >
             <Plus size={14} /> Add Set
           </button>
@@ -3073,6 +3074,9 @@ export function LiftingTracker({
         })),
       }))
 
+      // Calculate TSS for strength workout (default RPE 5 for strength)
+      const strengthTSS = estimateTSSFromRPE(elapsedMinutes, 5)
+
       // If this workout was started from a planned workout, mark that as completed
       if (plannedWorkoutId) {
         const patchRes = await fetch(`/api/workouts/${plannedWorkoutId}`, {
@@ -3082,6 +3086,7 @@ export function LiftingTracker({
             status: 'completed',
             completed_at: new Date().toISOString(),
             actual_duration_minutes: elapsedMinutes,
+            actual_tss: strengthTSS,
           }),
         })
 
@@ -3102,6 +3107,7 @@ export function LiftingTracker({
           status: 'completed',
           completed_at: new Date().toISOString(),
           actual_duration_minutes: elapsedMinutes,
+          actual_tss: strengthTSS,
           exercises: exercisesPayload,
         }),
       })
@@ -3166,7 +3172,7 @@ export function LiftingTracker({
                     : quickTimerState.timeLeft <= 0
                       ? 'bg-amber-500/30 text-amber-400 animate-pulse'
                       : 'bg-zinc-700/50 text-white/70'
-                  : 'hover:bg-white/5 text-white/50'
+                  : 'hover:bg-white/5 text-tertiary'
               }`}
               title="Rest Timer"
             >
@@ -3196,7 +3202,7 @@ export function LiftingTracker({
               className="p-2 hover:bg-white/5 rounded-lg transition-colors"
               title="Settings"
             >
-              <Settings size={20} className="text-white/50 hover:text-white/70" />
+              <Settings size={20} className="text-tertiary hover:text-white/70" />
             </Link>
 
             {/* Minimize button (outermost) - collapses workout to floating bar */}
@@ -3205,7 +3211,7 @@ export function LiftingTracker({
               className="p-2 hover:bg-white/5 rounded-lg transition-colors"
               title="Minimize workout"
             >
-              <ChevronDown size={20} className="text-white/50 hover:text-white/70" />
+              <ChevronDown size={20} className="text-tertiary hover:text-white/70" />
             </button>
           </div>
         </div>
@@ -3220,7 +3226,7 @@ export function LiftingTracker({
           placeholder="Workout name..."
           className="text-2xl font-display font-semibold bg-transparent border-none outline-none placeholder-white/30 w-full"
         />
-        <p className="text-white/50 mt-1">
+        <p className="text-tertiary mt-1">
           {workoutStartTime.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
         </p>
       </div>
@@ -3228,15 +3234,15 @@ export function LiftingTracker({
       {/* Stats bar */}
       <div className="px-4 lg:px-6 py-3 flex items-center gap-6 text-sm border-b border-white/5">
         <div className="flex items-center gap-2">
-          <Clock size={16} className="text-white/40" />
+          <Clock size={16} className="text-secondary" />
           <span>{elapsedMinutes}m</span>
         </div>
         <div className="flex items-center gap-2">
-          <Target size={16} className="text-white/40" />
+          <Target size={16} className="text-secondary" />
           <span>{completedSets}/{totalSets} sets</span>
         </div>
         <div className="flex items-center gap-2">
-          <Flame size={16} className="text-white/40" />
+          <Flame size={16} className="text-secondary" />
           <span>{totalVolume.toLocaleString()} lbs</span>
         </div>
       </div>
@@ -3269,7 +3275,7 @@ export function LiftingTracker({
         {/* Add exercise button */}
         <button
           onClick={() => setShowExerciseSearch(true)}
-          className="w-full py-4 border-2 border-dashed border-white/10 rounded-xl text-white/40 hover:text-white hover:border-white/20 transition-colors flex items-center justify-center gap-2"
+          className="w-full py-4 border-2 border-dashed border-white/10 rounded-xl text-secondary hover:text-white hover:border-white/20 transition-colors flex items-center justify-center gap-2"
         >
           <Plus size={20} /> Add Exercise
         </button>
@@ -3278,8 +3284,8 @@ export function LiftingTracker({
         {exercises.length === 0 && (
           <div className="text-center py-12">
             <Dumbbell size={48} className="mx-auto text-white/20 mb-4" />
-            <p className="text-white/40">No exercises yet</p>
-            <p className="text-sm text-white/30 mt-1">Add exercises to start your workout</p>
+            <p className="text-secondary">No exercises yet</p>
+            <p className="text-sm text-muted mt-1">Add exercises to start your workout</p>
           </div>
         )}
       </div>

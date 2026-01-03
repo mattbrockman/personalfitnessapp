@@ -69,7 +69,7 @@ export function RHRCard({
           onClick={() => setShowInfo(!showInfo)}
           className="p-1 hover:bg-white/10 rounded-lg"
         >
-          <Info size={16} className="text-white/40" />
+          <Info size={16} className="text-secondary" />
         </button>
       </div>
 
@@ -86,7 +86,7 @@ export function RHRCard({
         <div className="mb-3">
           <div className="flex items-baseline gap-2">
             <span className="text-3xl font-bold">{currentRHR}</span>
-            <span className="text-white/50 text-sm">bpm</span>
+            <span className="text-tertiary text-sm">bpm</span>
             {classification && (
               <span className={`text-sm ${classification.color}`}>
                 {classification.label}
@@ -113,8 +113,8 @@ export function RHRCard({
                 </>
               ) : (
                 <>
-                  <Minus size={14} className="text-white/40" />
-                  <span className="text-white/40">Stable</span>
+                  <Minus size={14} className="text-secondary" />
+                  <span className="text-secondary">Stable</span>
                 </>
               )}
             </div>
@@ -130,8 +130,8 @@ export function RHRCard({
         </div>
       ) : (
         <div className="mb-3">
-          <div className="text-2xl font-bold text-white/30">--</div>
-          <p className="text-sm text-white/50 mt-1">No RHR data</p>
+          <div className="text-2xl font-bold text-muted">--</div>
+          <p className="text-sm text-tertiary mt-1">No RHR data</p>
         </div>
       )}
 
@@ -154,7 +154,7 @@ export function RHRCard({
               )
             })}
           </div>
-          <div className="flex justify-between text-xs text-white/30 mt-1">
+          <div className="flex justify-between text-xs text-muted mt-1">
             <span>7 days ago</span>
             <span>Today</span>
           </div>
@@ -165,11 +165,11 @@ export function RHRCard({
       {avgRHR7Day && avgRHR30Day && (
         <div className="grid grid-cols-2 gap-3 p-2 bg-white/5 rounded-lg text-sm">
           <div>
-            <span className="text-white/40 text-xs">7-day avg</span>
+            <span className="text-secondary text-xs">7-day avg</span>
             <p className="font-medium">{avgRHR7Day.toFixed(0)} bpm</p>
           </div>
           <div>
-            <span className="text-white/40 text-xs">30-day avg</span>
+            <span className="text-secondary text-xs">30-day avg</span>
             <p className="font-medium">{avgRHR30Day.toFixed(0)} bpm</p>
           </div>
         </div>

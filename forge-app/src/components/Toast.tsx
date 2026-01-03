@@ -1,9 +1,9 @@
 'use client'
 
 import { createContext, useContext, useState, useCallback, useEffect } from 'react'
-import { CheckCircle, AlertCircle, Info, X, AlertTriangle } from 'lucide-react'
+import { CheckCircle, AlertCircle, Info, X, AlertTriangle, Trophy } from 'lucide-react'
 
-type ToastType = 'success' | 'error' | 'info' | 'warning'
+type ToastType = 'success' | 'error' | 'info' | 'warning' | 'celebration'
 
 interface Toast {
   id: string
@@ -33,6 +33,7 @@ const toastIcons = {
   error: AlertCircle,
   info: Info,
   warning: AlertTriangle,
+  celebration: Trophy,
 }
 
 const toastStyles = {
@@ -40,6 +41,7 @@ const toastStyles = {
   error: 'bg-red-500/20 border-red-500/30 text-red-400',
   info: 'bg-sky-500/20 border-sky-500/30 text-sky-400',
   warning: 'bg-amber-500/20 border-amber-500/30 text-amber-400',
+  celebration: 'bg-gradient-to-r from-amber-500/30 via-yellow-500/30 to-amber-500/30 border-amber-400/50 text-amber-300',
 }
 
 function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: () => void }) {
@@ -125,4 +127,9 @@ export function useInfoToast() {
 export function useWarningToast() {
   const { addToast } = useToast()
   return useCallback((message: string) => addToast('warning', message), [addToast])
+}
+
+export function useCelebrationToast() {
+  const { addToast } = useToast()
+  return useCallback((message: string) => addToast('celebration', message, 5000), [addToast])
 }

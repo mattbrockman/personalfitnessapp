@@ -188,7 +188,7 @@ export function AIWorkoutGenerator({
               </div>
               <div>
                 <h3 className="font-semibold">{generatedWorkout.name}</h3>
-                <p className="text-sm text-white/50">
+                <p className="text-sm text-tertiary">
                   {generatedWorkout.exercises.length} exercises • ~{generatedWorkout.estimated_duration}m
                 </p>
               </div>
@@ -218,7 +218,7 @@ export function AIWorkoutGenerator({
                 </span>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium truncate">{ex.exercise.name}</p>
-                  <p className="text-xs text-white/50">
+                  <p className="text-xs text-tertiary">
                     {ex.sets} sets × {ex.reps_min === ex.reps_max ? ex.reps_min : `${ex.reps_min}-${ex.reps_max}`} reps • {ex.rest_seconds}s rest
                   </p>
                 </div>
@@ -278,7 +278,7 @@ export function AIWorkoutGenerator({
             </div>
             <div>
               <h3 className="font-semibold">AI Workout Generator</h3>
-              <p className="text-sm text-white/50">Smart workouts based on your data</p>
+              <p className="text-sm text-tertiary">Smart workouts based on your data</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg">
@@ -302,7 +302,7 @@ export function AIWorkoutGenerator({
 
             {/* Muscle Focus */}
             <div className="mb-4">
-              <p className="text-xs text-white/40 mb-2">Focus Area</p>
+              <p className="text-xs text-secondary mb-2">Focus Area</p>
               <div className="flex flex-wrap gap-2">
                 {MUSCLE_FOCUS_OPTIONS.map(option => (
                   <button
@@ -322,7 +322,7 @@ export function AIWorkoutGenerator({
 
             {/* Duration */}
             <div className="mb-4">
-              <p className="text-xs text-white/40 mb-2 flex items-center gap-1">
+              <p className="text-xs text-secondary mb-2 flex items-center gap-1">
                 <Clock size={12} />
                 Duration
               </p>
@@ -345,7 +345,7 @@ export function AIWorkoutGenerator({
 
             {/* Equipment */}
             <div className="mb-4">
-              <p className="text-xs text-white/40 mb-2 flex items-center gap-1">
+              <p className="text-xs text-secondary mb-2 flex items-center gap-1">
                 <Dumbbell size={12} />
                 Equipment
               </p>
@@ -389,7 +389,7 @@ export function AIWorkoutGenerator({
           {/* Divider */}
           <div className="flex items-center gap-4">
             <div className="flex-1 h-px bg-white/10" />
-            <span className="text-xs text-white/40">or describe what you want</span>
+            <span className="text-xs text-secondary">or describe what you want</span>
             <div className="flex-1 h-px bg-white/10" />
           </div>
 
@@ -404,7 +404,7 @@ export function AIWorkoutGenerator({
                 onKeyDown={handleKeyDown}
                 placeholder="e.g., 'Push day, 45 mins, avoid shoulder exercises due to rotator cuff issue'"
                 rows={3}
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-amber-500/50 resize-none"
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-sm text-white placeholder:text-muted focus:outline-none focus:border-amber-500/50 resize-none"
               />
             </div>
             <button
@@ -428,7 +428,7 @@ export function AIWorkoutGenerator({
 
           {/* Info note */}
           <div className="p-3 bg-white/5 rounded-lg">
-            <p className="text-xs text-white/50">
+            <p className="text-xs text-tertiary">
               The AI considers your recent workouts, exercise history, any logged injuries, and recovery status to create a personalized workout.
             </p>
           </div>

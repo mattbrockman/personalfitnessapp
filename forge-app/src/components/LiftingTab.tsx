@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
-import { Plus, Layers, History, Dumbbell, Loader2, Sparkles, Calendar, ChevronRight, CheckCircle2 } from 'lucide-react'
+import { Plus, Layers, History, Dumbbell, Loader2, Sparkles, Calendar, ChevronRight, CheckCircle2, Copy } from 'lucide-react'
 import { format } from 'date-fns'
 import { WorkoutBuilder } from './WorkoutBuilder'
 import { LiftingTracker } from './LiftingTracker'
 import { WorkoutTemplateLibrary } from './WorkoutTemplateLibrary'
 import { AIWorkoutGenerator } from './AIWorkoutGenerator'
+import { useWorkout } from '@/contexts/WorkoutContext'
 
 // Types
 interface Exercise {
@@ -74,6 +75,7 @@ interface HistoryWorkout {
 }
 
 export function LiftingTab({ workoutId }: LiftingTabProps) {
+  const { activeWorkout, isMinimized, endWorkout, startWorkout } = useWorkout()
   const [mainView, setMainView] = useState<MainView>('tabs')
   const [activeTab, setActiveTab] = useState<TabView>('new')
   const [workoutName, setWorkoutName] = useState('')
@@ -81,6 +83,21 @@ export function LiftingTab({ workoutId }: LiftingTabProps) {
   const [plannedWorkoutId, setPlannedWorkoutId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [showAIGenerator, setShowAIGenerator] = useState(false)
+
+  // Builder pre-population state (for editing AI-generated workouts)
+  const [builderExercises, setBuilderExercises] = useState<BuilderExercise[]>([])
+  const [builderName, setBuilderName] = useState('')
+
+  // Auto-switch views based on workout state
+  useEffect(() => {
+    if (activeWorkout && !isMinimized && mainView !== 'tracker') {
+      // Expand: switch to tracker view
+      setMainView('tracker')
+    } else if (activeWorkout && isMinimized && mainView === 'tracker') {
+      // Minimize: switch back to tabs view
+      setMainView('tabs')
+    }
+  }, [activeWorkout, isMinimized])
 
   // History tab state
   const [historyWorkouts, setHistoryWorkouts] = useState<HistoryWorkout[]>([])
@@ -133,6 +150,85 @@ export function LiftingTab({ workoutId }: LiftingTabProps) {
       }
     } catch (err) {
       console.error('Failed to load workout details:', err)
+    }
+  }
+
+  // Copy a historical workout to start a new one with same exercises/sets/reps
+  const copyWorkoutToNew = async (workoutId: string, workoutName: string) => {
+    try {
+      const res = await fetch(`/api/workouts/${workoutId}`)
+      if (!res.ok) return
+
+      const data = await res.json()
+      const workout = data.workout
+
+      if (!workout?.exercises?.length) {
+        console.error('No exercises found in workout')
+        return
+      }
+
+      // Convert exercises to WorkoutExercise format
+      const trackerExercises: WorkoutExercise[] = workout.exercises.map((ex: any, idx: number) => {
+        const sets: SetData[] = (ex.sets || []).map((s: any, setIdx: number) => ({
+          id: `set-${Date.now()}-${idx}-${setIdx}`,
+          set_number: s.set_number || setIdx + 1,
+          set_type: s.set_type || 'working',
+          target_reps: s.actual_reps ?? s.target_reps ?? 10,
+          target_weight: s.actual_weight_lbs ?? s.target_weight_lbs ?? null,
+          target_rir: null,
+          actual_reps: null,
+          actual_weight: null,
+          actual_rir: null,
+          completed: false,
+          is_timed: s.is_timed || false,
+          target_duration: s.actual_duration_seconds ?? s.target_duration_seconds ?? null,
+          actual_duration: null,
+        }))
+
+        // If no sets, create default sets
+        if (sets.length === 0) {
+          sets.push({
+            id: `set-${Date.now()}-${idx}-0`,
+            set_number: 1,
+            set_type: 'working',
+            target_reps: 10,
+            target_weight: null,
+            target_rir: null,
+            actual_reps: null,
+            actual_weight: null,
+            actual_rir: null,
+            completed: false,
+            is_timed: false,
+            target_duration: null,
+            actual_duration: null,
+          })
+        }
+
+        return {
+          id: `ex-${Date.now()}-${idx}`,
+          exercise: {
+            id: ex.exercise_id || ex.exercise?.id || '',
+            name: ex.exercise_name || ex.exercise?.name || 'Unknown Exercise',
+            primary_muscle: ex.exercise?.primary_muscle || '',
+            equipment: ex.exercise?.equipment || '',
+            cues: ex.exercise?.cues || [],
+            is_timed: ex.exercise?.is_timed || false,
+          },
+          superset_group: ex.superset_group || null,
+          rest_seconds: ex.rest_seconds || 90,
+          notes: '',
+          collapsed: false,
+          sets,
+        }
+      })
+
+      // Set up and switch to tracker
+      setWorkoutName(`${workoutName} (Copy)`)
+      setPreloadedExercises(trackerExercises)
+      setPlannedWorkoutId(null) // This is a new workout, not editing the old one
+      setMainView('tracker')
+    } catch (err) {
+      console.error('Failed to copy workout:', err)
     }
   }
 
@@ -286,17 +382,12 @@ export function LiftingTab({ workoutId }: LiftingTabProps) {
   }, [convertToTrackerFormat])
 
   // Handle AI generated workout - edit first in builder
-  // Note: WorkoutBuilder would need to accept initial exercises to support this fully
-  // For now, we'll just start the workout directly
   const handleAIEditInBuilder = useCallback((exercises: BuilderExercise[], name: string) => {
-    // TODO: Pass exercises to WorkoutBuilder when it supports initial data
-    // For now, start workout directly (user can modify in tracker)
-    const trackerExercises = convertToTrackerFormat(exercises)
-    setWorkoutName(name)
-    setPreloadedExercises(trackerExercises)
+    setBuilderExercises(exercises)
+    setBuilderName(name)
     setShowAIGenerator(false)
-    setMainView('tracker')
-  }, [convertToTrackerFormat])
+    setMainView('builder')
+  }, [])
 
   // Handle scheduling a workout
   const handleSchedule = useCallback(async (exercises: BuilderExercise[], name: string, date: string) => {
@@ -391,9 +482,10 @@ export function LiftingTab({ workoutId }: LiftingTabProps) {
     setPreloadedExercises([])
     setWorkoutName('')
     setPlannedWorkoutId(null)
+    endWorkout() // Clear context
     // Clear the URL param
     window.history.replaceState({}, '', '/lifting')
-  }, [])
+  }, [endWorkout])
 
   // Handle canceling workout
   const handleCancelWorkout = useCallback(() => {
@@ -402,10 +494,11 @@ export function LiftingTab({ workoutId }: LiftingTabProps) {
       setPreloadedExercises([])
       setWorkoutName('')
       setPlannedWorkoutId(null)
+      endWorkout() // Clear context
       // Clear the URL param
       window.history.replaceState({}, '', '/lifting')
     }
-  }, [])
+  }, [endWorkout])
 
   // Loading state
   if (loading) {
@@ -423,10 +516,16 @@ export function LiftingTab({ workoutId }: LiftingTabProps) {
   if (mainView === 'builder') {
     return (
       <WorkoutBuilder
+        initialExercises={builderExercises}
+        initialName={builderName}
         onStartWorkout={handleStartWorkout}
         onSchedule={handleSchedule}
         onSaveTemplate={handleSaveTemplate}
-        onClose={() => setMainView('tabs')}
+        onClose={() => {
+          setMainView('tabs')
+          setBuilderExercises([])
+          setBuilderName('')
+        }}
       />
     )
   }
@@ -448,38 +547,38 @@ export function LiftingTab({ workoutId }: LiftingTabProps) {
     <div>
       {/* Tab Navigation */}
       <div className="px-4 pt-4 lg:px-6 lg:pt-6">
-        <div className="flex gap-2 p-1 bg-white/5 rounded-xl">
+        <div className="flex gap-1.5 p-1 bg-white/5 rounded-xl">
           <button
             onClick={() => setActiveTab('new')}
-            className={`flex-1 py-2.5 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
+            className={`flex-1 py-2.5 px-2 sm:px-4 rounded-lg text-sm sm:text-base font-medium transition-colors flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap ${
               activeTab === 'new'
                 ? 'bg-amber-500 text-black'
                 : 'text-white/60 hover:text-white hover:bg-white/5'
             }`}
           >
-            <Plus size={18} />
-            New Workout
+            <Plus size={16} className="sm:w-[18px] sm:h-[18px] flex-shrink-0" />
+            New
           </button>
           <button
             onClick={() => setActiveTab('templates')}
-            className={`flex-1 py-2.5 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
+            className={`flex-1 py-2.5 px-2 sm:px-4 rounded-lg text-sm sm:text-base font-medium transition-colors flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap ${
               activeTab === 'templates'
                 ? 'bg-amber-500 text-black'
                 : 'text-white/60 hover:text-white hover:bg-white/5'
             }`}
           >
-            <Layers size={18} />
+            <Layers size={16} className="sm:w-[18px] sm:h-[18px]" />
             Templates
           </button>
           <button
             onClick={() => setActiveTab('history')}
-            className={`flex-1 py-2.5 px-4 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
+            className={`flex-1 py-2.5 px-2 sm:px-4 rounded-lg text-sm sm:text-base font-medium transition-colors flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap ${
               activeTab === 'history'
                 ? 'bg-amber-500 text-black'
                 : 'text-white/60 hover:text-white hover:bg-white/5'
             }`}
           >
-            <History size={18} />
+            <History size={16} className="sm:w-[18px] sm:h-[18px]" />
             History
           </button>
         </div>
@@ -493,30 +592,37 @@ export function LiftingTab({ workoutId }: LiftingTabProps) {
               <Dumbbell size={40} className="text-amber-400" />
             </div>
             <h2 className="text-xl font-semibold mb-2">Start a New Workout</h2>
-            <p className="text-white/50 mb-6 max-w-sm mx-auto">
+            <p className="text-tertiary mb-6 max-w-sm mx-auto">
               Build your workout from scratch, use AI to generate one, or choose from templates
             </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <div className="grid grid-cols-2 sm:flex sm:flex-row gap-3 justify-center">
               <button
                 onClick={() => setShowAIGenerator(true)}
-                className="px-6 py-3 bg-violet-500 hover:bg-violet-400 text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
+                className="px-4 sm:px-6 py-3 bg-violet-500 hover:bg-violet-400 text-white font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
               >
                 <Sparkles size={18} />
-                AI Generate
+                <span className="whitespace-nowrap">AI Generate</span>
               </button>
               <button
                 onClick={() => setMainView('builder')}
-                className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-black font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
+                className="px-4 sm:px-6 py-3 bg-amber-500 hover:bg-amber-400 text-black font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
               >
                 <Plus size={18} />
-                Build Custom
+                <span className="whitespace-nowrap">Build Custom</span>
               </button>
               <button
                 onClick={() => setActiveTab('templates')}
-                className="px-6 py-3 bg-white/10 hover:bg-white/20 font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
+                className="px-4 sm:px-6 py-3 bg-white/10 hover:bg-white/20 font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
               >
                 <Layers size={18} />
                 Templates
+              </button>
+              <button
+                onClick={() => setActiveTab('history')}
+                className="px-4 sm:px-6 py-3 bg-white/10 hover:bg-white/20 font-medium rounded-xl transition-colors flex items-center justify-center gap-2"
+              >
+                <Copy size={18} />
+                <span className="whitespace-nowrap">Copy Previous</span>
               </button>
             </div>
           </div>
@@ -558,8 +664,8 @@ export function LiftingTab({ workoutId }: LiftingTabProps) {
           ) : historyWorkouts.length === 0 ? (
             <div className="text-center py-12">
               <History size={48} className="mx-auto text-white/20 mb-4" />
-              <p className="text-white/40">No completed workouts yet</p>
-              <p className="text-sm text-white/30 mt-1">
+              <p className="text-secondary">No completed workouts yet</p>
+              <p className="text-sm text-muted mt-1">
                 Complete a workout to see it here
               </p>
             </div>
@@ -581,14 +687,23 @@ export function LiftingTab({ workoutId }: LiftingTabProps) {
                     <CheckCircle2 size={12} /> Completed
                   </span>
                 </div>
-                <div className="flex items-center gap-4 text-sm text-white/60">
-                  <div className="flex items-center gap-1">
-                    <Calendar size={14} />
-                    {format(new Date(selectedHistoryWorkout.completed_at || selectedHistoryWorkout.scheduled_date), 'MMM d, yyyy')}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4 text-sm text-white/60">
+                    <div className="flex items-center gap-1">
+                      <Calendar size={14} />
+                      {format(new Date(selectedHistoryWorkout.completed_at || selectedHistoryWorkout.scheduled_date), 'MMM d, yyyy')}
+                    </div>
+                    {selectedHistoryWorkout.actual_duration_minutes && (
+                      <div>{selectedHistoryWorkout.actual_duration_minutes}min</div>
+                    )}
                   </div>
-                  {selectedHistoryWorkout.actual_duration_minutes && (
-                    <div>{selectedHistoryWorkout.actual_duration_minutes}min</div>
-                  )}
+                  <button
+                    onClick={() => copyWorkoutToNew(selectedHistoryWorkout.id, selectedHistoryWorkout.name)}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black rounded-lg transition-colors text-sm font-medium"
+                  >
+                    <Copy size={16} />
+                    Copy & Start
+                  </button>
                 </div>
               </div>
 
@@ -608,7 +723,7 @@ export function LiftingTab({ workoutId }: LiftingTabProps) {
                           </span>
                         )}
                       </div>
-                      {ex.notes && <p className="text-xs text-white/40 mb-3">{ex.notes}</p>}
+                      {ex.notes && <p className="text-xs text-secondary mb-3">{ex.notes}</p>}
 
                       {setsArray.length > 0 ? (
                         <div className="space-y-2">
@@ -619,19 +734,19 @@ export function LiftingTab({ workoutId }: LiftingTabProps) {
                                 set.completed ? 'bg-emerald-500/10' : 'bg-white/5'
                               }`}
                             >
-                              <span className="text-xs text-white/40">Set {setIdx + 1}</span>
+                              <span className="text-xs text-secondary">Set {setIdx + 1}</span>
                               <div className="text-sm">
                                 {set.is_timed ? (
                                   set.actual_duration_seconds
                                     ? <span className="text-emerald-400">{set.actual_duration_seconds}s</span>
-                                    : <span className="text-white/40">{set.target_duration_seconds}s target</span>
+                                    : <span className="text-secondary">{set.target_duration_seconds}s target</span>
                                 ) : (
                                   <>
                                     <span className={set.completed ? 'text-emerald-400' : 'text-white/60'}>
                                       {set.actual_reps ?? set.target_reps ?? '-'} reps
                                     </span>
                                     {(set.actual_weight_lbs || set.target_weight_lbs) && (
-                                      <span className="text-white/40 ml-2">
+                                      <span className="text-secondary ml-2">
                                         @ {set.actual_weight_lbs ?? set.target_weight_lbs} lbs
                                       </span>
                                     )}
@@ -642,7 +757,7 @@ export function LiftingTab({ workoutId }: LiftingTabProps) {
                           ))}
                         </div>
                       ) : (
-                        <p className="text-xs text-white/30">No set data recorded</p>
+                        <p className="text-xs text-muted">No set data recorded</p>
                       )}
                     </div>
                   )
@@ -652,15 +767,18 @@ export function LiftingTab({ workoutId }: LiftingTabProps) {
           ) : (
             // Workout list view
             <div className="space-y-2">
+              <p className="text-sm text-secondary mb-3">Tap a workout to view details, or copy to start a new workout with the same exercises.</p>
               {historyWorkouts.map(workout => (
-                <button
+                <div
                   key={workout.id}
-                  onClick={() => loadWorkoutDetails(workout.id)}
-                  className="w-full glass rounded-xl p-4 text-left hover:bg-white/10 transition-colors flex items-center justify-between group"
+                  className="glass rounded-xl p-4 flex items-center justify-between gap-3"
                 >
-                  <div>
+                  <button
+                    onClick={() => loadWorkoutDetails(workout.id)}
+                    className="flex-1 text-left hover:bg-white/5 -m-2 p-2 rounded-lg transition-colors"
+                  >
                     <h4 className="font-medium mb-1">{workout.name || 'Workout'}</h4>
-                    <div className="flex items-center gap-3 text-sm text-white/50">
+                    <div className="flex items-center gap-3 text-sm text-tertiary">
                       <span className="flex items-center gap-1">
                         <Calendar size={12} />
                         {format(new Date(workout.completed_at || workout.scheduled_date), 'MMM d, yyyy')}
@@ -669,9 +787,16 @@ export function LiftingTab({ workoutId }: LiftingTabProps) {
                         <span>{workout.actual_duration_minutes}min</span>
                       )}
                     </div>
-                  </div>
-                  <ChevronRight size={20} className="text-white/30 group-hover:text-white/60 transition-colors" />
-                </button>
+                  </button>
+                  <button
+                    onClick={() => copyWorkoutToNew(workout.id, workout.name || 'Workout')}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 rounded-lg transition-colors text-sm font-medium whitespace-nowrap"
+                    title="Start a new workout with the same exercises"
+                  >
+                    <Copy size={16} />
+                    Copy
+                  </button>
+                </div>
               ))}
             </div>
           )}

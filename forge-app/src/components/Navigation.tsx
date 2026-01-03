@@ -28,24 +28,26 @@ interface NavigationProps {
 export function Navigation({ user }: NavigationProps) {
   const pathname = usePathname()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [isWorkoutActive, setIsWorkoutActive] = useState(false)
   const supabase = createClient()
   const mobileMenuRef = useRef<HTMLDivElement>(null)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
 
-  const navItems = [
-    { href: '/calendar', label: 'Calendar', icon: Calendar },
-    { href: '/plan', label: 'Plan', icon: Target },
-    { href: '/lifting', label: 'Lifting', icon: Dumbbell },
-    { href: '/nutrition', label: 'Nutrition', icon: Utensils },
-    { href: '/sleep', label: 'Sleep', icon: Moon },
-    { href: '/longevity', label: 'Longevity', icon: Heart },
-    { href: '/progress', label: 'Progress', icon: TrendingUp },
-  ]
+  // Check if workout tracker is active (body has workout-active class)
+  useEffect(() => {
+    const checkWorkoutActive = () => {
+      setIsWorkoutActive(document.body.classList.contains('workout-active'))
+    }
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    window.location.href = '/login'
-  }
+    // Check on mount
+    checkWorkoutActive()
+
+    // Watch for class changes on body
+    const observer = new MutationObserver(checkWorkoutActive)
+    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] })
+
+    return () => observer.disconnect()
+  }, [])
 
   // Focus trap for mobile menu
   useEffect(() => {
@@ -77,6 +79,26 @@ export function Navigation({ user }: NavigationProps) {
       document.body.style.overflow = ''
     }
   }, [mobileMenuOpen])
+
+  // Hide navigation when workout is active - MUST be after all hooks
+  if (isWorkoutActive) {
+    return null
+  }
+
+  const navItems = [
+    { href: '/calendar', label: 'Calendar', icon: Calendar },
+    { href: '/plan', label: 'Plan', icon: Target },
+    { href: '/lifting', label: 'Lifting', icon: Dumbbell },
+    { href: '/nutrition', label: 'Nutrition', icon: Utensils },
+    { href: '/sleep', label: 'Sleep', icon: Moon },
+    { href: '/longevity', label: 'Longevity', icon: Heart },
+    { href: '/progress', label: 'Progress', icon: TrendingUp },
+  ]
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    window.location.href = '/login'
+  }
 
   return (
     <>

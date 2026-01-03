@@ -43,7 +43,7 @@ export function WeeklyVolumeOverview({ onRefresh }: WeeklyVolumeOverviewProps) {
     return (
       <div className="bg-dark-800 rounded-xl p-6">
         <div className="flex items-center justify-center h-32">
-          <RefreshCw className="animate-spin text-white/30" size={24} />
+          <RefreshCw className="animate-spin text-muted" size={24} />
         </div>
       </div>
     )
@@ -52,7 +52,7 @@ export function WeeklyVolumeOverview({ onRefresh }: WeeklyVolumeOverviewProps) {
   if (error || !analysis) {
     return (
       <div className="bg-dark-800 rounded-xl p-6">
-        <div className="text-center text-white/50">
+        <div className="text-center text-tertiary">
           <p>{error || 'No data available'}</p>
           <button
             onClick={handleRefresh}
@@ -87,12 +87,12 @@ export function WeeklyVolumeOverview({ onRefresh }: WeeklyVolumeOverviewProps) {
           onClick={handleRefresh}
           className="p-1.5 hover:bg-white/10 rounded-lg"
         >
-          <RefreshCw size={16} className="text-white/50" />
+          <RefreshCw size={16} className="text-tertiary" />
         </button>
       </div>
 
       {/* Week info */}
-      <div className="text-xs text-white/40 mb-4">
+      <div className="text-xs text-secondary mb-4">
         Week of {new Date(week_start_date).toLocaleDateString('en-US', {
           month: 'short',
           day: 'numeric',
@@ -102,15 +102,15 @@ export function WeeklyVolumeOverview({ onRefresh }: WeeklyVolumeOverviewProps) {
       {/* Summary stats */}
       <div className="grid grid-cols-3 gap-3 mb-6">
         <div className="bg-dark-700/50 rounded-lg p-3 text-center">
-          <div className="text-xs text-white/40 mb-1">Hard Sets</div>
+          <div className="text-xs text-secondary mb-1">Hard Sets</div>
           <div className="text-xl font-semibold">{summary.total_hard_sets}</div>
         </div>
         <div className="bg-dark-700/50 rounded-lg p-3 text-center">
-          <div className="text-xs text-white/40 mb-1">Effective Reps</div>
+          <div className="text-xs text-secondary mb-1">Effective Reps</div>
           <div className="text-xl font-semibold">{summary.total_effective_reps}</div>
         </div>
         <div className="bg-dark-700/50 rounded-lg p-3 text-center">
-          <div className="text-xs text-white/40 mb-1">Volume</div>
+          <div className="text-xs text-secondary mb-1">Volume</div>
           <div className="text-xl font-semibold">{(summary.total_volume_lbs / 1000).toFixed(1)}k</div>
         </div>
       </div>
@@ -145,7 +145,7 @@ export function WeeklyVolumeOverview({ onRefresh }: WeeklyVolumeOverviewProps) {
 
       {/* Muscle groups by status */}
       {muscles.length === 0 ? (
-        <div className="text-center py-8 text-white/40">
+        <div className="text-center py-8 text-secondary">
           <Activity size={32} className="mx-auto mb-2 opacity-50" />
           <p>No workout data this week</p>
           <p className="text-xs mt-1">Complete a workout to see volume analysis</p>
@@ -202,7 +202,7 @@ export function WeeklyVolumeOverview({ onRefresh }: WeeklyVolumeOverviewProps) {
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-2 h-2 rounded-full bg-white/30" />
-                <span className="text-xs font-medium text-white/50">Other</span>
+                <span className="text-xs font-medium text-tertiary">Other</span>
               </div>
               <div className="space-y-2">
                 {other.map((m) => (
@@ -216,19 +216,19 @@ export function WeeklyVolumeOverview({ onRefresh }: WeeklyVolumeOverviewProps) {
 
       {/* Legend */}
       <div className="mt-6 pt-4 border-t border-white/10">
-        <div className="text-xs text-white/30 mb-2">Volume Landmarks</div>
+        <div className="text-xs text-muted mb-2">Volume Landmarks</div>
         <div className="flex flex-wrap gap-3 text-xs">
           <div className="flex items-center gap-1">
             <div className="w-3 h-2 bg-yellow-500/30 rounded" />
-            <span className="text-white/40">MEV (Minimum)</span>
+            <span className="text-secondary">MEV (Minimum)</span>
           </div>
           <div className="flex items-center gap-1">
             <div className="w-3 h-2 bg-green-500/30 rounded" />
-            <span className="text-white/40">MAV (Optimal)</span>
+            <span className="text-secondary">MAV (Optimal)</span>
           </div>
           <div className="flex items-center gap-1">
             <div className="w-3 h-2 bg-red-500/30 rounded" />
-            <span className="text-white/40">MRV (Maximum)</span>
+            <span className="text-secondary">MRV (Maximum)</span>
           </div>
         </div>
       </div>

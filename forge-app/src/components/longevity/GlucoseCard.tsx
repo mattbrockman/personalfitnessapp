@@ -85,7 +85,7 @@ export function GlucoseCard({
             }}
             className="p-1 hover:bg-white/10 rounded-lg"
           >
-            <Info size={16} className="text-white/40" />
+            <Info size={16} className="text-secondary" />
           </button>
         </div>
 
@@ -103,12 +103,12 @@ export function GlucoseCard({
             {/* Primary: Fasting glucose */}
             {avgFasting && (
               <div className="mb-2">
-                <span className="text-xs text-white/50">Avg Fasting</span>
+                <span className="text-xs text-tertiary">Avg Fasting</span>
                 <div className="flex items-baseline gap-2">
                   <span className={`text-2xl font-bold ${getFastingColor(avgFasting)}`}>
                     {avgFasting}
                   </span>
-                  <span className="text-white/50 text-sm">mg/dL</span>
+                  <span className="text-tertiary text-sm">mg/dL</span>
                 </div>
               </div>
             )}
@@ -116,11 +116,11 @@ export function GlucoseCard({
             {/* Secondary metrics */}
             <div className="grid grid-cols-3 gap-3 text-sm">
               <div>
-                <span className="text-white/40 text-xs">7d Avg</span>
+                <span className="text-secondary text-xs">7d Avg</span>
                 <p className="font-medium">{avgGlucose || '--'}</p>
               </div>
               <div>
-                <span className="text-white/40 text-xs">TIR</span>
+                <span className="text-secondary text-xs">TIR</span>
                 <p className={`font-medium ${
                   calculatedTIR && calculatedTIR >= 90 ? 'text-green-400' :
                   calculatedTIR && calculatedTIR >= 70 ? 'text-blue-400' : ''
@@ -129,7 +129,7 @@ export function GlucoseCard({
                 </p>
               </div>
               <div>
-                <span className="text-white/40 text-xs">Variability</span>
+                <span className="text-secondary text-xs">Variability</span>
                 <p className={`font-medium ${
                   variability && variability <= 20 ? 'text-green-400' :
                   variability && variability <= 30 ? 'text-blue-400' : 'text-amber-400'
@@ -141,8 +141,8 @@ export function GlucoseCard({
           </div>
         ) : (
           <div className="mb-3">
-            <div className="text-2xl font-bold text-white/30">--</div>
-            <p className="text-sm text-white/50 mt-1">No glucose data</p>
+            <div className="text-2xl font-bold text-muted">--</div>
+            <p className="text-sm text-tertiary mt-1">No glucose data</p>
           </div>
         )}
 
@@ -166,7 +166,7 @@ export function GlucoseCard({
         {/* Footer */}
         <div className="flex items-center justify-between text-xs">
           {last7Days.length > 0 ? (
-            <span className="text-white/40">
+            <span className="text-secondary">
               {last7Days.length} readings this week
             </span>
           ) : (
@@ -175,7 +175,7 @@ export function GlucoseCard({
               Import CGM data or log manually
             </span>
           )}
-          <ChevronRight size={16} className="text-white/30" />
+          <ChevronRight size={16} className="text-muted" />
         </div>
       </div>
 

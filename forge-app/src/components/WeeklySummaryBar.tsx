@@ -1,10 +1,11 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { format, startOfWeek, endOfWeek, isSameWeek } from 'date-fns'
-import { TrendingUp, Clock, Gauge, Target, Bike, Dumbbell, Footprints, Waves, Loader2 } from 'lucide-react'
+import { TrendingUp, Clock, Gauge, Target, Bike, Dumbbell, Footprints, Waves, Loader2, ChevronRight } from 'lucide-react'
 import { Workout } from '@/types/database'
 import Link from 'next/link'
+import { WeeklyProgressModal } from './WeeklyProgressModal'
 
 interface WeeklyTarget {
   id: string
@@ -52,6 +53,7 @@ export function WeeklySummaryBar({
   planName,
   loading = false,
 }: WeeklySummaryBarProps) {
+  const [showProgressModal, setShowProgressModal] = useState(false)
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 })
   const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 })
 
@@ -62,7 +64,11 @@ export function WeeklySummaryBar({
       return isSameWeek(workoutDate, currentDate, { weekStartsOn: 1 })
     })
 
-    const completedWorkouts = weekWorkouts.filter(w => w.status === 'completed')
+    // Include in_progress workouts that have actual data recorded
+    const completedWorkouts = weekWorkouts.filter(w =>
+      w.status === 'completed' ||
+      (w.status === 'in_progress' && w.actual_duration_minutes)
+    )
     const plannedWorkouts = weekWorkouts.filter(w => w.status === 'planned')
 
     // Calculate completed TSS and hours
@@ -109,7 +115,9 @@ export function WeeklySummaryBar({
     const weekWorkouts = workouts.filter(w => {
       if (!w.scheduled_date) return false
       const workoutDate = new Date(w.scheduled_date)
-      return isSameWeek(workoutDate, currentDate, { weekStartsOn: 1 }) && w.status === 'completed'
+      // Include completed and in_progress workouts with actual data
+      return isSameWeek(workoutDate, currentDate, { weekStartsOn: 1 }) &&
+        (w.status === 'completed' || (w.status === 'in_progress' && w.actual_duration_minutes))
     })
 
     const cyclingMinutes = weekWorkouts
@@ -139,7 +147,7 @@ export function WeeklySummaryBar({
   if (loading) {
     return (
       <div className="glass rounded-xl p-4 mb-4">
-        <div className="flex items-center justify-center gap-2 text-white/40">
+        <div className="flex items-center justify-center gap-2 text-secondary">
           <Loader2 size={16} className="animate-spin" />
           <span className="text-sm">Loading plan data...</span>
         </div>
@@ -147,155 +155,93 @@ export function WeeklySummaryBar({
     )
   }
 
+  // Calculate workouts progress (assume 5 workouts per week as default target)
+  const targetWorkouts = weeklyTarget?.lifting_sessions
+    ? Math.max(5, weeklyTarget.lifting_sessions + 3)
+    : 5
+  const workoutsProgress = (weeklyStats.completedCount / targetWorkouts) * 100
+
   return (
-    <div className="glass rounded-xl p-4 mb-4">
-      <div className="flex flex-col gap-4">
-        {/* Top row: Phase info and main progress */}
-        <div className="flex items-center justify-between gap-6">
-          {/* Week info */}
-          <div className="flex items-center gap-3">
-            <Link href="/plan" className={`px-3 py-1.5 rounded-lg ${phase.bg} hover:brightness-110 transition-all`}>
-              <span className={`text-sm font-medium ${phase.text}`}>
-                {phaseName || phase.label}
-              </span>
-            </Link>
+    <div className="glass rounded-xl p-3 mb-4">
+      {/* Compact summary - tap to see details */}
+      <button
+        onClick={() => setShowProgressModal(true)}
+        className="w-full text-left"
+      >
+        <div className="flex items-center gap-3">
+          {/* Phase badge */}
+          <div className={`px-2.5 py-2 rounded-lg ${phase.bg} flex-shrink-0 self-start`}>
+            <span className={`text-xs font-medium ${phase.text}`}>
+              {phaseName || phase.label}
+            </span>
+          </div>
+
+          {/* Stacked progress bars */}
+          <div className="flex-1 space-y-2 min-w-0">
+            {/* Hours */}
             <div>
-              <p className="text-sm font-medium">
-                Week of {format(weekStart, 'MMM d')} - {format(weekEnd, 'MMM d')}
-              </p>
-              <p className="text-xs text-white/40">
-                {planName ? (
-                  <Link href="/plan" className="hover:text-white/60">{planName}</Link>
-                ) : (
-                  <>{weeklyStats.completedCount} completed, {weeklyStats.plannedCount} planned</>
-                )}
-              </p>
+              <div className="flex items-center justify-between text-[11px] mb-0.5">
+                <span className="text-tertiary">Hours</span>
+                <span className="font-medium">{formatHours(weeklyStats.completedMinutes)} / {targetHours}h</span>
+              </div>
+              <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                <div
+                  className={`h-full ${getProgressColor(hoursProgress)} transition-all`}
+                  style={{ width: `${Math.min(hoursProgress, 100)}%` }}
+                />
+              </div>
+            </div>
+
+            {/* TSS */}
+            <div>
+              <div className="flex items-center justify-between text-[11px] mb-0.5">
+                <span className="text-tertiary">TSS</span>
+                <span className="font-medium">{weeklyStats.completedTSS} / {targetTSS}</span>
+              </div>
+              <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                <div
+                  className={`h-full ${getProgressColor(tssProgress)} transition-all`}
+                  style={{ width: `${Math.min(tssProgress, 100)}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Workouts */}
+            <div>
+              <div className="flex items-center justify-between text-[11px] mb-0.5">
+                <span className="text-tertiary">Workouts</span>
+                <span className="font-medium">{weeklyStats.completedCount} / {targetWorkouts}</span>
+              </div>
+              <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                <div
+                  className={`h-full ${getProgressColor(workoutsProgress)} transition-all`}
+                  style={{ width: `${Math.min(workoutsProgress, 100)}%` }}
+                />
+              </div>
             </div>
           </div>
 
-          {/* TSS Progress */}
-          <div className="flex-1 max-w-[200px]">
-            <div className="flex items-center justify-between text-xs mb-1">
-              <span className="flex items-center gap-1 text-white/60">
-                <Gauge size={12} />
-                TSS
-              </span>
-              <span className="font-medium">
-                {weeklyStats.completedTSS} / {targetTSS}
-              </span>
-            </div>
-            <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-              <div
-                className={`h-full ${getProgressColor(tssProgress)} transition-all duration-500`}
-                style={{ width: `${Math.min(tssProgress, 100)}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Hours Progress */}
-          <div className="flex-1 max-w-[200px]">
-            <div className="flex items-center justify-between text-xs mb-1">
-              <span className="flex items-center gap-1 text-white/60">
-                <Clock size={12} />
-                Hours
-              </span>
-              <span className="font-medium">
-                {formatHours(weeklyStats.completedMinutes)} / {targetHours}h
-              </span>
-            </div>
-            <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-              <div
-                className={`h-full ${getProgressColor(hoursProgress)} transition-all duration-500`}
-                style={{ width: `${Math.min(hoursProgress, 100)}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Quick stats */}
-          <div className="flex items-center gap-4 text-xs">
-            <div className="text-center">
-              <p className="text-white/40">Planned</p>
-              <p className="font-medium">{weeklyStats.totalPlannedTSS} TSS</p>
-            </div>
-            <div className="h-8 w-px bg-white/10" />
-            <div className="text-center">
-              <p className="text-white/40">Time</p>
-              <p className="font-medium">{formatHours(weeklyStats.totalPlannedMinutes)}</p>
-            </div>
-          </div>
+          {/* Arrow */}
+          <ChevronRight size={18} className="text-muted flex-shrink-0 self-center" />
         </div>
+      </button>
 
-        {/* Activity breakdown row - only show if we have plan targets */}
-        {weeklyTarget && (
-          <div className="flex items-center gap-6 pt-2 border-t border-white/10">
-            <span className="text-xs text-white/40">Activity Targets:</span>
+      {/* No plan CTA - simplified */}
+      {!planName && !loading && (
+        <Link
+          href="/plan"
+          className="flex items-center justify-center gap-1.5 mt-2 pt-2 border-t border-white/10 text-[11px] text-secondary hover:text-white/60"
+        >
+          <Target size={12} />
+          Create a training plan
+        </Link>
+      )}
 
-            {weeklyTarget.cycling_hours > 0 && (
-              <div className="flex items-center gap-2 text-xs">
-                <Bike size={14} className="text-blue-400" />
-                <span className={activityStats.cyclingHours >= weeklyTarget.cycling_hours ? 'text-emerald-400' : 'text-white/70'}>
-                  {activityStats.cyclingHours.toFixed(1)} / {weeklyTarget.cycling_hours.toFixed(1)}h
-                </span>
-              </div>
-            )}
-
-            {weeklyTarget.running_hours > 0 && (
-              <div className="flex items-center gap-2 text-xs">
-                <Footprints size={14} className="text-green-400" />
-                <span className={activityStats.runningHours >= weeklyTarget.running_hours ? 'text-emerald-400' : 'text-white/70'}>
-                  {activityStats.runningHours.toFixed(1)} / {weeklyTarget.running_hours.toFixed(1)}h
-                </span>
-              </div>
-            )}
-
-            {weeklyTarget.swimming_hours > 0 && (
-              <div className="flex items-center gap-2 text-xs">
-                <Waves size={14} className="text-cyan-400" />
-                <span className={activityStats.swimmingHours >= weeklyTarget.swimming_hours ? 'text-emerald-400' : 'text-white/70'}>
-                  {activityStats.swimmingHours.toFixed(1)} / {weeklyTarget.swimming_hours.toFixed(1)}h
-                </span>
-              </div>
-            )}
-
-            {weeklyTarget.lifting_sessions > 0 && (
-              <div className="flex items-center gap-2 text-xs">
-                <Dumbbell size={14} className="text-amber-400" />
-                <span className={activityStats.liftingSessions >= weeklyTarget.lifting_sessions ? 'text-emerald-400' : 'text-white/70'}>
-                  {activityStats.liftingSessions} / {weeklyTarget.lifting_sessions} sessions
-                </span>
-              </div>
-            )}
-
-            {/* Week type badge */}
-            {weeklyTarget.week_type && weeklyTarget.week_type !== 'normal' && (
-              <div className={`ml-auto px-2 py-0.5 rounded text-xs font-medium ${
-                weeklyTarget.week_type === 'deload' || weeklyTarget.week_type === 'recovery'
-                  ? 'bg-emerald-500/20 text-emerald-400'
-                  : weeklyTarget.week_type === 'race'
-                  ? 'bg-red-500/20 text-red-400'
-                  : weeklyTarget.week_type === 'build'
-                  ? 'bg-amber-500/20 text-amber-400'
-                  : 'bg-white/10 text-white/60'
-              }`}>
-                {weeklyTarget.week_type.charAt(0).toUpperCase() + weeklyTarget.week_type.slice(1)} Week
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* No plan CTA */}
-        {!planName && !loading && (
-          <div className="flex items-center justify-center pt-2 border-t border-white/10">
-            <Link
-              href="/plan"
-              className="flex items-center gap-2 text-xs text-white/40 hover:text-white/70 transition-colors"
-            >
-              <Target size={14} />
-              Create a training plan for personalized targets
-            </Link>
-          </div>
-        )}
-      </div>
+      {/* Weekly Progress Modal */}
+      <WeeklyProgressModal
+        isOpen={showProgressModal}
+        onClose={() => setShowProgressModal(false)}
+      />
     </div>
   )
 }

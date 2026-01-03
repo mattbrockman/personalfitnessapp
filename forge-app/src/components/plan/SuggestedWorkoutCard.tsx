@@ -12,16 +12,44 @@ import {
   ChevronDown,
   ChevronUp,
   Zap,
+  Timer,
+  Activity,
+  Check,
 } from 'lucide-react'
-import { SuggestedWorkout, INTENSITY_COLORS, PrimaryIntensity } from '@/types/training-plan'
+import { SuggestedWorkout, INTENSITY_COLORS, PrimaryIntensity, EnhancedSuggestedExercise, WarmupExercise } from '@/types/training-plan'
 import { CardioStructureDisplay } from './CardioStructureDisplay'
+import { WarmupDisplay } from './WarmupDisplay'
+
+interface EnhancedSuggestedWorkout extends SuggestedWorkout {
+  warmup_exercises?: WarmupExercise[]
+  cooldown_exercises?: WarmupExercise[]
+  exercises: EnhancedSuggestedExercise[] | null
+}
 
 interface SuggestedWorkoutCardProps {
-  workout: SuggestedWorkout
+  workout: SuggestedWorkout | EnhancedSuggestedWorkout
   onEdit?: (workout: SuggestedWorkout) => void
   onSchedule?: (workout: SuggestedWorkout) => void
   onSkip?: (workout: SuggestedWorkout) => void
   compact?: boolean
+}
+
+// Format load display
+function formatLoad(exercise: EnhancedSuggestedExercise): string {
+  if (!exercise.load_type || exercise.load_value === undefined) return ''
+
+  switch (exercise.load_type) {
+    case 'percent_1rm':
+      return `${exercise.load_value}% 1RM`
+    case 'rpe':
+      return `RPE ${exercise.load_value}`
+    case 'weight':
+      return `${exercise.load_value} lbs`
+    case 'bodyweight':
+      return 'BW'
+    default:
+      return ''
+  }
 }
 
 export function SuggestedWorkoutCard({
@@ -55,8 +83,15 @@ export function SuggestedWorkoutCard({
     return INTENSITY_COLORS[workout.primary_intensity as PrimaryIntensity] || 'bg-white/20'
   }
 
+  // Check if workout is completed (scheduled AND linked workout is completed)
+  const isCompleted = workout.status === 'scheduled' &&
+    workout.linked_workout?.status === 'completed'
+
   // Status styling
   const getStatusStyle = () => {
+    if (isCompleted) {
+      return 'opacity-70 border-emerald-500/40'
+    }
     switch (workout.status) {
       case 'scheduled':
         return 'opacity-60 border-green-500/30'
@@ -80,11 +115,17 @@ export function SuggestedWorkoutCard({
           <div className="flex-1 min-w-0">
             <p className="text-xs font-medium truncate">{workout.name}</p>
             {workout.planned_duration_minutes && (
-              <p className="text-[10px] text-white/50">{workout.planned_duration_minutes}min</p>
+              <p className="text-xs text-tertiary">{workout.planned_duration_minutes}min</p>
             )}
           </div>
-          {workout.status === 'scheduled' && (
-            <span className="text-[10px] text-green-400">Scheduled</span>
+          {isCompleted && (
+            <span className="text-xs text-emerald-400 flex items-center gap-1">
+              <Check size={12} />
+              Done
+            </span>
+          )}
+          {workout.status === 'scheduled' && !isCompleted && (
+            <span className="text-xs text-green-400">Scheduled</span>
           )}
         </div>
 
@@ -94,12 +135,12 @@ export function SuggestedWorkoutCard({
             {workout.exercises && workout.exercises.length > 0 && (
               <div className="space-y-1">
                 {workout.exercises.slice(0, 3).map((ex, idx) => (
-                  <p key={idx} className="text-[10px] text-white/60">
+                  <p key={idx} className="text-xs text-white/60">
                     {ex.exercise_name}: {ex.sets}x{ex.reps_min}-{ex.reps_max}
                   </p>
                 ))}
                 {workout.exercises.length > 3 && (
-                  <p className="text-[10px] text-white/40">
+                  <p className="text-xs text-secondary">
                     +{workout.exercises.length - 3} more
                   </p>
                 )}
@@ -117,7 +158,7 @@ export function SuggestedWorkoutCard({
                 {onEdit && (
                   <button
                     onClick={(e) => { e.stopPropagation(); onEdit(workout) }}
-                    className="flex-1 px-2 py-1 text-[10px] bg-white/10 hover:bg-white/20 rounded"
+                    className="flex-1 px-2 py-1 text-xs bg-white/10 hover:bg-white/20 rounded"
                   >
                     Edit
                   </button>
@@ -125,7 +166,7 @@ export function SuggestedWorkoutCard({
                 {onSchedule && (
                   <button
                     onClick={(e) => { e.stopPropagation(); onSchedule(workout) }}
-                    className="flex-1 px-2 py-1 text-[10px] bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 rounded"
+                    className="flex-1 px-2 py-1 text-xs bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 rounded"
                   >
                     Schedule
                   </button>
@@ -150,18 +191,24 @@ export function SuggestedWorkoutCard({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <h3 className="font-semibold">{workout.name}</h3>
-              {workout.status === 'scheduled' && (
+              {isCompleted && (
+                <span className="px-2 py-0.5 text-xs bg-emerald-500/20 text-emerald-400 rounded flex items-center gap-1">
+                  <Check size={12} />
+                  Completed
+                </span>
+              )}
+              {workout.status === 'scheduled' && !isCompleted && (
                 <span className="px-2 py-0.5 text-xs bg-green-500/20 text-green-400 rounded">
                   Scheduled
                 </span>
               )}
               {workout.status === 'skipped' && (
-                <span className="px-2 py-0.5 text-xs bg-white/10 text-white/50 rounded">
+                <span className="px-2 py-0.5 text-xs bg-white/10 text-tertiary rounded">
                   Skipped
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-3 text-sm text-white/50 mt-1">
+            <div className="flex items-center gap-3 text-sm text-tertiary mt-1">
               <span className="capitalize">{workout.workout_type}</span>
               {workout.planned_duration_minutes && (
                 <>
@@ -203,24 +250,71 @@ export function SuggestedWorkoutCard({
 
       {/* Expanded content */}
       {expanded && (
-        <div className="px-4 pb-4 border-t border-white/5 pt-3">
+        <div className="px-4 pb-4 border-t border-white/5 pt-3 space-y-4">
+          {/* Warmup section */}
+          {('warmup_exercises' in workout || 'cooldown_exercises' in workout) && (
+            <WarmupDisplay
+              warmupExercises={(workout as EnhancedSuggestedWorkout).warmup_exercises}
+              cooldownExercises={(workout as EnhancedSuggestedWorkout).cooldown_exercises}
+            />
+          )}
+
           {/* Exercises for strength workouts */}
           {workout.exercises && workout.exercises.length > 0 && (
             <div className="space-y-2">
-              <p className="text-xs text-white/50 font-medium">Exercises</p>
-              <div className="space-y-1.5">
-                {workout.exercises.map((ex, idx) => (
+              <p className="text-xs text-tertiary font-medium">Exercises</p>
+              <div className="space-y-2">
+                {(workout.exercises as EnhancedSuggestedExercise[]).map((ex, idx) => (
                   <div
                     key={idx}
-                    className="flex items-center justify-between py-1.5 px-2 bg-white/5 rounded"
+                    className="py-2 px-3 bg-white/5 rounded-lg"
                   >
-                    <span className="text-sm">{ex.exercise_name}</span>
-                    <span className="text-sm text-white/60">
-                      {ex.sets} x {ex.reps_min === ex.reps_max ? ex.reps_min : `${ex.reps_min}-${ex.reps_max}`}
-                      {ex.rest_seconds && (
-                        <span className="text-white/40 ml-2">({ex.rest_seconds}s rest)</span>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">{ex.exercise_name}</span>
+                      <span className="text-sm text-white/60">
+                        {ex.sets} x {ex.reps_min === ex.reps_max ? ex.reps_min : `${ex.reps_min}-${ex.reps_max}`}
+                      </span>
+                    </div>
+
+                    {/* Enhanced details row */}
+                    <div className="flex flex-wrap items-center gap-2 mt-1.5 text-xs text-tertiary">
+                      {formatLoad(ex) && (
+                        <span className="px-1.5 py-0.5 bg-amber-500/20 text-amber-400 rounded">
+                          {formatLoad(ex)}
+                        </span>
                       )}
-                    </span>
+                      {ex.tempo && (
+                        <span className="px-1.5 py-0.5 bg-blue-500/20 text-blue-400 rounded flex items-center gap-1">
+                          <Timer size={10} />
+                          {ex.tempo}
+                        </span>
+                      )}
+                      {ex.rest_seconds && (
+                        <span className="px-1.5 py-0.5 bg-white/10 rounded">
+                          {ex.rest_seconds}s rest
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Coaching cues */}
+                    {ex.coaching_cues && ex.coaching_cues.length > 0 && (
+                      <div className="mt-2 pt-2 border-t border-white/5">
+                        <p className="text-xs text-secondary mb-1">Coaching Cues:</p>
+                        <ul className="text-xs text-white/60 space-y-0.5">
+                          {ex.coaching_cues.map((cue, cueIdx) => (
+                            <li key={cueIdx} className="flex items-start gap-1.5">
+                              <span className="text-amber-400 mt-0.5">•</span>
+                              <span>{cue}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Notes */}
+                    {ex.notes && (
+                      <p className="text-xs text-secondary mt-1.5 italic">{ex.notes}</p>
+                    )}
                   </div>
                 ))}
               </div>
@@ -230,7 +324,7 @@ export function SuggestedWorkoutCard({
           {/* Cardio structure */}
           {workout.cardio_structure && (
             <div className="mt-3">
-              <p className="text-xs text-white/50 font-medium mb-2">Structure</p>
+              <p className="text-xs text-tertiary font-medium mb-2">Structure</p>
               <CardioStructureDisplay structure={workout.cardio_structure} />
             </div>
           )}
@@ -261,7 +355,7 @@ export function SuggestedWorkoutCard({
           {onSkip && (
             <button
               onClick={() => onSkip(workout)}
-              className="flex-1 py-2 text-sm text-white/40 hover:text-white/60 hover:bg-white/5 flex items-center justify-center gap-1.5"
+              className="flex-1 py-2 text-sm text-secondary hover:text-white/60 hover:bg-white/5 flex items-center justify-center gap-1.5"
             >
               <X size={14} />
               Skip

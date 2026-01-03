@@ -56,7 +56,7 @@ export function BodyCompCard({
             }}
             className="p-1 hover:bg-white/10 rounded-lg"
           >
-            <Info size={16} className="text-white/40" />
+            <Info size={16} className="text-secondary" />
           </button>
         </div>
 
@@ -73,16 +73,16 @@ export function BodyCompCard({
           <div className="mb-3">
             {/* Primary: Lean Mass */}
             <div className="mb-2">
-              <span className="text-xs text-white/50">Lean Mass</span>
+              <span className="text-xs text-tertiary">Lean Mass</span>
               <div className="flex items-baseline gap-2">
                 <span className="text-2xl font-bold">
                   {latestLog.lean_mass_lbs?.toFixed(1) || '--'}
                 </span>
-                <span className="text-white/50 text-sm">lbs</span>
+                <span className="text-tertiary text-sm">lbs</span>
                 {leanMassTrend !== null && (
                   <span className={`text-sm flex items-center gap-0.5 ${
                     leanMassTrend > 0 ? 'text-green-400' :
-                    leanMassTrend < 0 ? 'text-red-400' : 'text-white/40'
+                    leanMassTrend < 0 ? 'text-red-400' : 'text-secondary'
                   }`}>
                     {leanMassTrend > 0 ? <TrendingUp size={14} /> : leanMassTrend < 0 ? <TrendingDown size={14} /> : null}
                     {leanMassTrend > 0 ? '+' : ''}{leanMassTrend.toFixed(1)}
@@ -94,11 +94,11 @@ export function BodyCompCard({
             {/* Secondary metrics grid */}
             <div className="grid grid-cols-3 gap-3 text-sm">
               <div>
-                <span className="text-white/40 text-xs">Weight</span>
+                <span className="text-secondary text-xs">Weight</span>
                 <p className="font-medium">{latestLog.weight_lbs?.toFixed(1) || '--'}</p>
               </div>
               <div>
-                <span className="text-white/40 text-xs">Body Fat</span>
+                <span className="text-secondary text-xs">Body Fat</span>
                 <p className="font-medium flex items-center gap-1">
                   {latestLog.body_fat_pct?.toFixed(1) || '--'}%
                   {bodyFatTrend !== null && (
@@ -112,7 +112,7 @@ export function BodyCompCard({
                 </p>
               </div>
               <div>
-                <span className="text-white/40 text-xs">Muscle</span>
+                <span className="text-secondary text-xs">Muscle</span>
                 <p className="font-medium">{latestLog.muscle_mass_lbs?.toFixed(1) || '--'}</p>
               </div>
             </div>
@@ -120,9 +120,9 @@ export function BodyCompCard({
             {/* FFMI if available */}
             {latestLog.ffmi && (
               <div className="mt-2 p-2 bg-white/5 rounded-lg text-xs">
-                <span className="text-white/50">FFMI: </span>
+                <span className="text-tertiary">FFMI: </span>
                 <span className="font-medium">{latestLog.ffmi.toFixed(1)}</span>
-                <span className="text-white/40 ml-2">
+                <span className="text-secondary ml-2">
                   {latestLog.ffmi >= 25 ? 'Elite' :
                    latestLog.ffmi >= 22 ? 'Excellent' :
                    latestLog.ffmi >= 20 ? 'Good' :
@@ -133,22 +133,22 @@ export function BodyCompCard({
           </div>
         ) : (
           <div className="mb-3">
-            <div className="text-2xl font-bold text-white/30">--</div>
-            <p className="text-sm text-white/50 mt-1">No body composition recorded</p>
+            <div className="text-2xl font-bold text-muted">--</div>
+            <p className="text-sm text-tertiary mt-1">No body composition recorded</p>
           </div>
         )}
 
         {/* Last log date */}
         <div className="flex items-center justify-between text-xs">
           {latestLog ? (
-            <span className="text-white/40">
+            <span className="text-secondary">
               Last updated: {format(parseISO(latestLog.log_date), 'MMM d, yyyy')}
               {latestLog.source && ` (${latestLog.source})`}
             </span>
           ) : (
             <span className="text-amber-400">Log body composition</span>
           )}
-          <ChevronRight size={16} className="text-white/30" />
+          <ChevronRight size={16} className="text-muted" />
         </div>
       </div>
 

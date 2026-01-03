@@ -52,9 +52,9 @@ export function SessionRPEModal({
         <div className="p-4">
           {/* Workout info */}
           <div className="bg-dark-700/50 rounded-lg p-3 mb-4">
-            <div className="text-sm text-white/50">Workout completed</div>
+            <div className="text-sm text-tertiary">Workout completed</div>
             <div className="font-medium">{workoutName}</div>
-            <div className="text-sm text-white/50">{durationMinutes} minutes</div>
+            <div className="text-sm text-tertiary">{durationMinutes} minutes</div>
           </div>
 
           {/* Question */}
@@ -66,7 +66,7 @@ export function SessionRPEModal({
               onClick={() => setShowInfo(!showInfo)}
               className="p-1 hover:bg-white/10 rounded"
             >
-              <Info size={16} className="text-white/50" />
+              <Info size={16} className="text-tertiary" />
             </button>
           </div>
 
@@ -109,7 +109,7 @@ export function SessionRPEModal({
                   </div>
                   <div className="text-left flex-1">
                     <div className="text-sm font-medium">{info.label}</div>
-                    <div className="text-xs text-white/40">{info.description}</div>
+                    <div className="text-xs text-secondary">{info.description}</div>
                   </div>
                 </button>
               )
@@ -120,12 +120,12 @@ export function SessionRPEModal({
           {selectedRPE && (
             <div className="bg-dark-700/50 rounded-lg p-3 mb-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-white/50">Training Load</span>
+                <span className="text-sm text-tertiary">Training Load</span>
                 <span className="text-lg font-semibold text-blue-400">
                   {trainingLoad.toLocaleString()}
                 </span>
               </div>
-              <div className="text-xs text-white/40 mt-1">
+              <div className="text-xs text-secondary mt-1">
                 {durationMinutes} min × RPE {selectedRPE} = {trainingLoad} load units
               </div>
             </div>

@@ -214,7 +214,7 @@ export function LongevityDashboard({ user, profile }: LongevityDashboardProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <RefreshCw className="animate-spin text-white/50" size={32} />
+        <RefreshCw className="animate-spin text-tertiary" size={32} />
       </div>
     )
   }
@@ -228,7 +228,7 @@ export function LongevityDashboard({ user, profile }: LongevityDashboardProps) {
             <Heart className="text-red-400" size={28} />
             Longevity Dashboard
           </h1>
-          <p className="text-white/50 text-sm mt-1">
+          <p className="text-tertiary text-sm mt-1">
             Track the metrics that matter most for healthspan
           </p>
         </div>
@@ -237,7 +237,7 @@ export function LongevityDashboard({ user, profile }: LongevityDashboardProps) {
           disabled={isRefreshing}
           className="p-2 hover:bg-white/10 rounded-lg"
         >
-          <RefreshCw size={20} className={`text-white/50 ${isRefreshing ? 'animate-spin' : ''}`} />
+          <RefreshCw size={20} className={`text-tertiary ${isRefreshing ? 'animate-spin' : ''}`} />
         </button>
       </div>
 
@@ -310,7 +310,7 @@ export function LongevityDashboard({ user, profile }: LongevityDashboardProps) {
       </div>
 
       {/* Footer info */}
-      <div className="text-center text-xs text-white/30 py-4">
+      <div className="text-center text-xs text-muted py-4">
         <p>
           Inspired by Dr. Peter Attia's framework for longevity.
           Focus on VO2max, strength, stability, and metabolic health.

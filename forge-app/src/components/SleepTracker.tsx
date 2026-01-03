@@ -128,7 +128,7 @@ function SleepScoreRing({ score, size = 'large' }: { score: number; size?: 'smal
         <span className={`${isLarge ? 'text-3xl' : 'text-lg'} font-bold ${getScoreColor(score)}`}>
           {score}
         </span>
-        {isLarge && <span className="text-xs text-white/40">Sleep Score</span>}
+        {isLarge && <span className="text-xs text-secondary">Sleep Score</span>}
       </div>
     </div>
   )
@@ -464,7 +464,7 @@ export function SleepTracker() {
       <div className="p-4 lg:p-6 flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <Loader2 size={32} className="animate-spin mx-auto text-amber-500 mb-2" />
-          <p className="text-white/50">Loading sleep data...</p>
+          <p className="text-tertiary">Loading sleep data...</p>
         </div>
       </div>
     )
@@ -476,7 +476,7 @@ export function SleepTracker() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-display font-semibold">Sleep</h1>
-          <p className="text-white/50">Track your recovery</p>
+          <p className="text-tertiary">Track your recovery</p>
         </div>
         <div className="flex gap-2">
           <button
@@ -566,7 +566,7 @@ export function SleepTracker() {
                     : 'hover:bg-white/10'
                 }`}
               >
-                <p className="text-xs text-white/40 mb-1">
+                <p className="text-xs text-secondary mb-1">
                   {format(day, 'EEE')}
                 </p>
                 <p className={`text-lg font-medium ${isSelected ? '' : isToday(day) ? 'text-amber-400' : ''}`}>
@@ -605,7 +605,7 @@ export function SleepTracker() {
                   title="View duration trend"
                 >
                   <div className="flex items-center gap-2">
-                    <Clock size={16} className="text-white/40" />
+                    <Clock size={16} className="text-secondary" />
                     <span className="text-white/60">Total Sleep</span>
                   </div>
                   <span className="font-medium">
@@ -663,12 +663,12 @@ export function SleepTracker() {
               >
                 <Activity size={20} className="mx-auto text-emerald-400 mb-2" />
                 <p className="text-2xl font-bold">{selectedLog.hrv_avg}</p>
-                <p className="text-xs text-white/40">HRV (ms)</p>
+                <p className="text-xs text-secondary">HRV (ms)</p>
                 {previousLog?.hrv_avg && (
                   <div className={`mt-1 text-xs flex items-center justify-center gap-1 ${
                     getTrend(selectedLog.hrv_avg, previousLog.hrv_avg) === 'up' ? 'text-emerald-400' :
                     getTrend(selectedLog.hrv_avg, previousLog.hrv_avg) === 'down' ? 'text-red-400' :
-                    'text-white/40'
+                    'text-secondary'
                   }`}>
                     {getTrend(selectedLog.hrv_avg, previousLog.hrv_avg) === 'up' && <TrendingUp size={12} />}
                     {getTrend(selectedLog.hrv_avg, previousLog.hrv_avg) === 'down' && <TrendingDown size={12} />}
@@ -688,12 +688,12 @@ export function SleepTracker() {
               >
                 <Heart size={20} className="mx-auto text-red-400 mb-2" />
                 <p className="text-2xl font-bold">{selectedLog.resting_hr}</p>
-                <p className="text-xs text-white/40">Resting HR</p>
+                <p className="text-xs text-secondary">Resting HR</p>
                 {previousLog?.resting_hr && (
                   <div className={`mt-1 text-xs flex items-center justify-center gap-1 ${
                     getTrend(previousLog.resting_hr, selectedLog.resting_hr) === 'up' ? 'text-emerald-400' :
                     getTrend(previousLog.resting_hr, selectedLog.resting_hr) === 'down' ? 'text-red-400' :
-                    'text-white/40'
+                    'text-secondary'
                   }`}>
                     {/* Lower HR is better */}
                     {getTrend(previousLog.resting_hr, selectedLog.resting_hr) === 'up' && <TrendingDown size={12} />}
@@ -712,14 +712,14 @@ export function SleepTracker() {
                 <p className={`text-2xl font-bold ${getScoreColor(selectedLog.recovery_score)}`}>
                   {selectedLog.recovery_score}%
                 </p>
-                <p className="text-xs text-white/40">Recovery</p>
+                <p className="text-xs text-secondary">Recovery</p>
               </div>
             )}
           </div>
 
           {/* Source badge */}
           <div className="text-center">
-            <span className="px-3 py-1 bg-white/5 rounded-full text-xs text-white/40">
+            <span className="px-3 py-1 bg-white/5 rounded-full text-xs text-secondary">
               Source: {selectedLog.source.replace('_', ' ')}
             </span>
           </div>
@@ -727,7 +727,7 @@ export function SleepTracker() {
       ) : (
         <div className="glass rounded-xl p-8 text-center">
           <Moon size={48} className="mx-auto text-white/20 mb-4" />
-          <p className="text-white/40">No sleep data for this date</p>
+          <p className="text-secondary">No sleep data for this date</p>
           <div className="flex gap-2 justify-center mt-4">
             <button
               onClick={() => setShowManualModal(true)}
@@ -746,15 +746,15 @@ export function SleepTracker() {
         <div className="grid grid-cols-3 gap-4 text-center">
           <div>
             <p className="text-2xl font-bold">{weeklyAvgScore}</p>
-            <p className="text-xs text-white/40">Avg Score</p>
+            <p className="text-xs text-secondary">Avg Score</p>
           </div>
           <div>
             <p className="text-2xl font-bold">{formatMinutesToTime(weeklyAvgDuration)}</p>
-            <p className="text-xs text-white/40">Avg Duration</p>
+            <p className="text-xs text-secondary">Avg Duration</p>
           </div>
           <div>
             <p className="text-2xl font-bold">{weeklyLogs.length}/7</p>
-            <p className="text-xs text-white/40">Nights Logged</p>
+            <p className="text-xs text-secondary">Nights Logged</p>
           </div>
         </div>
       </div>

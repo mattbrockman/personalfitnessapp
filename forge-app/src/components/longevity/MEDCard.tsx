@@ -69,14 +69,14 @@ export function MEDCard({ compliance, onRefresh }: MEDCardProps) {
           </div>
           <div>
             <h3 className="font-medium">Minimum Effective Dose</h3>
-            <p className="text-xs text-white/50">This week's fundamentals</p>
+            <p className="text-xs text-tertiary">This week's fundamentals</p>
           </div>
         </div>
         <button
           onClick={() => setShowInfo(!showInfo)}
           className="p-1 hover:bg-white/10 rounded-lg"
         >
-          <Info size={16} className="text-white/40" />
+          <Info size={16} className="text-secondary" />
         </button>
       </div>
 
@@ -122,16 +122,16 @@ export function MEDCard({ compliance, onRefresh }: MEDCardProps) {
               {item.met ? (
                 <CheckCircle2 size={18} className="text-green-400" />
               ) : (
-                <Circle size={18} className="text-white/30" />
+                <Circle size={18} className="text-muted" />
               )}
               <div>
                 <span className={`text-sm font-medium ${item.met ? 'text-green-400' : ''}`}>
                   {item.label}
                 </span>
-                <p className="text-xs text-white/40">{item.description}</p>
+                <p className="text-xs text-secondary">{item.description}</p>
               </div>
             </div>
-            <span className={`text-xs ${item.met ? 'text-green-400' : 'text-white/50'}`}>
+            <span className={`text-xs ${item.met ? 'text-green-400' : 'text-tertiary'}`}>
               {item.value}
             </span>
           </div>

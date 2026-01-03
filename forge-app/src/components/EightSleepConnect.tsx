@@ -142,8 +142,8 @@ export default function EightSleepConnect({
   if (loading) {
     return (
       <div className="flex items-center gap-2 p-4">
-        <Loader2 size={16} className="animate-spin text-white/40" />
-        <span className="text-sm text-white/40">Loading...</span>
+        <Loader2 size={16} className="animate-spin text-secondary" />
+        <span className="text-sm text-secondary">Loading...</span>
       </div>
     )
   }
@@ -164,7 +164,7 @@ export default function EightSleepConnect({
               <CheckCircle2 size={20} className="text-emerald-400" />
               <div>
                 <p className="font-medium">Eight Sleep</p>
-                <p className="text-xs text-white/40">
+                <p className="text-xs text-secondary">
                   {needsRefresh ? 'Session expired - sync to refresh' : 'Connected'}
                 </p>
               </div>
@@ -172,7 +172,7 @@ export default function EightSleepConnect({
             <button
               onClick={handleDisconnect}
               disabled={disconnecting}
-              className="p-2 hover:bg-white/10 rounded-lg transition-colors text-white/40 hover:text-red-400"
+              className="p-2 hover:bg-white/10 rounded-lg transition-colors text-secondary hover:text-red-400"
               title="Disconnect"
             >
               {disconnecting ? (
@@ -230,13 +230,13 @@ export default function EightSleepConnect({
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-white/40 hover:text-white/60"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-secondary hover:text-white/60"
               >
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
           </div>
-          <p className="text-xs text-white/40">
+          <p className="text-xs text-secondary">
             Your credentials are stored securely and only used to sync your sleep data.
           </p>
           <div className="flex gap-2">

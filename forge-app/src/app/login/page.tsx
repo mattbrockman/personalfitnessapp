@@ -55,7 +55,7 @@ export default function LoginPage() {
             <Dumbbell className="w-8 h-8 text-amber-500" />
           </div>
           <h1 className="text-3xl font-display font-semibold">Forge</h1>
-          <p className="text-white/50 mt-2">Unified fitness tracking</p>
+          <p className="text-tertiary mt-2">Unified fitness tracking</p>
         </div>
 
         {/* Form */}
@@ -68,7 +68,7 @@ export default function LoginPage() {
             <div>
               <label className="block text-sm text-white/60 mb-2">Email</label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted" />
                 <input
                   type="email"
                   value={email}
@@ -83,7 +83,7 @@ export default function LoginPage() {
             <div>
               <label className="block text-sm text-white/60 mb-2">Password</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted" />
                 <input
                   type="password"
                   value={password}
@@ -121,7 +121,7 @@ export default function LoginPage() {
           <div className="mt-6 text-center">
             <button
               onClick={() => setIsSignUp(!isSignUp)}
-              className="text-sm text-white/50 hover:text-white transition-colors"
+              className="text-sm text-tertiary hover:text-white transition-colors"
             >
               {isSignUp
                 ? 'Already have an account? Sign in'
@@ -131,7 +131,7 @@ export default function LoginPage() {
         </div>
 
         {/* Demo notice */}
-        <p className="text-center text-white/30 text-sm mt-6">
+        <p className="text-center text-muted text-sm mt-6">
           Connect Strava after signing in to sync your activities
         </p>
       </div>

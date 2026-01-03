@@ -7,6 +7,7 @@ import {
   X,
   Clock,
   Calendar,
+  CalendarDays,
   Trash2,
   CheckCircle2,
   Edit3,
@@ -19,8 +20,11 @@ import {
   ExternalLink,
   Play,
   Plus,
+  Upload,
+  AlertCircle,
 } from 'lucide-react'
 import { Workout } from '@/types/database'
+import { calculateWorkoutTSS } from '@/lib/calculate-workout-tss'
 
 interface WorkoutDetailModalProps {
   workout: Workout
@@ -58,9 +62,23 @@ export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate 
   const [isLoading, setIsLoading] = useState(true)
   const [isEditing, setIsEditing] = useState(false)
   const [showFullCompletion, setShowFullCompletion] = useState(false)
+  const [showReschedule, setShowReschedule] = useState(false)
+  const [rescheduleDate, setRescheduleDate] = useState(initialWorkout.scheduled_date || '')
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isRescheduling, setIsRescheduling] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Strava sync state
+  const [stravaSyncStatus, setStravaSyncStatus] = useState<{
+    checked: boolean
+    synced: boolean
+    strava_activity_id?: number
+    strava_url?: string
+  }>({ checked: false, synced: false })
+  const [isSyncingToStrava, setIsSyncingToStrava] = useState(false)
+  const [stravaError, setStravaError] = useState<string | null>(null)
+  const [showStravaReconnect, setShowStravaReconnect] = useState(false)
 
   const isStrengthWorkout = workout.category === 'strength'
 
@@ -83,6 +101,65 @@ export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate 
     }
     fetchWorkoutDetails()
   }, [initialWorkout.id])
+
+  // Check if workout is already synced to Strava (for completed workouts)
+  useEffect(() => {
+    const checkStravaSync = async () => {
+      if (workout.status !== 'completed' || workout.source === 'strava') return
+
+      try {
+        const res = await fetch(`/api/strava/push?workout_id=${workout.id}`)
+        if (res.ok) {
+          const data = await res.json()
+          setStravaSyncStatus({
+            checked: true,
+            synced: data.synced,
+            strava_activity_id: data.strava_activity_id,
+            strava_url: data.strava_url,
+          })
+        }
+      } catch (err) {
+        console.error('Failed to check Strava sync status:', err)
+        setStravaSyncStatus({ checked: true, synced: false })
+      }
+    }
+    checkStravaSync()
+  }, [workout.id, workout.status, workout.source])
+
+  // Handle push to Strava
+  const handlePushToStrava = async () => {
+    setIsSyncingToStrava(true)
+    setStravaError(null)
+    setShowStravaReconnect(false)
+
+    try {
+      const res = await fetch('/api/strava/push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workout_id: workout.id }),
+      })
+
+      const data = await res.json()
+
+      if (res.ok) {
+        setStravaSyncStatus({
+          checked: true,
+          synced: true,
+          strava_activity_id: data.strava_activity_id,
+          strava_url: data.strava_url,
+        })
+      } else if (data.error === 'write_scope_required') {
+        setShowStravaReconnect(true)
+        setStravaError('Write permission needed to push workouts to Strava.')
+      } else {
+        setStravaError(data.error || 'Failed to sync to Strava')
+      }
+    } catch (err) {
+      setStravaError('Network error. Please try again.')
+    } finally {
+      setIsSyncingToStrava(false)
+    }
+  }
 
   // Quick complete duration (editable on main view)
   const [quickDuration, setQuickDuration] = useState(
@@ -150,6 +227,13 @@ export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate 
     setError(null)
 
     try {
+      const actualDuration = duration ?? quickDuration
+      // Calculate TSS with default RPE based on category
+      const tss = calculateWorkoutTSS({
+        category: (workout.category as 'cardio' | 'strength' | 'flexibility' | 'other') || 'other',
+        durationMinutes: actualDuration,
+      })
+
       const response = await fetch('/api/workouts', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -157,7 +241,8 @@ export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate 
           id: workout.id,
           status: 'completed',
           completed_at: new Date().toISOString(),
-          actual_duration_minutes: duration ?? quickDuration,
+          actual_duration_minutes: actualDuration,
+          actual_tss: tss,
         }),
       })
 
@@ -181,6 +266,13 @@ export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate 
     setError(null)
 
     try {
+      // Calculate TSS using user-provided RPE or default based on category
+      const tss = calculateWorkoutTSS({
+        category: (workout.category as 'cardio' | 'strength' | 'flexibility' | 'other') || 'other',
+        durationMinutes: completionData.actual_duration_minutes,
+        perceivedExertion: completionData.perceived_exertion,
+      })
+
       const response = await fetch('/api/workouts', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -190,6 +282,7 @@ export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate 
           completed_at: new Date().toISOString(),
           actual_duration_minutes: completionData.actual_duration_minutes,
           perceived_exertion: completionData.perceived_exertion,
+          actual_tss: tss,
           notes: completionData.notes,
         }),
       })
@@ -230,6 +323,40 @@ export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate 
       setError('Network error. Please try again.')
     } finally {
       setIsDeleting(false)
+    }
+  }
+
+  // Reschedule - quick date change without full edit
+  const handleReschedule = async () => {
+    if (!rescheduleDate || rescheduleDate === workout.scheduled_date) {
+      setShowReschedule(false)
+      return
+    }
+
+    setIsRescheduling(true)
+    setError(null)
+
+    try {
+      const response = await fetch('/api/workouts', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: workout.id,
+          scheduled_date: rescheduleDate,
+        }),
+      })
+
+      if (response.ok) {
+        onUpdate()
+        onClose()
+      } else {
+        const data = await response.json()
+        setError(data.details || data.error || 'Failed to reschedule workout')
+      }
+    } catch (err) {
+      setError('Network error. Please try again.')
+    } finally {
+      setIsRescheduling(false)
     }
   }
 
@@ -294,7 +421,7 @@ export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate 
                     }`}
                   >
                     <span className="text-2xl">{option.emoji}</span>
-                    <span className="text-[10px] text-white/50">{option.label}</span>
+                    <span className="text-xs text-tertiary">{option.label}</span>
                   </button>
                 ))}
               </div>
@@ -313,7 +440,7 @@ export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate 
                 onChange={e => setCompletionData(prev => ({ ...prev, perceived_exertion: parseInt(e.target.value) }))}
                 className="w-full accent-amber-500"
               />
-              <div className="flex justify-between text-[10px] text-white/30 mt-1">
+              <div className="flex justify-between text-xs text-muted mt-1">
                 <span>No exertion</span>
                 <span>Maximum effort</span>
               </div>
@@ -327,7 +454,7 @@ export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate 
                 onChange={e => setCompletionData(prev => ({ ...prev, notes: e.target.value }))}
                 placeholder="How did the workout go? Any observations..."
                 rows={3}
-                className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-amber-500/50 resize-none"
+                className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-muted focus:outline-none focus:border-amber-500/50 resize-none"
               />
             </div>
 
@@ -407,7 +534,7 @@ export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate 
                 value={formData.name}
                 onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
                 placeholder="Morning Ride, Leg Day, etc."
-                className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-amber-500/50"
+                className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-muted focus:outline-none focus:border-amber-500/50"
               />
             </div>
 
@@ -451,7 +578,7 @@ export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate 
               {/* Actual Duration & Distance */}
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <div>
-                  <label className="block text-xs text-white/40 mb-1">Duration (min)</label>
+                  <label className="block text-xs text-secondary mb-1">Duration (min)</label>
                   <input
                     type="number"
                     value={formData.actual_duration_minutes || ''}
@@ -460,7 +587,7 @@ export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate 
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-white/40 mb-1">Distance (mi)</label>
+                  <label className="block text-xs text-secondary mb-1">Distance (mi)</label>
                   <input
                     type="number"
                     step="0.01"
@@ -474,7 +601,7 @@ export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate 
               {/* HR */}
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <div>
-                  <label className="block text-xs text-white/40 mb-1">Avg HR (bpm)</label>
+                  <label className="block text-xs text-secondary mb-1">Avg HR (bpm)</label>
                   <input
                     type="number"
                     value={formData.actual_avg_hr || ''}
@@ -483,7 +610,7 @@ export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate 
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-white/40 mb-1">Max HR (bpm)</label>
+                  <label className="block text-xs text-secondary mb-1">Max HR (bpm)</label>
                   <input
                     type="number"
                     value={formData.actual_max_hr || ''}
@@ -496,7 +623,7 @@ export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate 
               {/* Power */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-white/40 mb-1">Avg Power (w)</label>
+                  <label className="block text-xs text-secondary mb-1">Avg Power (w)</label>
                   <input
                     type="number"
                     value={formData.actual_avg_power || ''}
@@ -505,7 +632,7 @@ export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate 
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-white/40 mb-1">NP (w)</label>
+                  <label className="block text-xs text-secondary mb-1">NP (w)</label>
                   <input
                     type="number"
                     value={formData.actual_np || ''}
@@ -524,7 +651,7 @@ export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate 
                 onChange={e => setFormData(prev => ({ ...prev, notes: e.target.value }))}
                 placeholder="Workout details, goals, etc."
                 rows={3}
-                className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-amber-500/50 resize-none"
+                className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-muted focus:outline-none focus:border-amber-500/50 resize-none"
               />
             </div>
 
@@ -561,7 +688,7 @@ export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate 
                             setFormData(prev => ({ ...prev, exercises: newExercises }))
                           }}
                           placeholder="Exercise name"
-                          className="flex-1 px-2 py-1.5 bg-white/5 border border-white/10 rounded text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-violet-500/50"
+                          className="flex-1 px-2 py-1.5 bg-white/5 border border-white/10 rounded text-sm text-white placeholder:text-muted focus:outline-none focus:border-violet-500/50"
                         />
                         <button
                           type="button"
@@ -576,7 +703,7 @@ export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate 
                       </div>
                       <div className="grid grid-cols-4 gap-2">
                         <div>
-                          <label className="text-[10px] text-white/40">Sets</label>
+                          <label className="text-xs text-secondary">Sets</label>
                           <input
                             type="number"
                             value={ex.sets}
@@ -589,7 +716,7 @@ export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate 
                           />
                         </div>
                         <div>
-                          <label className="text-[10px] text-white/40">Min Reps</label>
+                          <label className="text-xs text-secondary">Min Reps</label>
                           <input
                             type="number"
                             value={ex.reps_min}
@@ -602,7 +729,7 @@ export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate 
                           />
                         </div>
                         <div>
-                          <label className="text-[10px] text-white/40">Max Reps</label>
+                          <label className="text-xs text-secondary">Max Reps</label>
                           <input
                             type="number"
                             value={ex.reps_max}
@@ -615,7 +742,7 @@ export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate 
                           />
                         </div>
                         <div>
-                          <label className="text-[10px] text-white/40">Rest (s)</label>
+                          <label className="text-xs text-secondary">Rest (s)</label>
                           <input
                             type="number"
                             value={ex.rest_seconds || 90}
@@ -631,7 +758,7 @@ export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate 
                     </div>
                   ))}
                   {formData.exercises.length === 0 && (
-                    <p className="text-xs text-white/30 text-center py-4">No exercises added yet</p>
+                    <p className="text-xs text-muted text-center py-4">No exercises added yet</p>
                   )}
                 </div>
               </div>
@@ -724,20 +851,68 @@ export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate 
             )}
           </div>
 
+          {/* Reschedule section (for planned workouts) */}
+          {workout.status !== 'completed' && (
+            <div className="glass rounded-lg p-3">
+              {!showReschedule ? (
+                <button
+                  onClick={() => setShowReschedule(true)}
+                  className="w-full flex items-center justify-center gap-2 text-sm text-white/60 hover:text-white transition-colors"
+                >
+                  <CalendarDays size={16} />
+                  Reschedule
+                </button>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-xs text-secondary">Move to a different date</p>
+                  <input
+                    type="date"
+                    value={rescheduleDate}
+                    onChange={e => setRescheduleDate(e.target.value)}
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-amber-500/50"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setShowReschedule(false)
+                        setRescheduleDate(workout.scheduled_date || '')
+                      }}
+                      className="flex-1 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-sm transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleReschedule}
+                      disabled={isRescheduling || rescheduleDate === workout.scheduled_date}
+                      className="flex-1 py-2 bg-amber-500 hover:bg-amber-400 text-black font-medium rounded-lg text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {isRescheduling ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <CalendarDays size={14} />
+                      )}
+                      Move
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Planned vs Actual Stats */}
           <div className="glass rounded-xl p-4">
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <p className="text-white/40 text-xs mb-2">Planned</p>
+                <p className="text-secondary text-xs mb-2">Planned</p>
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <Clock size={14} className="text-white/40" />
+                    <Clock size={14} className="text-secondary" />
                     <span>{formatDuration(workout.planned_duration_minutes || 0)}</span>
                   </div>
                 </div>
               </div>
               <div>
-                <p className="text-white/40 text-xs mb-2">Completed</p>
+                <p className="text-secondary text-xs mb-2">Completed</p>
                 {workout.status === 'completed' ? (
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
@@ -752,7 +927,7 @@ export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate 
                     {workout.actual_avg_hr && (
                       <div className="flex items-center gap-2 text-red-400">
                         <span>Avg HR: {workout.actual_avg_hr} bpm</span>
-                        {workout.actual_max_hr && <span className="text-white/40">/ Max: {workout.actual_max_hr}</span>}
+                        {workout.actual_max_hr && <span className="text-secondary">/ Max: {workout.actual_max_hr}</span>}
                       </div>
                     )}
                     {workout.actual_avg_power && (
@@ -767,7 +942,7 @@ export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate 
                     )}
                   </div>
                 ) : (
-                  <p className="text-white/30">-</p>
+                  <p className="text-muted">-</p>
                 )}
               </div>
             </div>
@@ -776,7 +951,7 @@ export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate 
           {/* Exercises (for strength workouts) */}
           {workout.exercises && workout.exercises.length > 0 && (
             <div className="glass rounded-xl p-4">
-              <p className="text-xs text-white/40 mb-3">Exercises ({workout.exercises.length})</p>
+              <p className="text-xs text-secondary mb-3">Exercises ({workout.exercises.length})</p>
               <div className="space-y-3 max-h-[300px] overflow-y-auto">
                 {workout.exercises.map((ex: any, idx: number) => {
                   // Handle both formats: array of sets or simple sets count
@@ -799,7 +974,7 @@ export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate 
                         )}
                       </div>
                       {ex.notes && (
-                        <p className="text-xs text-white/40 mb-2">{ex.notes}</p>
+                        <p className="text-xs text-secondary mb-2">{ex.notes}</p>
                       )}
                       {/* Show actual set results */}
                       {setsArray.length > 0 && (
@@ -810,7 +985,7 @@ export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate 
                               className={`px-2 py-1 rounded text-xs ${
                                 set.completed
                                   ? 'bg-emerald-500/20 text-emerald-400'
-                                  : 'bg-white/5 text-white/40'
+                                  : 'bg-white/5 text-secondary'
                               }`}
                             >
                               {set.is_timed ? (
@@ -825,7 +1000,7 @@ export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate 
                                 <>
                                   {set.actual_reps ?? set.target_reps ?? '-'}
                                   {(set.actual_weight_lbs || set.target_weight_lbs) && (
-                                    <span className="text-white/50">
+                                    <span className="text-tertiary">
                                       ×{set.actual_weight_lbs ?? set.target_weight_lbs}lb
                                     </span>
                                   )}
@@ -837,7 +1012,7 @@ export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate 
                       )}
                       {/* Fallback for simple format */}
                       {!setsArray.length && ex.sets && (
-                        <div className="text-xs text-white/50">
+                        <div className="text-xs text-tertiary">
                           {ex.sets} × {ex.reps_min === ex.reps_max ? ex.reps_min : `${ex.reps_min}-${ex.reps_max}`}
                         </div>
                       )}
@@ -851,7 +1026,7 @@ export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate 
           {/* Notes */}
           {workout.notes && (
             <div>
-              <p className="text-xs text-white/40 mb-1">Notes</p>
+              <p className="text-xs text-secondary mb-1">Notes</p>
               <p className="text-sm text-white/80">{workout.notes}</p>
             </div>
           )}
@@ -859,7 +1034,7 @@ export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate 
           {/* RPE if completed */}
           {workout.status === 'completed' && workout.perceived_exertion && (
             <div className="flex items-center gap-2">
-              <span className="text-xs text-white/40">RPE:</span>
+              <span className="text-xs text-secondary">RPE:</span>
               <span className="text-sm font-medium">{workout.perceived_exertion}/10</span>
             </div>
           )}
@@ -875,6 +1050,69 @@ export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate 
               <ExternalLink size={16} />
               View on {workout.source === 'strava' ? 'Strava' : 'Source'}
             </a>
+          )}
+
+          {/* Strava Sync Section - only for completed workouts not from Strava */}
+          {workout.status === 'completed' && workout.source !== 'strava' && stravaSyncStatus.checked && (
+            <div className="glass rounded-xl p-4">
+              {stravaSyncStatus.synced ? (
+                // Already synced
+                <a
+                  href={stravaSyncStatus.strava_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 text-sm text-orange-400 hover:text-orange-300 transition-colors"
+                >
+                  <CheckCircle2 size={16} />
+                  Synced to Strava
+                  <ExternalLink size={14} />
+                </a>
+              ) : showStravaReconnect ? (
+                // Need to reconnect with write scope
+                <div className="space-y-3">
+                  <div className="flex items-start gap-2 text-amber-400">
+                    <AlertCircle size={18} className="flex-shrink-0 mt-0.5" />
+                    <div className="text-sm">
+                      <p className="font-medium">Permission needed</p>
+                      <p className="text-white/60 text-xs mt-1">
+                        To push workouts to Strava, you need to reconnect with write permissions.
+                      </p>
+                    </div>
+                  </div>
+                  <a
+                    href="/api/auth/strava?upgrade=true"
+                    className="flex items-center justify-center gap-2 w-full py-2.5 bg-orange-500 hover:bg-orange-400 text-white font-medium rounded-lg text-sm transition-colors"
+                  >
+                    <Upload size={16} />
+                    Reconnect Strava
+                  </a>
+                </div>
+              ) : (
+                // Can sync
+                <div className="space-y-2">
+                  <button
+                    onClick={handlePushToStrava}
+                    disabled={isSyncingToStrava}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 rounded-lg text-sm transition-colors disabled:opacity-50"
+                  >
+                    {isSyncingToStrava ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        Syncing...
+                      </>
+                    ) : (
+                      <>
+                        <Upload size={16} />
+                        Sync to Strava
+                      </>
+                    )}
+                  </button>
+                  {stravaError && (
+                    <p className="text-xs text-red-400 text-center">{stravaError}</p>
+                  )}
+                </div>
+              )}
+            </div>
           )}
 
           {/* Error */}
@@ -901,10 +1139,10 @@ export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate 
           {/* Quick Complete Section (for planned workouts) */}
           {workout.status !== 'completed' && (
             <div className="glass rounded-xl p-4 space-y-3">
-              <p className="text-xs text-white/40">Quick Complete</p>
+              <p className="text-xs text-secondary">Quick Complete</p>
               <div className="flex items-center gap-3">
                 <div className="flex-1">
-                  <label className="text-xs text-white/40 mb-1 block">Duration (min)</label>
+                  <label className="text-xs text-secondary mb-1 block">Duration (min)</label>
                   <input
                     type="number"
                     value={quickDuration}
@@ -935,7 +1173,7 @@ export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate 
                 </button>
                 <button
                   onClick={() => setShowFullCompletion(true)}
-                  className="text-xs text-white/40 hover:text-white/60 transition-colors"
+                  className="text-xs text-secondary hover:text-white/60 transition-colors"
                 >
                   More options...
                 </button>

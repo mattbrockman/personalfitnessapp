@@ -110,7 +110,7 @@ export function MovementScreen({
             }}
             className="p-1 hover:bg-white/10 rounded-lg"
           >
-            <Info size={16} className="text-white/40" />
+            <Info size={16} className="text-secondary" />
           </button>
         </div>
 
@@ -128,7 +128,7 @@ export function MovementScreen({
           <div className="mb-3">
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-bold">{totalScore}</span>
-              <span className="text-white/50 text-sm">/ 21</span>
+              <span className="text-tertiary text-sm">/ 21</span>
               {classification && (
                 <span className={`text-sm ${classification.color}`}>
                   {classification.label}
@@ -152,8 +152,8 @@ export function MovementScreen({
           </div>
         ) : (
           <div className="mb-3">
-            <div className="text-2xl font-bold text-white/30">--</div>
-            <p className="text-sm text-white/50 mt-1">No assessment recorded</p>
+            <div className="text-2xl font-bold text-muted">--</div>
+            <p className="text-sm text-tertiary mt-1">No assessment recorded</p>
           </div>
         )}
 
@@ -180,7 +180,7 @@ export function MovementScreen({
                   }`}>
                     {score}
                   </div>
-                  <div className="text-[10px] text-white/30">{abbr}</div>
+                  <div className="text-xs text-muted">{abbr}</div>
                 </div>
               )
             })}
@@ -190,13 +190,13 @@ export function MovementScreen({
         {/* Footer */}
         <div className="flex items-center justify-between text-xs">
           {latestScreen ? (
-            <span className="text-white/40">
+            <span className="text-secondary">
               Last assessed: {format(parseISO(latestScreen.screen_date), 'MMM d, yyyy')}
             </span>
           ) : (
             <span className="text-amber-400">Take movement assessment</span>
           )}
-          <ChevronRight size={16} className="text-white/30" />
+          <ChevronRight size={16} className="text-muted" />
         </div>
       </div>
 
@@ -226,7 +226,7 @@ export function MovementScreen({
                   {test.bilateral ? (
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <span className="text-xs text-white/50">Left</span>
+                        <span className="text-xs text-tertiary">Left</span>
                         <div className="flex gap-1 mt-1">
                           {[0, 1, 2, 3].map(score => (
                             <button
@@ -247,7 +247,7 @@ export function MovementScreen({
                         </div>
                       </div>
                       <div>
-                        <span className="text-xs text-white/50">Right</span>
+                        <span className="text-xs text-tertiary">Right</span>
                         <div className="flex gap-1 mt-1">
                           {[0, 1, 2, 3].map(score => (
                             <button
@@ -296,7 +296,7 @@ export function MovementScreen({
                 <p className="font-medium mb-2">Single Leg Balance (seconds)</p>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs text-white/50">Left (eyes open)</label>
+                    <label className="text-xs text-tertiary">Left (eyes open)</label>
                     <input
                       type="number"
                       className="w-full mt-1 bg-white/5 border border-white/10 rounded px-3 py-2 text-sm"
@@ -304,7 +304,7 @@ export function MovementScreen({
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-white/50">Right (eyes open)</label>
+                    <label className="text-xs text-tertiary">Right (eyes open)</label>
                     <input
                       type="number"
                       className="w-full mt-1 bg-white/5 border border-white/10 rounded px-3 py-2 text-sm"

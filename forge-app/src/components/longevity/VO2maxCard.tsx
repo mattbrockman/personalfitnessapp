@@ -84,7 +84,7 @@ export function VO2maxCard({
             }}
             className="p-1 hover:bg-white/10 rounded-lg"
           >
-            <Info size={16} className="text-white/40" />
+            <Info size={16} className="text-secondary" />
           </button>
         </div>
 
@@ -101,7 +101,7 @@ export function VO2maxCard({
           <div className="mb-3">
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-bold">{currentVO2max}</span>
-              <span className="text-white/50 text-sm">ml/kg/min</span>
+              <span className="text-tertiary text-sm">ml/kg/min</span>
             </div>
 
             {percentileInfo && (
@@ -109,7 +109,7 @@ export function VO2maxCard({
                 <span className={`text-sm font-medium ${getPercentileColor(percentileInfo.percentile)}`}>
                   {percentileInfo.percentile}th percentile
                 </span>
-                <span className="text-white/30">•</span>
+                <span className="text-muted">•</span>
                 <span className="text-sm text-white/60">{percentileInfo.classification}</span>
               </div>
             )}
@@ -129,18 +129,18 @@ export function VO2maxCard({
                   </>
                 ) : (
                   <>
-                    <Minus size={14} className="text-white/40" />
-                    <span className="text-white/40">Stable</span>
+                    <Minus size={14} className="text-secondary" />
+                    <span className="text-secondary">Stable</span>
                   </>
                 )}
-                <span className="text-white/30 ml-1">vs last test</span>
+                <span className="text-muted ml-1">vs last test</span>
               </div>
             )}
           </div>
         ) : (
           <div className="mb-3">
-            <div className="text-2xl font-bold text-white/30">--</div>
-            <p className="text-sm text-white/50 mt-1">No VO2max recorded</p>
+            <div className="text-2xl font-bold text-muted">--</div>
+            <p className="text-sm text-tertiary mt-1">No VO2max recorded</p>
           </div>
         )}
 
@@ -156,7 +156,7 @@ export function VO2maxCard({
                 {percentileInfo.fitnessAge} years
               </span>
             </div>
-            <div className="text-xs text-white/40 mt-0.5">
+            <div className="text-xs text-secondary mt-0.5">
               {percentileInfo.fitnessAge < age
                 ? `${age - percentileInfo.fitnessAge} years younger than chronological age`
                 : percentileInfo.fitnessAge > age
@@ -169,7 +169,7 @@ export function VO2maxCard({
         {/* Last test date / warning */}
         <div className="flex items-center justify-between text-xs">
           {lastTestDate ? (
-            <span className={`${testOverdue ? 'text-amber-400' : 'text-white/40'}`}>
+            <span className={`${testOverdue ? 'text-amber-400' : 'text-secondary'}`}>
               {testOverdue && <AlertCircle size={12} className="inline mr-1" />}
               Last tested: {format(parseISO(lastTestDate), 'MMM d, yyyy')}
             </span>
@@ -179,7 +179,7 @@ export function VO2maxCard({
               Take a field test to get started
             </span>
           )}
-          <ChevronRight size={16} className="text-white/30" />
+          <ChevronRight size={16} className="text-muted" />
         </div>
       </div>
 

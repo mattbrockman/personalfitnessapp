@@ -127,7 +127,7 @@ function ExerciseSearchModal({
       >
         <div className="p-4 border-b border-white/10">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted" />
             <input
               ref={inputRef}
               type="text"
@@ -163,13 +163,13 @@ function ExerciseSearchModal({
 
         <div className="overflow-y-auto max-h-[50vh]">
           {isSearching && (
-            <div className="px-4 py-2 text-xs text-white/40 flex items-center gap-2 border-b border-white/5">
+            <div className="px-4 py-2 text-xs text-secondary flex items-center gap-2 border-b border-white/5">
               <Loader2 size={12} className="animate-spin" />
               Searching...
             </div>
           )}
           {loading ? (
-            <div className="p-8 text-center text-white/40">Loading exercises...</div>
+            <div className="p-8 text-center text-secondary">Loading exercises...</div>
           ) : exercises.length > 0 ? (
             <>
               {exercises.map(exercise => (
@@ -192,7 +192,7 @@ function ExerciseSearchModal({
                     className="flex-1 min-w-0 text-left hover:text-amber-400 transition-colors"
                   >
                     <p className="font-medium">{exercise.name}</p>
-                    <p className="text-sm text-white/50 capitalize">{exercise.primary_muscle?.replace('_', ' ')} • {formatEquipmentName(exercise.equipment)}</p>
+                    <p className="text-sm text-tertiary capitalize">{exercise.primary_muscle?.replace('_', ' ')} • {formatEquipmentName(exercise.equipment)}</p>
                   </button>
 
                   {/* Add button */}
@@ -227,7 +227,7 @@ function ExerciseSearchModal({
                 <div className="px-4 py-3 border-t border-white/10">
                   <button
                     onClick={() => setShowCreateExercise(true)}
-                    className="w-full py-2 text-sm text-white/50 hover:text-amber-400 transition-colors flex items-center justify-center gap-2"
+                    className="w-full py-2 text-sm text-tertiary hover:text-amber-400 transition-colors flex items-center justify-center gap-2"
                   >
                     <Plus size={16} />
                     Don't see it? Create "{debouncedSearch}"
@@ -237,7 +237,7 @@ function ExerciseSearchModal({
             </>
           ) : (
             <div className="p-8 text-center">
-              <p className="text-white/40 mb-4">No exercises found for "{debouncedSearch}"</p>
+              <p className="text-secondary mb-4">No exercises found for "{debouncedSearch}"</p>
               <button
                 onClick={() => setShowCreateExercise(true)}
                 className="px-4 py-2 bg-amber-500/20 text-amber-400 rounded-lg hover:bg-amber-500/30 transition-colors inline-flex items-center gap-2"
@@ -326,7 +326,7 @@ function ExerciseDetailPopup({
             </div>
             <div>
               <h3 className="text-lg font-semibold">{exercise.name}</h3>
-              <p className="text-sm text-white/50 capitalize">
+              <p className="text-sm text-tertiary capitalize">
                 {exercise.primary_muscle?.replace('_', ' ')} • {formatEquipmentName(exercise.equipment)}
               </p>
             </div>
@@ -492,7 +492,7 @@ function CreateExerciseModal({
               )}
             </button>
 
-            <p className="text-xs text-white/40 text-center mt-3">
+            <p className="text-xs text-secondary text-center mt-3">
               AI will suggest muscle groups, equipment, and coaching cues
             </p>
           </>
@@ -577,7 +577,7 @@ function CreateExerciseModal({
 
             <button
               onClick={() => setGeneratedExercise(null)}
-              className="w-full mt-2 py-2 text-sm text-white/40 hover:text-white/60 transition-colors"
+              className="w-full mt-2 py-2 text-sm text-secondary hover:text-white/60 transition-colors"
             >
               Start over with different name
             </button>
@@ -757,7 +757,7 @@ function BuilderExerciseCard({
       } ${isDragOver ? 'ring-2 ring-amber-500/50 bg-amber-500/10' : ''}`}
     >
       <div className="flex items-start gap-3">
-        <div className="text-white/30 hover:text-white cursor-grab active:cursor-grabbing mt-1">
+        <div className="text-muted hover:text-white cursor-grab active:cursor-grabbing mt-1">
           <GripVertical size={18} />
         </div>
 
@@ -776,7 +776,7 @@ function BuilderExerciseCard({
           >
             {exercise.exercise.name}
           </button>
-          <p className="text-sm text-white/50 capitalize">
+          <p className="text-sm text-tertiary capitalize">
             {exercise.exercise.primary_muscle?.replace('_', ' ')} • {formatEquipmentName(exercise.exercise.equipment)}
           </p>
 
@@ -784,7 +784,7 @@ function BuilderExerciseCard({
           <div className="mt-3 flex flex-wrap items-center gap-3">
             {/* Sets */}
             <div className="flex items-center gap-2">
-              <span className="text-sm text-white/50">Sets:</span>
+              <span className="text-sm text-tertiary">Sets:</span>
               <div className="flex items-center">
                 <button
                   onClick={() => onUpdate({ sets: Math.max(1, exercise.sets - 1) })}
@@ -806,25 +806,25 @@ function BuilderExerciseCard({
             {exercise.exercise.is_timed ? (
               <div className="flex items-center gap-2">
                 <Clock size={14} className="text-amber-400" />
-                <span className="text-sm text-white/50">Duration:</span>
+                <span className="text-sm text-tertiary">Duration:</span>
                 <input
                   type="number"
                   value={exercise.target_duration || 30}
                   onChange={e => onUpdate({ target_duration: parseInt(e.target.value) || 30 })}
                   className="w-16 bg-white/5 border border-white/10 rounded px-2 py-1 text-center text-sm focus:outline-none focus:border-amber-500/50"
                 />
-                <span className="text-sm text-white/50">sec</span>
+                <span className="text-sm text-tertiary">sec</span>
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <span className="text-sm text-white/50">Reps:</span>
+                <span className="text-sm text-tertiary">Reps:</span>
                 <input
                   type="number"
                   value={exercise.reps_min}
                   onChange={e => onUpdate({ reps_min: parseInt(e.target.value) || 0 })}
                   className="w-12 bg-white/5 border border-white/10 rounded px-2 py-1 text-center text-sm focus:outline-none focus:border-amber-500/50"
                 />
-                <span className="text-white/30">-</span>
+                <span className="text-muted">-</span>
                 <input
                   type="number"
                   value={exercise.reps_max}
@@ -836,21 +836,21 @@ function BuilderExerciseCard({
 
             {/* Rest */}
             <div className="flex items-center gap-2">
-              <Clock size={14} className="text-white/50" />
+              <Clock size={14} className="text-tertiary" />
               <input
                 type="number"
                 value={exercise.rest_seconds}
                 onChange={e => onUpdate({ rest_seconds: parseInt(e.target.value) || 0 })}
                 className="w-14 bg-white/5 border border-white/10 rounded px-2 py-1 text-center text-sm focus:outline-none focus:border-amber-500/50"
               />
-              <span className="text-sm text-white/50">s</span>
+              <span className="text-sm text-tertiary">s</span>
             </div>
           </div>
         </div>
 
         <button
           onClick={onRemove}
-          className="p-2 text-white/30 hover:text-red-400 transition-colors"
+          className="p-2 text-muted hover:text-red-400 transition-colors"
         >
           <Trash2 size={16} />
         </button>
@@ -954,7 +954,7 @@ export function WorkoutBuilder({
               placeholder="Workout name..."
               className="text-2xl font-display font-semibold bg-transparent border-none outline-none placeholder-white/30 w-full"
             />
-            <p className="text-white/50 mt-1 flex items-center gap-4">
+            <p className="text-tertiary mt-1 flex items-center gap-4">
               <span className="flex items-center gap-1">
                 <Target size={14} />
                 {exercises.length} exercises
@@ -1013,7 +1013,7 @@ export function WorkoutBuilder({
         {/* Add Exercise Button */}
         <button
           onClick={() => setShowExerciseSearch(true)}
-          className="w-full py-4 border-2 border-dashed border-white/10 rounded-xl text-white/40 hover:text-white hover:border-white/20 transition-colors flex items-center justify-center gap-2"
+          className="w-full py-4 border-2 border-dashed border-white/10 rounded-xl text-secondary hover:text-white hover:border-white/20 transition-colors flex items-center justify-center gap-2"
         >
           <Plus size={20} /> Add Exercise
         </button>
@@ -1022,8 +1022,8 @@ export function WorkoutBuilder({
         {exercises.length === 0 && (
           <div className="text-center py-8">
             <Dumbbell size={48} className="mx-auto text-white/20 mb-4" />
-            <p className="text-white/40">No exercises added yet</p>
-            <p className="text-sm text-white/30 mt-1">Add exercises to build your workout</p>
+            <p className="text-secondary">No exercises added yet</p>
+            <p className="text-sm text-muted mt-1">Add exercises to build your workout</p>
           </div>
         )}
       </div>
@@ -1102,7 +1102,7 @@ export function WorkoutBuilder({
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold">{detailExercise.name}</h3>
-                  <p className="text-sm text-white/50 capitalize">
+                  <p className="text-sm text-tertiary capitalize">
                     {detailExercise.primary_muscle?.replace('_', ' ')} • {formatEquipmentName(detailExercise.equipment)}
                   </p>
                 </div>

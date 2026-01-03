@@ -205,7 +205,7 @@ export function BodyScanner() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-display font-semibold">Body Scan</h1>
-          <p className="text-white/50">AI-powered body composition analysis</p>
+          <p className="text-tertiary">AI-powered body composition analysis</p>
         </div>
         {step !== 'instructions' && (
           <button
@@ -227,7 +227,7 @@ export function BodyScanner() {
               </div>
               <div>
                 <h2 className="font-semibold">Photo Guidelines</h2>
-                <p className="text-sm text-white/50">For best results</p>
+                <p className="text-sm text-tertiary">For best results</p>
               </div>
             </div>
 
@@ -250,7 +250,7 @@ export function BodyScanner() {
               </div>
               <div>
                 <h2 className="font-semibold">How It Works</h2>
-                <p className="text-sm text-white/50">Multi-factor analysis</p>
+                <p className="text-sm text-tertiary">Multi-factor analysis</p>
               </div>
             </div>
 
@@ -318,8 +318,8 @@ export function BodyScanner() {
                 onClick={() => frontInputRef.current?.click()}
                 className="h-64 border-2 border-dashed border-white/20 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-amber-500/50 transition-colors"
               >
-                <Camera size={40} className="text-white/30 mb-2" />
-                <p className="text-white/50">Tap to capture front view</p>
+                <Camera size={40} className="text-muted mb-2" />
+                <p className="text-tertiary">Tap to capture front view</p>
               </div>
             )}
 
@@ -337,7 +337,7 @@ export function BodyScanner() {
           <div className="glass rounded-xl p-4">
             <h3 className="font-medium mb-3 flex items-center gap-2">
               <User size={18} className="rotate-90" />
-              Side View <span className="text-white/40">(Optional)</span>
+              Side View <span className="text-secondary">(Optional)</span>
             </h3>
 
             {sidePreview ? (
@@ -362,7 +362,7 @@ export function BodyScanner() {
                 onClick={() => sideInputRef.current?.click()}
                 className="h-32 border-2 border-dashed border-white/20 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-white/40 transition-colors"
               >
-                <p className="text-white/40 text-sm">Add side view for better accuracy</p>
+                <p className="text-secondary text-sm">Add side view for better accuracy</p>
               </div>
             )}
 
@@ -438,7 +438,7 @@ export function BodyScanner() {
             <Sparkles size={40} className="text-amber-500" />
           </div>
           <h2 className="text-xl font-semibold mb-2">Analyzing...</h2>
-          <p className="text-white/50 text-center max-w-sm">
+          <p className="text-tertiary text-center max-w-sm">
             AI is evaluating body composition from your photos combined with your
             profile data
           </p>
@@ -460,8 +460,8 @@ export function BodyScanner() {
               <p className="text-5xl font-bold text-amber-400">
                 {result.body_fat_pct}%
               </p>
-              <p className="text-white/50 mt-1">Body Fat</p>
-              <p className="text-sm text-white/40 mt-2">
+              <p className="text-tertiary mt-1">Body Fat</p>
+              <p className="text-sm text-secondary mt-2">
                 Range: {result.body_fat_range.min}% - {result.body_fat_range.max}%
               </p>
             </div>
@@ -472,19 +472,19 @@ export function BodyScanner() {
                 <p className="text-2xl font-bold text-emerald-400">
                   {result.lean_mass_lbs}
                 </p>
-                <p className="text-sm text-white/50">Lean Mass (lbs)</p>
+                <p className="text-sm text-tertiary">Lean Mass (lbs)</p>
               </div>
               <div className="p-4 bg-white/5 rounded-lg text-center">
                 <p className="text-2xl font-bold text-red-400">
                   {result.fat_mass_lbs}
                 </p>
-                <p className="text-sm text-white/50">Fat Mass (lbs)</p>
+                <p className="text-sm text-tertiary">Fat Mass (lbs)</p>
               </div>
               {result.ffmi && (
                 <div className="col-span-2 p-4 bg-white/5 rounded-lg text-center">
                   <p className="text-2xl font-bold text-violet-400">{result.ffmi}</p>
-                  <p className="text-sm text-white/50">FFMI (Fat-Free Mass Index)</p>
-                  <p className="text-xs text-white/30 mt-1">
+                  <p className="text-sm text-tertiary">FFMI (Fat-Free Mass Index)</p>
+                  <p className="text-xs text-muted mt-1">
                     {result.ffmi < 18
                       ? 'Below average'
                       : result.ffmi < 20
@@ -536,32 +536,32 @@ export function BodyScanner() {
             <h3 className="font-medium mb-3">Visual Assessment</h3>
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div className="p-3 bg-white/5 rounded-lg">
-                <p className="text-white/50">Body Type</p>
+                <p className="text-tertiary">Body Type</p>
                 <p className="font-medium capitalize">
                   {result.visual_analysis.body_type}
                 </p>
               </div>
               <div className="p-3 bg-white/5 rounded-lg">
-                <p className="text-white/50">Definition</p>
+                <p className="text-tertiary">Definition</p>
                 <p className="font-medium capitalize">
                   {result.visual_analysis.visible_muscle_definition.replace('_', ' ')}
                 </p>
               </div>
               <div className="p-3 bg-white/5 rounded-lg">
-                <p className="text-white/50">Waist-Hip Ratio</p>
+                <p className="text-tertiary">Waist-Hip Ratio</p>
                 <p className="font-medium capitalize">
                   {result.visual_analysis.waist_to_hip_ratio_estimate}
                 </p>
               </div>
               <div className="p-3 bg-white/5 rounded-lg">
-                <p className="text-white/50">V-Taper</p>
+                <p className="text-tertiary">V-Taper</p>
                 <p className="font-medium capitalize">
                   {result.visual_analysis.shoulder_to_waist_ratio}
                 </p>
               </div>
             </div>
             {result.visual_analysis.notes && (
-              <p className="mt-3 text-sm text-white/50 italic">
+              <p className="mt-3 text-sm text-tertiary italic">
                 "{result.visual_analysis.notes}"
               </p>
             )}

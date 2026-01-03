@@ -78,7 +78,7 @@ export function SkeletonCalendarGrid() {
       {/* Day headers */}
       <div className="grid grid-cols-7 bg-white/5">
         {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
-          <div key={day} className="p-3 text-center text-sm text-white/40 font-medium border-b border-white/5">
+          <div key={day} className="p-3 text-center text-sm text-secondary font-medium border-b border-white/5">
             {day}
           </div>
         ))}

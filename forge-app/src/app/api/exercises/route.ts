@@ -25,8 +25,33 @@ export async function GET(request: NextRequest) {
     const difficulty = searchParams.get('difficulty')
     const adaptation = searchParams.get('adaptation')
     const isCompound = searchParams.get('is_compound')
+    const collectionSlug = searchParams.get('collection') // Filter by collection slug
     const limit = searchParams.get('limit')
     const offset = searchParams.get('offset')
+
+    // If filtering by collection, get exercise IDs from collection first
+    let collectionExerciseIds: string[] | null = null
+    if (collectionSlug) {
+      const { data: collection } = await (adminClient as any)
+        .from('exercise_collections')
+        .select(`
+          id,
+          items:exercise_collection_items (exercise_id)
+        `)
+        .eq('slug', collectionSlug)
+        .single() as { data: any }
+
+      if (collection?.items) {
+        collectionExerciseIds = collection.items.map((item: any) => item.exercise_id)
+        if (collectionExerciseIds!.length === 0) {
+          // Collection exists but is empty
+          return NextResponse.json({ exercises: [] })
+        }
+      } else {
+        // Collection not found
+        return NextResponse.json({ error: 'Collection not found' }, { status: 404 })
+      }
+    }
 
     // Use FTS search function if searching, otherwise standard query
     if (search) {
@@ -44,8 +69,15 @@ export async function GET(request: NextRequest) {
         console.error('FTS search error, falling back to ILIKE:', searchError)
         // Fall through to standard query if RPC fails
       } else if (searchResults) {
+        // Filter by collection if specified
+        let filteredResults = searchResults as any[]
+        if (collectionExerciseIds) {
+          const idSet = new Set(collectionExerciseIds)
+          filteredResults = filteredResults.filter(ex => idSet.has(ex.id))
+        }
+
         // Return FTS results with normalization
-        const normalizedExercises = ((searchResults as any[]) || []).map((ex: any) => ({
+        const normalizedExercises = (filteredResults || []).map((ex: any) => ({
           id: ex.id,
           name: titleCase(ex.name),
           description: ex.description,
@@ -112,6 +144,11 @@ export async function GET(request: NextRequest) {
     // Filter by compound/isolation
     if (isCompound !== null && isCompound !== undefined) {
       query = query.eq('is_compound', isCompound === 'true')
+    }
+
+    // Filter by collection
+    if (collectionExerciseIds) {
+      query = query.in('id', collectionExerciseIds)
     }
 
     // Pagination

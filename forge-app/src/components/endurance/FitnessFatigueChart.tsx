@@ -81,7 +81,7 @@ export function FitnessFatigueChart({
         <div className="bg-dark-700/50 rounded-lg p-3">
           <div className="flex items-center gap-2 mb-1">
             <div className="w-3 h-3 rounded-full bg-blue-500" />
-            <span className="text-xs text-white/50">CTL (Fitness)</span>
+            <span className="text-xs text-tertiary">CTL (Fitness)</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-2xl font-semibold">{currentCTL.toFixed(0)}</span>
@@ -92,7 +92,7 @@ export function FitnessFatigueChart({
                   ? 'text-green-400'
                   : ctlTrend === 'falling'
                   ? 'text-red-400'
-                  : 'text-white/30'
+                  : 'text-muted'
               }
             />
           </div>
@@ -101,7 +101,7 @@ export function FitnessFatigueChart({
         <div className="bg-dark-700/50 rounded-lg p-3">
           <div className="flex items-center gap-2 mb-1">
             <div className="w-3 h-3 rounded-full bg-red-500" />
-            <span className="text-xs text-white/50">ATL (Fatigue)</span>
+            <span className="text-xs text-tertiary">ATL (Fatigue)</span>
           </div>
           <span className="text-2xl font-semibold">{currentATL.toFixed(0)}</span>
         </div>
@@ -109,7 +109,7 @@ export function FitnessFatigueChart({
         <div className="bg-dark-700/50 rounded-lg p-3">
           <div className="flex items-center gap-2 mb-1">
             <div className="w-3 h-3 rounded-full bg-green-500" />
-            <span className="text-xs text-white/50">TSB (Form)</span>
+            <span className="text-xs text-tertiary">TSB (Form)</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-2xl font-semibold">{currentTSB.toFixed(0)}</span>
@@ -204,7 +204,7 @@ export function FitnessFatigueChart({
       </div>
 
       {/* Legend explanation */}
-      <div className="mt-4 text-xs text-white/40 space-y-1">
+      <div className="mt-4 text-xs text-secondary space-y-1">
         <p><strong>CTL</strong> = Chronic Training Load (42-day avg) - Your fitness level</p>
         <p><strong>ATL</strong> = Acute Training Load (7-day avg) - Your fatigue level</p>
         <p><strong>TSB</strong> = Training Stress Balance (CTL - ATL) - Your form/freshness</p>

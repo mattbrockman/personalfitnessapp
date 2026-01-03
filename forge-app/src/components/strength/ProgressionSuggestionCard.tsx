@@ -45,7 +45,7 @@ export function ProgressionSuggestionCard({
           <TrendingUp className="text-green-400" size={18} />
           <span className="font-medium">Progression Suggestion</span>
         </div>
-        <span className="text-xs text-white/40 px-2 py-0.5 bg-white/5 rounded">
+        <span className="text-xs text-secondary px-2 py-0.5 bg-white/5 rounded">
           {getModelLabel(model)}
         </span>
       </div>
@@ -58,7 +58,7 @@ export function ProgressionSuggestionCard({
             <span className="text-amber-400 font-medium">
               Plateau detected ({plateauInfo.weeks_without_progress} weeks)
             </span>
-            <p className="text-white/50 mt-0.5">{plateauInfo.suggestion}</p>
+            <p className="text-tertiary mt-0.5">{plateauInfo.suggestion}</p>
           </div>
         </div>
       )}
@@ -66,7 +66,7 @@ export function ProgressionSuggestionCard({
       {/* Last session */}
       {currentWeight > 0 && (
         <div className="mb-3 text-sm">
-          <span className="text-white/40">Last session: </span>
+          <span className="text-secondary">Last session: </span>
           <span className="text-white/70">{currentWeight} lbs × {currentReps} reps</span>
         </div>
       )}
@@ -79,7 +79,7 @@ export function ProgressionSuggestionCard({
             <span className="text-xl font-semibold text-green-400">
               {suggestedWeight} lbs
             </span>
-            <span className="text-white/50">×</span>
+            <span className="text-tertiary">×</span>
             <span className="text-xl font-semibold text-green-400">
               {suggestedReps} reps
             </span>
@@ -96,7 +96,7 @@ export function ProgressionSuggestionCard({
               </span>
             )}
             {!weightChanged && !repsChanged && (
-              <span className="text-white/50">Maintain current</span>
+              <span className="text-tertiary">Maintain current</span>
             )}
           </div>
         </div>
@@ -112,7 +112,7 @@ export function ProgressionSuggestionCard({
       </div>
 
       {/* Reasoning */}
-      <p className="text-xs text-white/50">{reasoning}</p>
+      <p className="text-xs text-tertiary">{reasoning}</p>
     </div>
   )
 }

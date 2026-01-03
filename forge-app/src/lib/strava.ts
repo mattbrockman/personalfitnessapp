@@ -4,6 +4,26 @@ const STRAVA_API_BASE = 'https://www.strava.com/api/v3'
 const STRAVA_AUTH_URL = 'https://www.strava.com/oauth/authorize'
 const STRAVA_TOKEN_URL = 'https://www.strava.com/oauth/token'
 
+// OAuth scope configurations
+export const STRAVA_SCOPES = {
+  READ: 'read,activity:read_all,profile:read_all',
+  WRITE: 'read,activity:read_all,profile:read_all,activity:write',
+} as const
+
+/**
+ * Check if scopes array includes write permission
+ */
+export function hasWriteScope(scopes: string[] | null | undefined): boolean {
+  return scopes?.includes('activity:write') ?? false
+}
+
+/**
+ * Parse scope string from OAuth response into array
+ */
+export function parseScopeString(scopeString: string): string[] {
+  return scopeString.split(',').map(s => s.trim()).filter(Boolean)
+}
+
 export interface StravaTokens {
   access_token: string
   refresh_token: string
@@ -67,13 +87,20 @@ export interface StravaActivityZones {
 
 /**
  * Generate Strava OAuth URL
+ * @param redirectUri - OAuth redirect URI
+ * @param state - Optional state for CSRF protection
+ * @param includeWriteScope - Request activity:write scope for pushing workouts
  */
-export function getStravaAuthUrl(redirectUri: string, state?: string): string {
+export function getStravaAuthUrl(
+  redirectUri: string,
+  state?: string,
+  includeWriteScope: boolean = false
+): string {
   const params = new URLSearchParams({
     client_id: process.env.STRAVA_CLIENT_ID!,
     redirect_uri: redirectUri,
     response_type: 'code',
-    scope: 'read,activity:read_all,profile:read_all',
+    scope: includeWriteScope ? STRAVA_SCOPES.WRITE : STRAVA_SCOPES.READ,
     ...(state && { state }),
   })
 
@@ -287,4 +314,94 @@ export function estimateTSS(activity: StravaActivity, ftp?: number): number | nu
   }
 
   return null
+}
+
+// ============================================
+// Push to Strava functions
+// ============================================
+
+export interface CreateActivityParams {
+  name: string
+  sport_type: string
+  start_date_local: string
+  elapsed_time: number
+  description?: string
+  distance?: number
+  trainer?: boolean
+  commute?: boolean
+}
+
+/**
+ * Create a new activity on Strava (requires activity:write scope)
+ */
+export async function createStravaActivity(
+  accessToken: string,
+  activity: CreateActivityParams
+): Promise<StravaActivity> {
+  const response = await fetch(`${STRAVA_API_BASE}/activities`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(activity),
+  })
+
+  if (!response.ok) {
+    const error = await response.text()
+    throw new Error(`Failed to create Strava activity: ${response.status} - ${error}`)
+  }
+
+  return response.json()
+}
+
+/**
+ * Map app workout types to Strava sport_type for pushing activities
+ * Reverse of mapStravaTypeToWorkoutType
+ */
+export function mapWorkoutTypeToStravaType(
+  category: string,
+  workoutType: string
+): string {
+  // Strength activities
+  if (category === 'strength') {
+    return 'WeightTraining'
+  }
+
+  // Cardio activities
+  const cardioMapping: Record<string, string> = {
+    'bike': 'Ride',
+    'run': 'Run',
+    'swim': 'Swim',
+    'row': 'Rowing',
+    'elliptical': 'Elliptical',
+    'stairclimber': 'StairStepper',
+  }
+
+  if (category === 'cardio' && cardioMapping[workoutType]) {
+    return cardioMapping[workoutType]
+  }
+
+  // Other activities
+  const otherMapping: Record<string, string> = {
+    'walk': 'Walk',
+    'hike': 'Hike',
+    'yoga': 'Yoga',
+    'ski': 'AlpineSki',
+    'tennis': 'Tennis',
+    'soccer': 'Soccer',
+    'class': 'Workout',
+  }
+
+  return otherMapping[workoutType] || 'Workout'
+}
+
+/**
+ * Get a single activity by ID from Strava
+ */
+export async function getStravaActivityById(
+  accessToken: string,
+  activityId: number
+): Promise<StravaActivity> {
+  return stravaFetch<StravaActivity>(accessToken, `/activities/${activityId}`)
 }

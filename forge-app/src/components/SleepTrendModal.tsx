@@ -139,7 +139,7 @@ function CustomTooltip({ active, payload, label, metricKey }: any) {
 
   return (
     <div className="bg-zinc-800 border border-white/10 rounded-lg px-3 py-2 shadow-lg">
-      <p className="text-xs text-white/50 mb-1">{label}</p>
+      <p className="text-xs text-tertiary mb-1">{label}</p>
       <p className="text-sm font-medium" style={{ color: config.color }}>
         {config.formatValue(payload[0].value)}
       </p>
@@ -177,7 +177,7 @@ function MetricChart({
 
   if (chartData.length === 0) {
     return (
-      <div className="h-48 flex items-center justify-center text-white/40">
+      <div className="h-48 flex items-center justify-center text-secondary">
         No data available
       </div>
     )
@@ -192,7 +192,7 @@ function MetricChart({
           <Icon size={16} style={{ color: config.color }} />
           <span className="font-medium">{config.label}</span>
         </div>
-        <div className="text-sm text-white/50">
+        <div className="text-sm text-tertiary">
           Avg: <span style={{ color: config.color }}>{config.formatValue(average)}</span>
         </div>
       </div>
@@ -258,7 +258,7 @@ function StagesChart({ sleepLogs }: { sleepLogs: SleepLog[] }) {
 
   if (chartData.length === 0) {
     return (
-      <div className="h-48 flex items-center justify-center text-white/40">
+      <div className="h-48 flex items-center justify-center text-secondary">
         No sleep stage data available
       </div>
     )
@@ -271,15 +271,15 @@ function StagesChart({ sleepLogs }: { sleepLogs: SleepLog[] }) {
         <div className="flex gap-3 text-xs">
           <div className="flex items-center gap-1">
             <div className="w-2 h-2 rounded-full bg-violet-500" />
-            <span className="text-white/50">Deep</span>
+            <span className="text-tertiary">Deep</span>
           </div>
           <div className="flex items-center gap-1">
             <div className="w-2 h-2 rounded-full bg-sky-500" />
-            <span className="text-white/50">REM</span>
+            <span className="text-tertiary">REM</span>
           </div>
           <div className="flex items-center gap-1">
             <div className="w-2 h-2 rounded-full bg-emerald-500" />
-            <span className="text-white/50">Light</span>
+            <span className="text-tertiary">Light</span>
           </div>
         </div>
       </div>
@@ -407,7 +407,7 @@ export function SleepTrendModal({ metric, sleepLogs, onClose }: SleepTrendModalP
 
         <div className="p-6 overflow-y-auto flex-1">
           {recentLogs.length === 0 ? (
-            <div className="text-center py-12 text-white/40">
+            <div className="text-center py-12 text-secondary">
               <TrendingUp size={48} className="mx-auto mb-4 opacity-50" />
               <p>No sleep data to display</p>
               <p className="text-sm mt-1">Sync your Eight Sleep data to see trends</p>
@@ -418,7 +418,7 @@ export function SleepTrendModal({ metric, sleepLogs, onClose }: SleepTrendModalP
         </div>
 
         <div className="p-4 border-t border-white/10 shrink-0">
-          <p className="text-xs text-white/40 text-center">
+          <p className="text-xs text-secondary text-center">
             Showing last {recentLogs.length} days of sleep data
           </p>
         </div>

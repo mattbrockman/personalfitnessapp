@@ -101,10 +101,10 @@ function TemplateCard({
           </div>
           
           {template.description && (
-            <p className="text-sm text-white/50 mt-0.5 line-clamp-1">{template.description}</p>
+            <p className="text-sm text-tertiary mt-0.5 line-clamp-1">{template.description}</p>
           )}
           
-          <div className="flex items-center gap-3 mt-2 text-xs text-white/40">
+          <div className="flex items-center gap-3 mt-2 text-xs text-secondary">
             <span className="flex items-center gap-1">
               <Target size={12} />
               {template.exercises.length} exercises
@@ -131,12 +131,12 @@ function TemplateCard({
             {template.is_favorite ? (
               <Star size={16} className="text-amber-400 fill-amber-400" />
             ) : (
-              <StarOff size={16} className="text-white/40" />
+              <StarOff size={16} className="text-secondary" />
             )}
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); onSchedule(); }}
-            className="p-2 hover:bg-white/10 rounded-lg transition-colors text-white/40 hover:text-white"
+            className="p-2 hover:bg-white/10 rounded-lg transition-colors text-secondary hover:text-white"
             title="Schedule workout"
           >
             <Calendar size={16} />
@@ -145,14 +145,14 @@ function TemplateCard({
             <>
               <button
                 onClick={(e) => { e.stopPropagation(); onEdit(); }}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors text-white/40 hover:text-white"
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors text-secondary hover:text-white"
                 title="Edit template"
               >
                 <Edit2 size={16} />
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); onDelete(); }}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors text-white/40 hover:text-red-400"
+                className="p-2 hover:bg-white/10 rounded-lg transition-colors text-secondary hover:text-red-400"
                 title="Delete template"
               >
                 <Trash2 size={16} />
@@ -210,7 +210,7 @@ function ScheduleModal({
               <X size={20} />
             </button>
           </div>
-          <p className="text-sm text-white/50 mt-1">{template.name}</p>
+          <p className="text-sm text-tertiary mt-1">{template.name}</p>
         </div>
 
         <div className="p-4 space-y-4">
@@ -236,7 +236,7 @@ function ScheduleModal({
 
           {/* Date picker */}
           <div>
-            <label className="text-sm text-white/40 mb-2 block">Or pick a date:</label>
+            <label className="text-sm text-secondary mb-2 block">Or pick a date:</label>
             <input
               type="date"
               value={selectedDate}
@@ -320,9 +320,9 @@ function TemplateDetailModal({
             <div className="flex-1">
               <h3 className="font-semibold text-lg">{template.name}</h3>
               {template.description && (
-                <p className="text-sm text-white/50 mt-0.5">{template.description}</p>
+                <p className="text-sm text-tertiary mt-0.5">{template.description}</p>
               )}
-              <div className="flex items-center gap-3 mt-2 text-sm text-white/40">
+              <div className="flex items-center gap-3 mt-2 text-sm text-secondary">
                 <span className={`px-2 py-0.5 rounded capitalize ${CATEGORY_COLORS[template.category]}`}>
                   {template.category.replace('_', ' ')}
                 </span>
@@ -337,7 +337,7 @@ function TemplateDetailModal({
 
         {/* Exercises */}
         <div className="p-4 max-h-[50vh] overflow-y-auto">
-          <h4 className="text-sm text-white/40 mb-3">Exercises</h4>
+          <h4 className="text-sm text-secondary mb-3">Exercises</h4>
           <div className="space-y-2">
             {template.exercises.map((exercise, index) => (
               <div 
@@ -349,14 +349,14 @@ function TemplateDetailModal({
                 </span>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium truncate">{exercise.exercise_name}</p>
-                  <p className="text-sm text-white/50">
+                  <p className="text-sm text-tertiary">
                     {exercise.sets} × {exercise.reps_min}
                     {exercise.reps_max !== exercise.reps_min ? `-${exercise.reps_max}` : ''}
                     {exercise.rpe_target ? ` @RPE ${exercise.rpe_target}` : ''}
                     {exercise.notes ? ` (${exercise.notes})` : ''}
                   </p>
                 </div>
-                <span className="text-xs text-white/40">{exercise.rest_seconds}s rest</span>
+                <span className="text-xs text-secondary">{exercise.rest_seconds}s rest</span>
               </div>
             ))}
           </div>
@@ -587,7 +587,7 @@ export function WorkoutTemplateLibrary({ onStartWorkout }: WorkoutTemplateLibrar
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-display font-semibold">Workout Templates</h1>
-          <p className="text-white/50">{templates.length} {templates.length === 1 ? 'template' : 'templates'}</p>
+          <p className="text-tertiary">{templates.length} {templates.length === 1 ? 'template' : 'templates'}</p>
         </div>
         <button className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black font-medium rounded-lg transition-colors flex items-center gap-2">
           <Plus size={18} />
@@ -598,7 +598,7 @@ export function WorkoutTemplateLibrary({ onStartWorkout }: WorkoutTemplateLibrar
       {/* Search and filters */}
       <div className="mb-6 space-y-3">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted" />
           <input
             type="text"
             value={search}
@@ -646,8 +646,8 @@ export function WorkoutTemplateLibrary({ onStartWorkout }: WorkoutTemplateLibrar
       <div className="grid gap-3">
         {loading ? (
           <div className="text-center py-12">
-            <Loader2 size={32} className="mx-auto text-white/30 animate-spin mb-4" />
-            <p className="text-white/40">Loading templates...</p>
+            <Loader2 size={32} className="mx-auto text-muted animate-spin mb-4" />
+            <p className="text-secondary">Loading templates...</p>
           </div>
         ) : sortedTemplates.length > 0 ? (
           sortedTemplates.map(template => (
@@ -664,9 +664,9 @@ export function WorkoutTemplateLibrary({ onStartWorkout }: WorkoutTemplateLibrar
         ) : (
           <div className="text-center py-12">
             <Dumbbell size={48} className="mx-auto text-white/20 mb-4" />
-            <p className="text-white/40">No templates found</p>
+            <p className="text-secondary">No templates found</p>
             {search && (
-              <p className="text-sm text-white/30 mt-1">Try a different search term</p>
+              <p className="text-sm text-muted mt-1">Try a different search term</p>
             )}
           </div>
         )}

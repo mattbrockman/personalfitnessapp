@@ -406,7 +406,7 @@ export function SettingsView({ user, profile, integrations }: SettingsViewProps)
       {/* Profile Section */}
       <section className="glass rounded-xl p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <UserIcon size={20} className="text-white/40" />
+          <UserIcon size={20} className="text-secondary" />
           Profile
         </h2>
         
@@ -417,7 +417,7 @@ export function SettingsView({ user, profile, integrations }: SettingsViewProps)
               type="email"
               value={user.email || ''}
               disabled
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white/50"
+              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-tertiary"
             />
           </div>
         </div>
@@ -426,10 +426,10 @@ export function SettingsView({ user, profile, integrations }: SettingsViewProps)
       {/* Location Section */}
       <section className="glass rounded-xl p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <MapPin size={20} className="text-white/40" />
+          <MapPin size={20} className="text-secondary" />
           Location
         </h2>
-        <p className="text-sm text-white/50 mb-4">
+        <p className="text-sm text-tertiary mb-4">
           Set your location to see weather forecasts in your calendar.
         </p>
 
@@ -457,7 +457,7 @@ export function SettingsView({ user, profile, integrations }: SettingsViewProps)
           )}
         </button>
 
-        <div className="text-center text-sm text-white/40 mb-4">— or enter zip code —</div>
+        <div className="text-center text-sm text-secondary mb-4">— or enter zip code —</div>
 
         <div className="flex gap-2">
           <input
@@ -492,10 +492,10 @@ export function SettingsView({ user, profile, integrations }: SettingsViewProps)
       {/* AI Coach Section */}
       <section className="glass rounded-xl p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <Bot size={20} className="text-white/40" />
+          <Bot size={20} className="text-secondary" />
           AI Coach
         </h2>
-        <p className="text-sm text-white/50 mb-4">
+        <p className="text-sm text-tertiary mb-4">
           Customize your AI training assistant's behavior and capabilities.
         </p>
 
@@ -514,7 +514,7 @@ export function SettingsView({ user, profile, integrations }: SettingsViewProps)
                 </option>
               ))}
             </select>
-            <p className="text-xs text-white/40 mt-1">
+            <p className="text-xs text-secondary mt-1">
               {AI_MODEL_OPTIONS.find(o => o.id === aiModel)?.description}
             </p>
           </div>
@@ -533,7 +533,7 @@ export function SettingsView({ user, profile, integrations }: SettingsViewProps)
                 </option>
               ))}
             </select>
-            <p className="text-xs text-white/40 mt-1">
+            <p className="text-xs text-secondary mt-1">
               {AI_PERSONALITY_OPTIONS.find(o => o.id === aiPersonality)?.description}
             </p>
           </div>
@@ -567,16 +567,16 @@ export function SettingsView({ user, profile, integrations }: SettingsViewProps)
       {/* Calendar Sync Section */}
       <section className="glass rounded-xl p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <Calendar size={20} className="text-white/40" />
+          <Calendar size={20} className="text-secondary" />
           Calendar Sync
         </h2>
-        <p className="text-sm text-white/50 mb-4">
+        <p className="text-sm text-tertiary mb-4">
           Subscribe to your training calendar in Google Calendar, Apple Calendar, or any app that supports iCal feeds.
         </p>
 
         {isLoadingCalendar ? (
           <div className="flex items-center justify-center py-8">
-            <Loader2 size={24} className="animate-spin text-white/40" />
+            <Loader2 size={24} className="animate-spin text-secondary" />
           </div>
         ) : (
           <>
@@ -584,7 +584,7 @@ export function SettingsView({ user, profile, integrations }: SettingsViewProps)
             <label className="flex items-center justify-between p-4 bg-white/5 rounded-lg mb-4 cursor-pointer hover:bg-white/10 transition-colors">
               <div>
                 <p className="font-medium">Enable calendar feed</p>
-                <p className="text-sm text-white/50">Allow external apps to subscribe to your training calendar</p>
+                <p className="text-sm text-tertiary">Allow external apps to subscribe to your training calendar</p>
               </div>
               <button
                 onClick={handleToggleCalendar}
@@ -634,7 +634,7 @@ export function SettingsView({ user, profile, integrations }: SettingsViewProps)
                       )}
                     </button>
                   </div>
-                  <p className="text-xs text-white/40 mt-2">
+                  <p className="text-xs text-secondary mt-2">
                     Keep this URL private. Anyone with it can see your training calendar.
                   </p>
                 </div>
@@ -676,10 +676,10 @@ export function SettingsView({ user, profile, integrations }: SettingsViewProps)
       {/* Training Zones Section */}
       <section className="glass rounded-xl p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <Activity size={20} className="text-white/40" />
+          <Activity size={20} className="text-secondary" />
           Training Zones
         </h2>
-        <p className="text-sm text-white/50 mb-4">
+        <p className="text-sm text-tertiary mb-4">
           Set your threshold values for accurate TSS and zone calculations.
         </p>
         
@@ -693,7 +693,7 @@ export function SettingsView({ user, profile, integrations }: SettingsViewProps)
               placeholder="e.g., 250"
               className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-white/30 focus:outline-none focus:border-amber-500/50"
             />
-            <p className="text-xs text-white/40 mt-1">Functional Threshold Power</p>
+            <p className="text-xs text-secondary mt-1">Functional Threshold Power</p>
           </div>
           
           <div>
@@ -705,7 +705,7 @@ export function SettingsView({ user, profile, integrations }: SettingsViewProps)
               placeholder="e.g., 165"
               className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-white/30 focus:outline-none focus:border-amber-500/50"
             />
-            <p className="text-xs text-white/40 mt-1">Lactate Threshold HR</p>
+            <p className="text-xs text-secondary mt-1">Lactate Threshold HR</p>
           </div>
           
           <div>
@@ -717,7 +717,7 @@ export function SettingsView({ user, profile, integrations }: SettingsViewProps)
               placeholder="e.g., 185"
               className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-white/30 focus:outline-none focus:border-amber-500/50"
             />
-            <p className="text-xs text-white/40 mt-1">Maximum Heart Rate</p>
+            <p className="text-xs text-secondary mt-1">Maximum Heart Rate</p>
           </div>
         </div>
 
@@ -734,10 +734,10 @@ export function SettingsView({ user, profile, integrations }: SettingsViewProps)
       {/* Equipment & Space Section */}
       <section className="glass rounded-xl p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <Dumbbell size={20} className="text-white/40" />
+          <Dumbbell size={20} className="text-secondary" />
           Equipment & Space
         </h2>
-        <p className="text-sm text-white/50 mb-4">
+        <p className="text-sm text-tertiary mb-4">
           Select the equipment you have access to. This is used by the AI workout generator to create workouts tailored to your setup.
         </p>
 
@@ -788,52 +788,90 @@ export function SettingsView({ user, profile, integrations }: SettingsViewProps)
       {/* Integrations Section */}
       <section className="glass rounded-xl p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <LinkIcon size={20} className="text-white/40" />
+          <LinkIcon size={20} className="text-secondary" />
           Integrations
         </h2>
 
         {/* Strava */}
-        <div className="flex items-center justify-between p-4 bg-white/5 rounded-lg">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-orange-500/20 flex items-center justify-center">
-              <svg className="w-6 h-6 text-orange-500" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" />
-              </svg>
+        <div className="p-4 bg-white/5 rounded-lg space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-orange-500/20 flex items-center justify-center">
+                <svg className="w-6 h-6 text-orange-500" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169" />
+                </svg>
+              </div>
+              <div>
+                <p className="font-medium">Strava</p>
+                {stravaIntegration ? (
+                  <p className="text-sm text-emerald-400 flex items-center gap-1">
+                    <Check size={14} />
+                    Connected
+                  </p>
+                ) : (
+                  <p className="text-sm text-tertiary">Not connected</p>
+                )}
+              </div>
             </div>
-            <div>
-              <p className="font-medium">Strava</p>
-              {stravaIntegration ? (
-                <p className="text-sm text-emerald-400 flex items-center gap-1">
-                  <Check size={14} />
-                  Connected
-                </p>
-              ) : (
-                <p className="text-sm text-white/50">Not connected</p>
-              )}
-            </div>
-          </div>
 
-          {stravaIntegration ? (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-white/40">
-                Last sync: {stravaIntegration.last_sync_at 
-                  ? new Date(stravaIntegration.last_sync_at).toLocaleDateString()
-                  : 'Never'}
-              </span>
+            {stravaIntegration ? (
               <button
                 onClick={handleDisconnectStrava}
                 className="px-3 py-1.5 text-sm text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
               >
                 Disconnect
               </button>
+            ) : (
+              <a
+                href="/api/auth/strava"
+                className="px-4 py-2 bg-orange-500 hover:bg-orange-400 text-white rounded-lg text-sm transition-colors"
+              >
+                Connect
+              </a>
+            )}
+          </div>
+
+          {/* Strava details when connected */}
+          {stravaIntegration && (
+            <div className="pt-3 border-t border-white/10 space-y-2">
+              {/* Scope status */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-secondary">Permissions:</span>
+                <div className="flex items-center gap-2">
+                  {(stravaIntegration as any).scopes?.includes('activity:write') ? (
+                    <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded text-xs">
+                      Read + Write
+                    </span>
+                  ) : (
+                    <>
+                      <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 rounded text-xs">
+                        Read Only
+                      </span>
+                      <a
+                        href="/api/auth/strava?upgrade=true"
+                        className="text-xs text-orange-400 hover:text-orange-300 underline"
+                      >
+                        Enable push
+                      </a>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Last sync times */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-secondary">Last sync:</span>
+                <span className="text-xs text-tertiary">
+                  {(stravaIntegration as any).last_webhook_at
+                    ? `Webhook: ${new Date((stravaIntegration as any).last_webhook_at).toLocaleString()}`
+                    : (stravaIntegration as any).last_poll_at
+                      ? `Poll: ${new Date((stravaIntegration as any).last_poll_at).toLocaleString()}`
+                      : stravaIntegration.last_sync_at
+                        ? new Date(stravaIntegration.last_sync_at).toLocaleDateString()
+                        : 'Never'}
+                </span>
+              </div>
             </div>
-          ) : (
-            <a
-              href="/api/auth/strava"
-              className="px-4 py-2 bg-orange-500 hover:bg-orange-400 text-white rounded-lg text-sm transition-colors"
-            >
-              Connect
-            </a>
           )}
         </div>
 
@@ -841,8 +879,8 @@ export function SettingsView({ user, profile, integrations }: SettingsViewProps)
         <div className="mt-4 p-4 bg-white/5 rounded-lg">
           {eightSleepLoading ? (
             <div className="flex items-center gap-2">
-              <Loader2 size={16} className="animate-spin text-white/40" />
-              <span className="text-sm text-white/40">Loading...</span>
+              <Loader2 size={16} className="animate-spin text-secondary" />
+              <span className="text-sm text-secondary">Loading...</span>
             </div>
           ) : eightSleepConnected ? (
             <div className="flex items-center justify-between">
@@ -879,7 +917,7 @@ export function SettingsView({ user, profile, integrations }: SettingsViewProps)
                 </div>
                 <div>
                   <p className="font-medium">Eight Sleep</p>
-                  <p className="text-sm text-white/50">Connect your account</p>
+                  <p className="text-sm text-tertiary">Connect your account</p>
                 </div>
               </div>
 
@@ -914,13 +952,13 @@ export function SettingsView({ user, profile, integrations }: SettingsViewProps)
                   <button
                     type="button"
                     onClick={() => setShowEightSleepPassword(!showEightSleepPassword)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-white/40 hover:text-white/60"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-secondary hover:text-white/60"
                   >
                     {showEightSleepPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
               </div>
-              <p className="text-xs text-white/40">
+              <p className="text-xs text-secondary">
                 Your credentials are stored securely and only used to sync your sleep data.
               </p>
               <div className="flex gap-2">
@@ -956,7 +994,7 @@ export function SettingsView({ user, profile, integrations }: SettingsViewProps)
                 </div>
                 <div>
                   <p className="font-medium">Eight Sleep</p>
-                  <p className="text-sm text-white/50">Not connected</p>
+                  <p className="text-sm text-tertiary">Not connected</p>
                 </div>
               </div>
               <button
@@ -971,7 +1009,7 @@ export function SettingsView({ user, profile, integrations }: SettingsViewProps)
 
         {/* Future integrations */}
         <div className="mt-4 p-4 border border-dashed border-white/10 rounded-lg">
-          <p className="text-sm text-white/40 text-center">
+          <p className="text-sm text-secondary text-center">
             More integrations coming soon: TrainerRoad, Zwift, Apple Health, WHOOP
           </p>
         </div>

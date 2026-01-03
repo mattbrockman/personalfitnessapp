@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 
 // GET /api/workouts - List workouts for current user
+// Note: Only returns actual workouts from the workouts table.
+// Suggested workouts belong in the Plan view, not Calendar.
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
-    
+
     const { data: { session }, error: sessionError } = await supabase.auth.getSession()
     if (sessionError || !session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -46,46 +48,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch workouts' }, { status: 500 })
     }
 
-    // Also fetch suggested workouts from user's active plan
-    // Look up active plan directly from training_plans table
-    const adminClient = createAdminClient()
-    const { data: activePlan } = await (adminClient as any)
-      .from('training_plans')
-      .select('id')
-      .eq('user_id', session.user.id)
-      .eq('status', 'active')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single()
-
-
-    let suggestedWorkouts: any[] = []
-    if (activePlan?.id) {
-      let swQuery = (adminClient as any)
-        .from('suggested_workouts')
-        .select('*')
-        .eq('plan_id', activePlan.id)
-        .order('suggested_date', { ascending: false })
-
-      if (startDate) {
-        swQuery = swQuery.gte('suggested_date', startDate)
-      }
-      if (endDate) {
-        swQuery = swQuery.lte('suggested_date', endDate)
-      }
-
-      const { data: sw } = await swQuery
-      suggestedWorkouts = (sw || []).map((w: any) => ({
-        ...w,
-        scheduled_date: w.suggested_date,
-        source: 'suggested',
-      }))
-    }
-
-    // Combine and return
-    const allWorkouts = [...(workouts || []), ...suggestedWorkouts]
-
-    return NextResponse.json({ workouts: allWorkouts })
+    return NextResponse.json({ workouts: workouts || [] })
   } catch (error) {
     console.error('Workouts GET error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -300,12 +263,12 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
-// DELETE /api/workouts - Delete a workout
+// DELETE /api/workouts - Delete a workout or bulk delete by date range
 export async function DELETE(request: NextRequest) {
   try {
     const supabase = await createClient()
     const adminClient = createAdminClient()
-    
+
     const { data: { session }, error: sessionError } = await supabase.auth.getSession()
     if (sessionError || !session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -313,9 +276,35 @@ export async function DELETE(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
+    const fromDate = searchParams.get('from_date')
+    const status = searchParams.get('status')
 
+    // Bulk delete by date range
+    if (fromDate) {
+      let query = adminClient
+        .from('workouts')
+        .delete()
+        .eq('user_id', session.user.id)
+        .gte('scheduled_date', fromDate)
+
+      // Optionally filter by status (e.g., only 'planned' workouts)
+      if (status) {
+        query = query.eq('status', status)
+      }
+
+      const { error: deleteError, count } = await query
+
+      if (deleteError) {
+        console.error('Error bulk deleting workouts:', deleteError)
+        return NextResponse.json({ error: 'Failed to delete workouts' }, { status: 500 })
+      }
+
+      return NextResponse.json({ success: true, deleted: count || 0 })
+    }
+
+    // Single delete by ID
     if (!id) {
-      return NextResponse.json({ error: 'Workout ID required' }, { status: 400 })
+      return NextResponse.json({ error: 'Workout ID or from_date required' }, { status: 400 })
     }
 
     // Verify ownership

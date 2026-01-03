@@ -163,7 +163,7 @@ export function PolarizedDashboard({ user }: PolarizedDashboardProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <RefreshCw className="animate-spin text-white/50" size={32} />
+        <RefreshCw className="animate-spin text-tertiary" size={32} />
       </div>
     )
   }
@@ -177,7 +177,7 @@ export function PolarizedDashboard({ user }: PolarizedDashboardProps) {
             <Target className="text-blue-400" size={28} />
             Polarized Training
           </h1>
-          <p className="text-white/50 text-sm mt-1">
+          <p className="text-tertiary text-sm mt-1">
             80/20 intensity distribution based on Dr. Stephen Seiler's research
           </p>
         </div>
@@ -186,7 +186,7 @@ export function PolarizedDashboard({ user }: PolarizedDashboardProps) {
           disabled={isRefreshing}
           className="p-2 hover:bg-white/10 rounded-lg"
         >
-          <RefreshCw size={20} className={`text-white/50 ${isRefreshing ? 'animate-spin' : ''}`} />
+          <RefreshCw size={20} className={`text-tertiary ${isRefreshing ? 'animate-spin' : ''}`} />
         </button>
       </div>
 
@@ -195,7 +195,7 @@ export function PolarizedDashboard({ user }: PolarizedDashboardProps) {
         <div className="bg-dark-800 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-1">
             <Activity size={16} className="text-blue-400" />
-            <span className="text-xs text-white/50">Fitness (CTL)</span>
+            <span className="text-xs text-tertiary">Fitness (CTL)</span>
           </div>
           <span className="text-2xl font-semibold">{ctlAtlTsb.currentCTL.toFixed(0)}</span>
         </div>
@@ -203,7 +203,7 @@ export function PolarizedDashboard({ user }: PolarizedDashboardProps) {
         <div className="bg-dark-800 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-1">
             <TrendingUp size={16} className="text-amber-400" />
-            <span className="text-xs text-white/50">Fatigue (ATL)</span>
+            <span className="text-xs text-tertiary">Fatigue (ATL)</span>
           </div>
           <span className="text-2xl font-semibold">{ctlAtlTsb.currentATL.toFixed(0)}</span>
         </div>
@@ -215,7 +215,7 @@ export function PolarizedDashboard({ user }: PolarizedDashboardProps) {
               ctlAtlTsb.currentTSB >= -10 ? 'bg-blue-500' :
               ctlAtlTsb.currentTSB >= -25 ? 'bg-amber-500' : 'bg-red-500'
             }`} />
-            <span className="text-xs text-white/50">Form (TSB)</span>
+            <span className="text-xs text-tertiary">Form (TSB)</span>
           </div>
           <span className="text-2xl font-semibold">{ctlAtlTsb.currentTSB.toFixed(0)}</span>
         </div>
@@ -227,7 +227,7 @@ export function PolarizedDashboard({ user }: PolarizedDashboardProps) {
             ) : (
               <Activity size={16} className="text-green-400" />
             )}
-            <span className="text-xs text-white/50">Weekly Load</span>
+            <span className="text-xs text-tertiary">Weekly Load</span>
           </div>
           <span className="text-2xl font-semibold">{trainingStrain.weeklyLoad.toLocaleString()}</span>
         </div>
@@ -276,7 +276,7 @@ export function PolarizedDashboard({ user }: PolarizedDashboardProps) {
                 key={week.weekStart}
                 className="flex items-center gap-4 p-3 bg-dark-700/30 rounded-lg"
               >
-                <div className="w-24 text-sm text-white/50">
+                <div className="w-24 text-sm text-tertiary">
                   {new Date(week.weekStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                 </div>
 
@@ -312,7 +312,7 @@ export function PolarizedDashboard({ user }: PolarizedDashboardProps) {
       )}
 
       {/* Footer */}
-      <div className="text-center text-xs text-white/30 py-4 mt-4">
+      <div className="text-center text-xs text-muted py-4 mt-4">
         <p>
           Based on Dr. Stephen Seiler's research on polarized training distribution.
           Target: 80% low intensity (Z1-2), &lt;10% moderate (Z3), 10-20% high intensity (Z4-5).

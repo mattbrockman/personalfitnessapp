@@ -123,7 +123,7 @@ export function ConflictResolutionModal({
               <h2 className="text-lg font-semibold">
                 {hasConflicts ? 'Schedule Conflicts Detected' : 'Confirm Scheduling'}
               </h2>
-              <p className="text-sm text-white/50">
+              <p className="text-sm text-tertiary">
                 {hasConflicts
                   ? 'Choose how to handle existing workouts'
                   : `${suggestedWorkouts.length} workouts ready to schedule`}
@@ -166,7 +166,7 @@ export function ConflictResolutionModal({
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="text-xs uppercase tracking-wider text-white/40">Existing</span>
+                            <span className="text-xs uppercase tracking-wider text-secondary">Existing</span>
                             <span className={`text-xs px-1.5 py-0.5 rounded ${
                               workout.status === 'completed' ? 'bg-green-500/20 text-green-400' :
                               workout.status === 'planned' ? 'bg-blue-500/20 text-blue-400' :
@@ -176,7 +176,7 @@ export function ConflictResolutionModal({
                             </span>
                           </div>
                           <p className="font-medium truncate">{workout.name}</p>
-                          <p className="text-sm text-white/50">
+                          <p className="text-sm text-tertiary">
                             {workout.duration_minutes}min • {workout.category}
                           </p>
                         </div>
@@ -225,7 +225,7 @@ export function ConflictResolutionModal({
                             <span className="text-xs uppercase tracking-wider text-amber-400">New</span>
                           </div>
                           <p className="font-medium truncate">{workout.name}</p>
-                          <p className="text-sm text-white/50">
+                          <p className="text-sm text-tertiary">
                             {workout.planned_duration_minutes}min • {workout.category} • {workout.workout_type}
                           </p>
                         </div>
@@ -275,24 +275,24 @@ export function ConflictResolutionModal({
             <div className="flex flex-wrap gap-4 text-sm">
               <div>
                 <span className="text-amber-400 font-medium">{summary.toAdd.length}</span>
-                <span className="text-white/50 ml-1">to add</span>
+                <span className="text-tertiary ml-1">to add</span>
               </div>
               {summary.toSkip.length > 0 && (
                 <div>
                   <span className="text-gray-400 font-medium">{summary.toSkip.length}</span>
-                  <span className="text-white/50 ml-1">to skip</span>
+                  <span className="text-tertiary ml-1">to skip</span>
                 </div>
               )}
               {summary.toOverwrite.length > 0 && (
                 <div>
                   <span className="text-red-400 font-medium">{summary.toOverwrite.length}</span>
-                  <span className="text-white/50 ml-1">to remove</span>
+                  <span className="text-tertiary ml-1">to remove</span>
                 </div>
               )}
               {summary.toKeep.length > 0 && (
                 <div>
                   <span className="text-green-400 font-medium">{summary.toKeep.length}</span>
-                  <span className="text-white/50 ml-1">to keep</span>
+                  <span className="text-tertiary ml-1">to keep</span>
                 </div>
               )}
             </div>

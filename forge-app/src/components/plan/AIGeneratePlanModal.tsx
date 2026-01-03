@@ -24,7 +24,7 @@ import {
 
 interface AIGeneratePlanModalProps {
   onClose: () => void
-  onPlanGenerated: (plan: TrainingPlan) => void
+  onPlanGenerated: (plan: TrainingPlan, philosophy?: string, notes?: string) => void
   existingPlan?: TrainingPlan
 }
 
@@ -76,6 +76,8 @@ export function AIGeneratePlanModal({
   // Generated plan preview
   const [generatedPlan, setGeneratedPlan] = useState<TrainingPlan | null>(null)
   const [reasoning, setReasoning] = useState('')
+  const [programPhilosophy, setProgramPhilosophy] = useState('')
+  const [coachingNotes, setCoachingNotes] = useState('')
 
   // Toggle activity
   const toggleActivity = (activity: ActivityType) => {
@@ -159,8 +161,19 @@ export function AIGeneratePlanModal({
       }
 
       const data = await res.json()
+      console.log('Plan generation response:', {
+        hasPlan: !!data.plan,
+        planId: data.plan?.id,
+        phasesCount: data.plan?.phases?.length,
+        suggestedWorkoutsCount: data.plan?.suggested_workouts?.length,
+        hasPhilosophy: !!data.program_philosophy,
+        philosophyPreview: data.program_philosophy?.substring(0, 100),
+        hasCoachingNotes: !!data.coaching_notes,
+      })
       setGeneratedPlan(data.plan)
       setReasoning(data.reasoning || '')
+      setProgramPhilosophy(data.program_philosophy || '')
+      setCoachingNotes(data.coaching_notes || '')
       setStep('review')
     } catch (err) {
       console.error('Plan generation error:', err)
@@ -173,9 +186,18 @@ export function AIGeneratePlanModal({
   const handleSavePlan = async () => {
     if (!generatedPlan) return
 
+    console.log('handleSavePlan - passing to parent:', {
+      planId: generatedPlan.id,
+      philosophyLength: programPhilosophy?.length,
+      coachingNotesLength: coachingNotes?.length,
+      hasPhilosophy: !!programPhilosophy,
+      hasCoachingNotes: !!coachingNotes,
+    })
+
     try {
       // The plan is already saved by the generate endpoint
-      onPlanGenerated(generatedPlan)
+      // Pass philosophy and coaching notes to the callback
+      onPlanGenerated(generatedPlan, programPhilosophy, coachingNotes)
     } catch (err) {
       console.error('Error saving plan:', err)
       setError('Failed to save plan')
@@ -214,7 +236,7 @@ export function AIGeneratePlanModal({
             </div>
             <div>
               <h2 className="font-semibold">AI Training Plan Generator</h2>
-              <p className="text-sm text-white/50">
+              <p className="text-sm text-tertiary">
                 {step === 'goal' && 'Step 1: Choose your goal'}
                 {step === 'activities' && 'Step 2: Select activities'}
                 {step === 'events' && 'Step 3: Add events & vacations'}
@@ -255,7 +277,7 @@ export function AIGeneratePlanModal({
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="font-medium">{option.label}</p>
-                        <p className="text-sm text-white/50">{option.description}</p>
+                        <p className="text-sm text-tertiary">{option.description}</p>
                       </div>
                       {goal === option.value && (
                         <Check size={20} className="text-violet-400" />
@@ -323,7 +345,7 @@ export function AIGeneratePlanModal({
                 </div>
                 <div>
                   <label className="block text-sm text-white/60 mb-2">
-                    End Date <span className="text-white/40">(optional)</span>
+                    End Date <span className="text-secondary">(optional)</span>
                   </label>
                   <input
                     type="date"
@@ -353,7 +375,7 @@ export function AIGeneratePlanModal({
                 </div>
 
                 {events.length === 0 ? (
-                  <p className="text-sm text-white/40 p-4 bg-white/5 rounded-lg text-center">
+                  <p className="text-sm text-secondary p-4 bg-white/5 rounded-lg text-center">
                     No events added. Add target events to optimize peaking.
                   </p>
                 ) : (
@@ -429,7 +451,7 @@ export function AIGeneratePlanModal({
                 </div>
 
                 {vacations.length === 0 ? (
-                  <p className="text-sm text-white/40 p-4 bg-white/5 rounded-lg text-center">
+                  <p className="text-sm text-secondary p-4 bg-white/5 rounded-lg text-center">
                     No vacations added. Add time off to adjust the plan.
                   </p>
                 ) : (
@@ -453,7 +475,7 @@ export function AIGeneratePlanModal({
                           ))}
                           className="bg-white/5 border border-white/10 rounded px-3 py-2 text-sm"
                         />
-                        <span className="text-white/40">to</span>
+                        <span className="text-secondary">to</span>
                         <input
                           type="date"
                           value={vac.end}
@@ -517,7 +539,7 @@ export function AIGeneratePlanModal({
             <div className="text-center py-12">
               <Loader2 size={48} className="mx-auto text-violet-400 animate-spin mb-4" />
               <h3 className="text-lg font-semibold mb-2">Generating Your Plan</h3>
-              <p className="text-white/50">
+              <p className="text-tertiary">
                 AI is creating a personalized periodization plan based on your goals...
               </p>
             </div>
@@ -526,52 +548,44 @@ export function AIGeneratePlanModal({
           {/* Step: Review */}
           {step === 'review' && generatedPlan && (
             <div className="space-y-6">
-              <div className="p-4 bg-violet-500/10 border border-violet-500/30 rounded-lg">
-                <h3 className="font-semibold mb-2">{generatedPlan.name}</h3>
-                <p className="text-sm text-white/60">{generatedPlan.description}</p>
+              <div className="p-6 bg-gradient-to-br from-violet-500/20 to-amber-500/10 border border-violet-500/30 rounded-xl text-center">
+                <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
+                  <Check size={32} className="text-green-400" />
+                </div>
+                <h3 className="text-xl font-semibold mb-2">Plan Generated Successfully!</h3>
+                <p className="text-white/60">
+                  Dr. Galpin has created your personalized training program.
+                </p>
               </div>
 
-              {reasoning && (
-                <div>
-                  <p className="text-sm text-white/60 mb-2">AI Reasoning:</p>
-                  <p className="text-sm bg-white/5 p-3 rounded-lg">{reasoning}</p>
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-3 bg-white/5 rounded-lg">
-                  <p className="text-xs text-white/50">Phases</p>
-                  <p className="text-xl font-semibold">{generatedPlan.phases?.length || 0}</p>
-                </div>
-                <div className="p-3 bg-white/5 rounded-lg">
-                  <p className="text-xs text-white/50">Weekly Hours</p>
-                  <p className="text-xl font-semibold">{generatedPlan.weekly_hours_target}h</p>
-                </div>
-              </div>
-
-              {generatedPlan.phases && generatedPlan.phases.length > 0 && (
-                <div>
-                  <p className="text-sm text-white/60 mb-2">Phase Overview:</p>
-                  <div className="space-y-2">
-                    {generatedPlan.phases.map(phase => (
-                      <div
-                        key={phase.id}
-                        className="p-3 bg-white/5 rounded-lg flex items-center justify-between"
-                      >
-                        <div>
-                          <p className="font-medium">{phase.name}</p>
-                          <p className="text-sm text-white/50">
-                            {new Date(phase.start_date).toLocaleDateString()} - {new Date(phase.end_date).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <span className="text-sm text-white/60 capitalize">
-                          {phase.phase_type}
-                        </span>
-                      </div>
-                    ))}
+              <div className="p-4 bg-white/5 rounded-lg">
+                <h4 className="font-semibold mb-2">{generatedPlan.name}</h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-tertiary">Goal</p>
+                    <p className="capitalize">{generatedPlan.goal?.replace('_', ' ')}</p>
+                  </div>
+                  <div>
+                    <p className="text-tertiary">Weekly Hours</p>
+                    <p>{generatedPlan.weekly_hours_target}h target</p>
+                  </div>
+                  <div>
+                    <p className="text-tertiary">Start Date</p>
+                    <p>{new Date(generatedPlan.start_date).toLocaleDateString()}</p>
+                  </div>
+                  <div>
+                    <p className="text-tertiary">Duration</p>
+                    <p>{generatedPlan.end_date
+                      ? `${Math.ceil((new Date(generatedPlan.end_date).getTime() - new Date(generatedPlan.start_date).getTime()) / (7 * 24 * 60 * 60 * 1000))} weeks`
+                      : 'Rolling'
+                    }</p>
                   </div>
                 </div>
-              )}
+              </div>
+
+              <p className="text-sm text-tertiary text-center">
+                Click &quot;View Plan&quot; to see the full program details and recommendations.
+              </p>
             </div>
           )}
         </div>
@@ -620,8 +634,8 @@ export function AIGeneratePlanModal({
                 onClick={handleSavePlan}
                 className="px-6 py-2 bg-amber-500 hover:bg-amber-400 text-black font-medium rounded-lg flex items-center gap-2"
               >
-                <Check size={16} />
-                Save & Activate Plan
+                <ChevronRight size={16} />
+                View Plan
               </button>
             </>
           )}

@@ -102,7 +102,7 @@ export function CreateWorkoutModal({ selectedDate, onClose, onCreated }: CreateW
             </div>
             <div>
               <h2 className="font-semibold text-lg">Create Workout</h2>
-              <p className="text-sm text-white/50">{format(selectedDate, 'EEEE, MMMM d, yyyy')}</p>
+              <p className="text-sm text-tertiary">{format(selectedDate, 'EEEE, MMMM d, yyyy')}</p>
             </div>
           </div>
           <button
@@ -123,7 +123,7 @@ export function CreateWorkoutModal({ selectedDate, onClose, onCreated }: CreateW
               value={formData.name}
               onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
               placeholder="Morning Ride, Leg Day, etc."
-              className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-amber-500/50"
+              className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-muted focus:outline-none focus:border-amber-500/50"
             />
           </div>
 
@@ -181,7 +181,7 @@ export function CreateWorkoutModal({ selectedDate, onClose, onCreated }: CreateW
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-sm text-white/60 mb-1.5">
-                Time <span className="text-white/30">(optional)</span>
+                Time <span className="text-muted">(optional)</span>
               </label>
               <input
                 type="time"
@@ -191,13 +191,13 @@ export function CreateWorkoutModal({ selectedDate, onClose, onCreated }: CreateW
                 className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-amber-500/50"
               />
               {!formData.scheduled_time && (
-                <p className="text-xs text-white/30 mt-1">Leave empty for all-day event</p>
+                <p className="text-xs text-muted mt-1">Leave empty for all-day event</p>
               )}
             </div>
             <div>
               <label className="block text-sm text-white/60 mb-1.5">Duration (min)</label>
               <div className="relative">
-                <Clock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
+                <Clock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary" />
                 <input
                   type="number"
                   value={formData.planned_duration_minutes}
@@ -216,7 +216,7 @@ export function CreateWorkoutModal({ selectedDate, onClose, onCreated }: CreateW
               onChange={e => setFormData(prev => ({ ...prev, notes: e.target.value }))}
               placeholder="Workout details, goals, etc."
               rows={2}
-              className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-amber-500/50 resize-none"
+              className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-muted focus:outline-none focus:border-amber-500/50 resize-none"
             />
           </div>
 

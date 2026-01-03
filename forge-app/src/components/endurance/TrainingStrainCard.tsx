@@ -51,18 +51,18 @@ export function TrainingStrainCard({ strain }: TrainingStrainCardProps) {
       <div className="grid grid-cols-2 gap-4 mb-4">
         {/* Weekly Load */}
         <div className="bg-dark-700/50 rounded-lg p-4">
-          <div className="text-xs text-white/50 mb-1">Weekly Load</div>
+          <div className="text-xs text-tertiary mb-1">Weekly Load</div>
           <div className="text-2xl font-semibold">{strain.weeklyLoad.toLocaleString()}</div>
-          <div className="text-xs text-white/40 mt-1">RPE × Duration</div>
+          <div className="text-xs text-secondary mt-1">RPE × Duration</div>
         </div>
 
         {/* ACWR */}
         <div className="bg-dark-700/50 rounded-lg p-4">
-          <div className="text-xs text-white/50 mb-1">ACWR</div>
+          <div className="text-xs text-tertiary mb-1">ACWR</div>
           <div className={`text-2xl font-semibold ${getACWRColor(strain.acwr)}`}>
             {strain.acwr.toFixed(2)}
           </div>
-          <div className="text-xs text-white/40 mt-1">
+          <div className="text-xs text-secondary mt-1">
             {strain.acwr >= 0.8 && strain.acwr <= 1.3 ? 'Sweet spot' :
              strain.acwr < 0.8 ? 'Below optimal' : 'Above optimal'}
           </div>
@@ -74,7 +74,7 @@ export function TrainingStrainCard({ strain }: TrainingStrainCardProps) {
         {/* Monotony */}
         <div className="bg-dark-700/30 rounded-lg p-3">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-white/50">Monotony</span>
+            <span className="text-xs text-tertiary">Monotony</span>
             <span className={`text-sm font-medium ${getMonotonyColor(strain.monotony)}`}>
               {strain.monotony.toFixed(2)}
             </span>
@@ -88,7 +88,7 @@ export function TrainingStrainCard({ strain }: TrainingStrainCardProps) {
               style={{ width: `${Math.min(100, (strain.monotony / 3) * 100)}%` }}
             />
           </div>
-          <div className="text-xs text-white/30 mt-1">
+          <div className="text-xs text-muted mt-1">
             {strain.monotony <= 1.5 ? 'Good variety' :
              strain.monotony <= 2.0 ? 'Moderate variety' : 'Too monotonous'}
           </div>
@@ -97,7 +97,7 @@ export function TrainingStrainCard({ strain }: TrainingStrainCardProps) {
         {/* Strain */}
         <div className="bg-dark-700/30 rounded-lg p-3">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-white/50">Strain</span>
+            <span className="text-xs text-tertiary">Strain</span>
             <span className="text-sm font-medium">{strain.strain.toLocaleString()}</span>
           </div>
           <div className="h-1.5 bg-dark-700 rounded-full overflow-hidden">
@@ -109,7 +109,7 @@ export function TrainingStrainCard({ strain }: TrainingStrainCardProps) {
               style={{ width: `${Math.min(100, (strain.strain / 10000) * 100)}%` }}
             />
           </div>
-          <div className="text-xs text-white/30 mt-1">
+          <div className="text-xs text-muted mt-1">
             Load × Monotony
           </div>
         </div>
@@ -117,13 +117,13 @@ export function TrainingStrainCard({ strain }: TrainingStrainCardProps) {
 
       {/* ACWR explanation */}
       <div className="bg-dark-700/30 rounded-lg p-3 mb-4">
-        <div className="text-xs text-white/50 mb-2">Acute:Chronic Workload Ratio Guide</div>
+        <div className="text-xs text-tertiary mb-2">Acute:Chronic Workload Ratio Guide</div>
         <div className="flex items-center gap-1">
           <div className="flex-1 h-2 rounded-l-full bg-amber-500/50" />
           <div className="flex-1 h-2 bg-green-500" />
           <div className="flex-1 h-2 rounded-r-full bg-red-500/50" />
         </div>
-        <div className="flex justify-between text-xs text-white/30 mt-1">
+        <div className="flex justify-between text-xs text-muted mt-1">
           <span>0.8</span>
           <span className="text-green-400">0.8-1.3 Optimal</span>
           <span>1.5+</span>
@@ -143,7 +143,7 @@ export function TrainingStrainCard({ strain }: TrainingStrainCardProps) {
       </div>
 
       {/* Footer info */}
-      <div className="mt-4 text-xs text-white/30 space-y-1">
+      <div className="mt-4 text-xs text-muted space-y-1">
         <p><strong>Monotony</strong> = Mean daily load / SD - measures training variety</p>
         <p><strong>Strain</strong> = Weekly load × Monotony - injury risk indicator</p>
         <p><strong>ACWR</strong> = Acute (7-day) / Chronic (28-day) load ratio</p>

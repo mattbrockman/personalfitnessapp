@@ -6,11 +6,11 @@ import {
   Plus,
   Sparkles,
   Loader2,
-  Calendar,
   ChevronRight,
   Flag,
   AlertCircle,
   Dumbbell,
+  ArrowRightLeft,
 } from 'lucide-react'
 import { PlanTimeline } from './PlanTimeline'
 import { AIGeneratePlanModal } from './AIGeneratePlanModal'
@@ -20,6 +20,13 @@ import { BulkScheduleModal } from './BulkScheduleModal'
 import { PlanTimelineHeader } from './PlanTimelineHeader'
 import { CreateSuggestedWorkoutModal } from './CreateSuggestedWorkoutModal'
 import { ConflictResolutionModal } from './ConflictResolutionModal'
+import { PlanPhilosophyView } from './PlanPhilosophyView'
+import { AthleteProfileCard } from './AthleteProfileCard'
+import { GoalPathwayCard } from './GoalPathwayCard'
+import { ProgramArchitectureTable } from './ProgramArchitectureTable'
+import { AssessmentCheckpoint } from './AssessmentCheckpoint'
+import { RecoveryProtocolsView } from './RecoveryProtocolsView'
+import { ExerciseSubstitutionModal } from './ExerciseSubstitutionModal'
 import { WeatherDay } from '@/lib/weather'
 import { startOfWeek, format } from 'date-fns'
 import {
@@ -27,18 +34,23 @@ import {
   TrainingPhase,
   PlanEvent,
   SuggestedWorkout,
+  PlanAssessment,
   PHASE_COLORS,
   PHASE_LABELS,
   EVENT_TYPE_ICONS,
 } from '@/types/training-plan'
 
-type ViewMode = 'timeline' | 'list' | 'workouts'
+type ViewMode = 'workouts' | 'timeline' | 'list'
 
 export function TrainingPlanView() {
   const [plan, setPlan] = useState<TrainingPlan | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('workouts')
+
+  // Philosophy and coaching notes from AI
+  const [programPhilosophy, setProgramPhilosophy] = useState<string>('')
+  const [coachingNotes, setCoachingNotes] = useState<string>('')
   const [showAIGenerator, setShowAIGenerator] = useState(false)
   const [expandedPhases, setExpandedPhases] = useState<string[]>([])
 
@@ -65,6 +77,12 @@ export function TrainingPlanView() {
   const [isCheckingConflicts, setIsCheckingConflicts] = useState(false)
   const [isScheduling, setIsScheduling] = useState(false)
 
+  // Assessments state
+  const [assessments, setAssessments] = useState<PlanAssessment[]>([])
+
+  // Exercise substitution modal state
+  const [showSubstitutionModal, setShowSubstitutionModal] = useState(false)
+
   // Fetch active plan
   const fetchPlan = useCallback(async () => {
     try {
@@ -87,6 +105,19 @@ export function TrainingPlanView() {
         }
         const { plan: fullPlan } = await planRes.json()
         setPlan(fullPlan)
+
+        // Load philosophy and coaching notes from the plan
+        if (fullPlan.program_philosophy) {
+          setProgramPhilosophy(fullPlan.program_philosophy)
+        }
+        if (fullPlan.coaching_notes) {
+          setCoachingNotes(fullPlan.coaching_notes)
+        }
+
+        // Load assessments from the plan
+        if (fullPlan.assessments) {
+          setAssessments(fullPlan.assessments)
+        }
 
         // Auto-expand current phase
         const currentPhase = getCurrentPhase(fullPlan.phases || [])
@@ -112,10 +143,17 @@ export function TrainingPlanView() {
   const fetchSuggestedWorkouts = useCallback(async (planId: string) => {
     try {
       setLoadingWorkouts(true)
+      console.log('fetchSuggestedWorkouts - fetching for plan:', planId)
       const res = await fetch(`/api/training-plans/${planId}/suggested-workouts`)
       if (res.ok) {
         const { suggested_workouts } = await res.json()
+        console.log('fetchSuggestedWorkouts - received:', {
+          count: suggested_workouts?.length,
+          firstWorkout: suggested_workouts?.[0]?.name,
+        })
         setSuggestedWorkouts(suggested_workouts || [])
+      } else {
+        console.error('fetchSuggestedWorkouts - request failed:', res.status)
       }
     } catch (err) {
       console.error('Error fetching suggested workouts:', err)
@@ -332,9 +370,24 @@ export function TrainingPlanView() {
   }
 
   // Handle AI plan generation complete
-  const handlePlanGenerated = (newPlan: TrainingPlan) => {
+  const handlePlanGenerated = (newPlan: TrainingPlan, philosophy?: string, notes?: string) => {
+    console.log('handlePlanGenerated called:', {
+      planId: newPlan.id,
+      hasPhases: !!newPlan.phases?.length,
+      phasesCount: newPlan.phases?.length,
+      hasSuggestedWorkouts: !!newPlan.suggested_workouts?.length,
+      suggestedWorkoutsCount: newPlan.suggested_workouts?.length,
+      philosophyReceived: !!philosophy,
+      notesReceived: !!notes,
+    })
     setPlan(newPlan)
     setShowAIGenerator(false)
+    if (philosophy) setProgramPhilosophy(philosophy)
+    if (notes) setCoachingNotes(notes)
+    // Fetch suggested workouts for the new plan
+    if (newPlan.id) {
+      fetchSuggestedWorkouts(newPlan.id)
+    }
     if (newPlan.phases && newPlan.phases.length > 0) {
       const currentPhase = getCurrentPhase(newPlan.phases)
       if (currentPhase) {
@@ -394,7 +447,7 @@ export function TrainingPlanView() {
           <h1 className="text-2xl font-display font-semibold mb-3">
             Create Your Training Plan
           </h1>
-          <p className="text-white/50 mb-8 max-w-md mx-auto">
+          <p className="text-tertiary mb-8 max-w-md mx-auto">
             Build a periodized training plan that balances your activities,
             peaks for your events, and adjusts for vacations and recovery.
           </p>
@@ -458,7 +511,7 @@ export function TrainingPlanView() {
         <div>
           <h1 className="text-2xl font-display font-semibold">{plan.name}</h1>
           {plan.description && (
-            <p className="text-white/50 text-sm mt-1">{plan.description}</p>
+            <p className="text-tertiary text-sm mt-1">{plan.description}</p>
           )}
         </div>
 
@@ -506,16 +559,16 @@ export function TrainingPlanView() {
           <div className="flex items-center gap-3">
             <div className={`w-3 h-3 rounded-full ${PHASE_COLORS[currentPhase.phase_type]}`} />
             <div>
-              <p className="text-sm text-white/50">Current Phase</p>
+              <p className="text-sm text-tertiary">Current Phase</p>
               <p className="font-semibold">
                 {currentPhase.name}
-                <span className="text-white/50 font-normal ml-2">
+                <span className="text-tertiary font-normal ml-2">
                   ({PHASE_LABELS[currentPhase.phase_type]})
                 </span>
               </p>
             </div>
             <div className="ml-auto text-right">
-              <p className="text-sm text-white/50">Volume</p>
+              <p className="text-sm text-tertiary">Volume</p>
               <p className="font-semibold">
                 {Math.round(currentPhase.volume_modifier * 100)}%
               </p>
@@ -561,7 +614,7 @@ export function TrainingPlanView() {
                   <span className="text-xl">{EVENT_TYPE_ICONS[event.event_type]}</span>
                   <div>
                     <p className="font-medium">{event.name}</p>
-                    <p className="text-sm text-white/50">
+                    <p className="text-sm text-tertiary">
                       {formatDate(event.event_date)}
                       {event.location && ` • ${event.location}`}
                     </p>
@@ -583,6 +636,59 @@ export function TrainingPlanView() {
       {/* View Mode Content */}
       {viewMode === 'workouts' && (
         <>
+          {/* Philosophy and Coaching Notes */}
+          <PlanPhilosophyView
+            philosophy={programPhilosophy}
+            coachingNotes={coachingNotes}
+          />
+
+          {/* Athlete Profile and Goal Pathway - side by side on larger screens */}
+          {(plan.athlete_profile_snapshot || plan.goal_pathway) && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+              <AthleteProfileCard profile={plan.athlete_profile_snapshot} />
+              <GoalPathwayCard goalPathway={plan.goal_pathway} />
+            </div>
+          )}
+
+          {/* Program Architecture - Phase Overview */}
+          {plan.phases && plan.phases.length > 0 && (
+            <div className="mb-6">
+              <ProgramArchitectureTable phases={plan.phases} />
+            </div>
+          )}
+
+          {/* Assessment Checkpoints and Recovery - side by side */}
+          {(assessments.length > 0 || plan.recovery_protocols) && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+              {assessments.length > 0 && (
+                <AssessmentCheckpoint
+                  assessments={assessments}
+                  onCompleteAssessment={(id, results) => {
+                    // TODO: Handle assessment completion
+                    console.log('Complete assessment:', id, results)
+                  }}
+                />
+              )}
+              {plan.recovery_protocols && (
+                <RecoveryProtocolsView protocols={plan.recovery_protocols} />
+              )}
+            </div>
+          )}
+
+          {/* Exercise Substitutions Button */}
+          {plan.exercise_substitutions && Object.keys(plan.exercise_substitutions).length > 0 && (
+            <button
+              onClick={() => setShowSubstitutionModal(true)}
+              className="mb-6 w-full py-3 glass rounded-xl hover:bg-white/10 transition-colors flex items-center justify-center gap-2 text-white/70 hover:text-white"
+            >
+              <ArrowRightLeft size={18} />
+              <span>View Exercise Substitutions</span>
+              <span className="text-xs bg-white/10 px-2 py-0.5 rounded ml-1">
+                {Object.keys(plan.exercise_substitutions).length} exercises
+              </span>
+            </button>
+          )}
+
           {/* Timeline Header */}
           <PlanTimelineHeader
             phases={plan.phases || []}
@@ -688,6 +794,17 @@ export function TrainingPlanView() {
           isSubmitting={isScheduling}
         />
       )}
+
+      {/* Exercise Substitution Modal */}
+      <ExerciseSubstitutionModal
+        isOpen={showSubstitutionModal}
+        onClose={() => setShowSubstitutionModal(false)}
+        substitutions={plan.exercise_substitutions}
+        onSubstitute={(original, replacement, reason) => {
+          console.log('Substitution selected:', { original, replacement, reason })
+          // TODO: Implement exercise substitution in workout
+        }}
+      />
     </div>
   )
 }
@@ -698,7 +815,7 @@ function FeatureCard({ icon, title, description }: { icon: string; title: string
     <div className="glass rounded-xl p-4 text-left">
       <span className="text-2xl">{icon}</span>
       <h3 className="font-semibold mt-2 mb-1">{title}</h3>
-      <p className="text-sm text-white/50">{description}</p>
+      <p className="text-sm text-tertiary">{description}</p>
     </div>
   )
 }
@@ -706,7 +823,7 @@ function FeatureCard({ icon, title, description }: { icon: string; title: string
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
     <div className="glass rounded-xl p-4">
-      <p className="text-sm text-white/50">{label}</p>
+      <p className="text-sm text-tertiary">{label}</p>
       <p className="text-xl font-semibold">{value}</p>
     </div>
   )
@@ -732,7 +849,7 @@ function PhaseListCard({
         <div className={`w-4 h-4 rounded-full ${PHASE_COLORS[phase.phase_type]}`} />
         <div className="flex-1 text-left">
           <p className="font-semibold">{phase.name}</p>
-          <p className="text-sm text-white/50">
+          <p className="text-sm text-tertiary">
             {formatDateRange(phase.start_date, phase.end_date)}
           </p>
         </div>
@@ -743,7 +860,7 @@ function PhaseListCard({
         )}
         <ChevronRight
           size={20}
-          className={`text-white/40 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+          className={`text-secondary transition-transform ${isExpanded ? 'rotate-90' : ''}`}
         />
       </button>
 
@@ -751,19 +868,19 @@ function PhaseListCard({
         <div className="p-4 pt-0 border-t border-white/5">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
             <div>
-              <p className="text-xs text-white/50">Phase Type</p>
+              <p className="text-xs text-tertiary">Phase Type</p>
               <p className="font-medium">{PHASE_LABELS[phase.phase_type]}</p>
             </div>
             <div>
-              <p className="text-xs text-white/50">Volume</p>
+              <p className="text-xs text-tertiary">Volume</p>
               <p className="font-medium">{Math.round(phase.volume_modifier * 100)}%</p>
             </div>
             <div>
-              <p className="text-xs text-white/50">Intensity</p>
+              <p className="text-xs text-tertiary">Intensity</p>
               <p className="font-medium">{Math.round(phase.intensity_modifier * 100)}%</p>
             </div>
             <div>
-              <p className="text-xs text-white/50">Focus</p>
+              <p className="text-xs text-tertiary">Focus</p>
               <p className="font-medium capitalize">{phase.intensity_focus || 'Balanced'}</p>
             </div>
           </div>
@@ -775,7 +892,7 @@ function PhaseListCard({
           {/* Activity Distribution */}
           {phase.activity_distribution && Object.keys(phase.activity_distribution).length > 0 && (
             <div className="mt-4">
-              <p className="text-xs text-white/50 mb-2">Activity Distribution</p>
+              <p className="text-xs text-tertiary mb-2">Activity Distribution</p>
               <div className="flex gap-2 flex-wrap">
                 {Object.entries(phase.activity_distribution).map(([activity, pct]) => (
                   <span

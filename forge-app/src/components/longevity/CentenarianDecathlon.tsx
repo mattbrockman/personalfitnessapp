@@ -121,7 +121,7 @@ export function CentenarianDecathlon({
           </div>
           <div>
             <h3 className="font-medium">Centenarian Decathlon</h3>
-            <p className="text-xs text-white/50">
+            <p className="text-xs text-tertiary">
               {achievedCount} achieved • {onTrackCount} on track
             </p>
           </div>
@@ -130,7 +130,7 @@ export function CentenarianDecathlon({
           onClick={() => setShowInfo(!showInfo)}
           className="p-1 hover:bg-white/10 rounded-lg"
         >
-          <Info size={16} className="text-white/40" />
+          <Info size={16} className="text-secondary" />
         </button>
       </div>
 
@@ -149,7 +149,7 @@ export function CentenarianDecathlon({
       {/* Progress bar */}
       {goals.length > 0 && (
         <div className="mb-4">
-          <div className="flex justify-between text-xs text-white/50 mb-1">
+          <div className="flex justify-between text-xs text-tertiary mb-1">
             <span>{achievedCount} / {goals.length} goals achieved</span>
             <span>{Math.round((achievedCount / goals.length) * 100)}%</span>
           </div>
@@ -182,14 +182,14 @@ export function CentenarianDecathlon({
                   {goal.is_achieved ? (
                     <CheckCircle2 size={20} className="text-green-400" />
                   ) : (
-                    <Circle size={20} className="text-white/30" />
+                    <Circle size={20} className="text-muted" />
                   )}
                 </button>
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-sm">{CATEGORY_ICONS[goal.category]}</span>
-                    <span className={`text-sm font-medium ${goal.is_achieved ? 'line-through text-white/50' : ''}`}>
+                    <span className={`text-sm font-medium ${goal.is_achieved ? 'line-through text-tertiary' : ''}`}>
                       {goal.goal_name}
                     </span>
                   </div>
@@ -211,7 +211,7 @@ export function CentenarianDecathlon({
 
                 <ChevronRight
                   size={16}
-                  className={`text-white/30 transition-transform ${
+                  className={`text-muted transition-transform ${
                     expandedGoal === goal.id ? 'rotate-90' : ''
                   }`}
                 />
@@ -224,11 +224,11 @@ export function CentenarianDecathlon({
 
                   <div className="grid grid-cols-2 gap-2 text-xs mb-3">
                     <div className="p-2 bg-white/5 rounded">
-                      <span className="text-white/40">Target Age</span>
+                      <span className="text-secondary">Target Age</span>
                       <p className="font-medium">{goal.target_age}</p>
                     </div>
                     <div className="p-2 bg-white/5 rounded">
-                      <span className="text-white/40">Category</span>
+                      <span className="text-secondary">Category</span>
                       <p className={`font-medium px-1.5 py-0.5 rounded inline-block ${CATEGORY_COLORS[goal.category]}`}>
                         {goal.category}
                       </p>
@@ -236,17 +236,17 @@ export function CentenarianDecathlon({
                   </div>
 
                   {goal.required_strength && (
-                    <p className="text-xs text-white/50 mb-1">
+                    <p className="text-xs text-tertiary mb-1">
                       <strong className="text-red-400">Strength:</strong> {goal.required_strength}
                     </p>
                   )}
                   {goal.required_cardio && (
-                    <p className="text-xs text-white/50 mb-1">
+                    <p className="text-xs text-tertiary mb-1">
                       <strong className="text-pink-400">Cardio:</strong> {goal.required_cardio}
                     </p>
                   )}
                   {goal.required_mobility && (
-                    <p className="text-xs text-white/50 mb-1">
+                    <p className="text-xs text-tertiary mb-1">
                       <strong className="text-purple-400">Mobility:</strong> {goal.required_mobility}
                     </p>
                   )}
@@ -300,7 +300,7 @@ export function CentenarianDecathlon({
       ) : (
         <div className="text-center py-6">
           <Trophy size={32} className="mx-auto mb-2 text-white/20" />
-          <p className="text-white/50 text-sm mb-3">No goals defined yet</p>
+          <p className="text-tertiary text-sm mb-3">No goals defined yet</p>
           <button
             onClick={handleInitializeDefaults}
             disabled={isInitializing}

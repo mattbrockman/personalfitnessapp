@@ -96,17 +96,17 @@ export function StrengthTestModal({
             <h3 className="font-semibold">Strength Test</h3>
           </div>
           <button onClick={onClose} className="p-1.5 hover:bg-white/10 rounded-lg">
-            <X size={18} className="text-white/50" />
+            <X size={18} className="text-tertiary" />
           </button>
         </div>
 
         <div className="p-4">
           {/* Exercise name */}
           <div className="flex items-center gap-2 mb-4 p-2 bg-dark-700/50 rounded-lg">
-            <Dumbbell size={16} className="text-white/50" />
+            <Dumbbell size={16} className="text-tertiary" />
             <span className="font-medium">{exerciseName}</span>
             {currentEstimate && (
-              <span className="ml-auto text-sm text-white/40">
+              <span className="ml-auto text-sm text-secondary">
                 Current: {currentEstimate} lbs
               </span>
             )}
@@ -114,7 +114,7 @@ export function StrengthTestModal({
 
           {/* Test type selection */}
           <div className="mb-4">
-            <label className="text-sm text-white/50 mb-2 block">Test Type</label>
+            <label className="text-sm text-tertiary mb-2 block">Test Type</label>
             <div className="grid grid-cols-2 gap-2">
               {testTypes.map((t) => (
                 <button
@@ -134,7 +134,7 @@ export function StrengthTestModal({
                   <div className={`font-medium text-sm ${testType === t.value ? 'text-amber-400' : ''}`}>
                     {t.label}
                   </div>
-                  <div className="text-xs text-white/40">{t.description}</div>
+                  <div className="text-xs text-secondary">{t.description}</div>
                 </button>
               ))}
             </div>
@@ -143,7 +143,7 @@ export function StrengthTestModal({
           {/* Weight and reps */}
           <div className="grid grid-cols-2 gap-3 mb-4">
             <div>
-              <label className="text-sm text-white/50 mb-1 block">Weight (lbs)</label>
+              <label className="text-sm text-tertiary mb-1 block">Weight (lbs)</label>
               <input
                 type="number"
                 value={weight}
@@ -156,7 +156,7 @@ export function StrengthTestModal({
               />
             </div>
             <div>
-              <label className="text-sm text-white/50 mb-1 block">Reps Achieved</label>
+              <label className="text-sm text-tertiary mb-1 block">Reps Achieved</label>
               <input
                 type="number"
                 value={reps}
@@ -173,7 +173,7 @@ export function StrengthTestModal({
 
           {/* RPE (optional) */}
           <div className="mb-4">
-            <label className="text-sm text-white/50 mb-1 block">RPE (optional)</label>
+            <label className="text-sm text-tertiary mb-1 block">RPE (optional)</label>
             <input
               type="number"
               value={rpe}
@@ -188,7 +188,7 @@ export function StrengthTestModal({
 
           {/* Notes (optional) */}
           <div className="mb-4">
-            <label className="text-sm text-white/50 mb-1 block">Notes (optional)</label>
+            <label className="text-sm text-tertiary mb-1 block">Notes (optional)</label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
@@ -214,7 +214,7 @@ export function StrengthTestModal({
             <div className="space-y-4">
               <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-white/50">Estimated 1RM</span>
+                  <span className="text-sm text-tertiary">Estimated 1RM</span>
                   <span className={`text-xs px-2 py-0.5 rounded ${
                     result.confidence === 'high' ? 'bg-green-500/20 text-green-400' :
                     result.confidence === 'medium' ? 'bg-amber-500/20 text-amber-400' :
@@ -227,7 +227,7 @@ export function StrengthTestModal({
                   <span className="text-3xl font-bold text-green-400">
                     {result.estimated1RM}
                   </span>
-                  <span className="text-white/50">lbs</span>
+                  <span className="text-tertiary">lbs</span>
                 </div>
                 {result.improvement !== undefined && (
                   <div className="mt-2 text-sm">
@@ -242,7 +242,7 @@ export function StrengthTestModal({
                         {result.improvement}% from previous
                       </span>
                     ) : (
-                      <span className="text-white/40">Same as previous</span>
+                      <span className="text-secondary">Same as previous</span>
                     )}
                   </div>
                 )}
@@ -279,8 +279,8 @@ export function StrengthTestModal({
 
           {/* Test protocol tips */}
           <div className="mt-4 p-3 bg-dark-700/30 rounded-lg">
-            <div className="text-xs text-white/50 mb-2 font-medium">Test Protocol Tips</div>
-            <ul className="text-xs text-white/40 space-y-1">
+            <div className="text-xs text-tertiary mb-2 font-medium">Test Protocol Tips</div>
+            <ul className="text-xs text-secondary space-y-1">
               {testType === '1rm' && (
                 <>
                   <li>• Warm up thoroughly (10-15 min)</li>

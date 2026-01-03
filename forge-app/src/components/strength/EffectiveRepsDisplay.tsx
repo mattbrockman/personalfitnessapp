@@ -22,7 +22,7 @@ export function EffectiveRepsDisplay({
   // If no RPE/RIR data, can't show effective reps
   if (rpe === null && rir === null) {
     return compact ? null : (
-      <span className="text-xs text-white/30">
+      <span className="text-xs text-muted">
         {reps} reps (add RPE for effective reps)
       </span>
     )
@@ -32,11 +32,11 @@ export function EffectiveRepsDisplay({
 
   // Color based on RIR (how close to failure)
   const getEfficiencyColor = () => {
-    if (calculatedRIR === null) return 'text-white/50'
+    if (calculatedRIR === null) return 'text-tertiary'
     if (calculatedRIR <= 1) return 'text-green-400' // Very effective
     if (calculatedRIR <= 3) return 'text-blue-400' // Good
     if (calculatedRIR <= 5) return 'text-white/70' // Moderate
-    return 'text-white/40' // Low effectiveness
+    return 'text-secondary' // Low effectiveness
   }
 
   if (compact) {
@@ -54,9 +54,9 @@ export function EffectiveRepsDisplay({
         <span className={`text-sm ${getEfficiencyColor()}`}>
           {effectiveReps}
         </span>
-        <span className="text-xs text-white/30">/ {reps}</span>
+        <span className="text-xs text-muted">/ {reps}</span>
       </div>
-      <span className="text-xs text-white/30">
+      <span className="text-xs text-muted">
         ({efficiency}% effective)
       </span>
     </div>
@@ -84,13 +84,13 @@ export function EffectiveRepsSummary({
     <div className="bg-dark-700/50 rounded-lg p-3">
       <div className="flex items-center gap-2 mb-2">
         <Zap size={16} className={getEfficiencyColor()} />
-        <span className="text-sm text-white/50">Effective Reps</span>
+        <span className="text-sm text-tertiary">Effective Reps</span>
       </div>
       <div className="flex items-baseline gap-2">
         <span className={`text-2xl font-semibold ${getEfficiencyColor()}`}>
           {effectiveReps}
         </span>
-        <span className="text-white/30">/ {totalReps} total</span>
+        <span className="text-muted">/ {totalReps} total</span>
       </div>
       <div className="mt-2">
         <div className="h-1.5 bg-dark-600 rounded-full overflow-hidden">
@@ -99,7 +99,7 @@ export function EffectiveRepsSummary({
             style={{ width: `${efficiency}%` }}
           />
         </div>
-        <div className="flex justify-between mt-1 text-xs text-white/30">
+        <div className="flex justify-between mt-1 text-xs text-muted">
           <span>{efficiency}% efficiency</span>
           <span>Target: 60-80%</span>
         </div>
@@ -121,19 +121,19 @@ export function EffectiveRepsExplanation() {
       </p>
       <div className="space-y-1 text-xs">
         <div className="flex justify-between">
-          <span className="text-white/40">RPE 10 (0 RIR)</span>
+          <span className="text-secondary">RPE 10 (0 RIR)</span>
           <span className="text-green-400">All reps count</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-white/40">RPE 9 (1 RIR)</span>
+          <span className="text-secondary">RPE 9 (1 RIR)</span>
           <span className="text-green-400">Last 5 reps</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-white/40">RPE 8 (2 RIR)</span>
+          <span className="text-secondary">RPE 8 (2 RIR)</span>
           <span className="text-blue-400">Last 4 reps</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-white/40">RPE 7 (3 RIR)</span>
+          <span className="text-secondary">RPE 7 (3 RIR)</span>
           <span className="text-white/60">Last 3 reps</span>
         </div>
       </div>

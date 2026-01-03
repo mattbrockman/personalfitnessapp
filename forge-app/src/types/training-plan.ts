@@ -65,6 +65,12 @@ export interface TrainingPlan {
   status: PlanStatus
   ai_generated: boolean
   ai_prompt: string | null
+  program_philosophy: string | null  // AI-generated program philosophy
+  coaching_notes: string | null       // AI-generated coaching notes
+  athlete_profile_snapshot: AthleteProfileSnapshot | null  // Athlete metrics at plan creation
+  goal_pathway: GoalPathway | null                         // Goal projections
+  recovery_protocols: RecoveryProtocols | null             // Recovery guidance
+  exercise_substitutions: ExerciseSubstitutions | null     // Exercise alternatives
   created_at: string
   updated_at: string
 
@@ -73,6 +79,7 @@ export interface TrainingPlan {
   events?: PlanEvent[]
   balance_rules?: ActivityBalanceRule[]
   suggested_workouts?: SuggestedWorkout[]
+  assessments?: PlanAssessment[]
 }
 
 export interface TrainingPhase {
@@ -295,6 +302,20 @@ export interface AIGeneratePlanResponse {
     description: string
   }>
   reasoning: string
+  expert_consensus?: {
+    attia_notes: string      // Peter Attia - Zone 2, metabolic health, longevity
+    seiler_notes: string     // Stephen Seiler - Polarized training, 80/20 distribution
+    galpin_notes: string     // Andy Galpin - Strength adaptation protocols
+    nuckols_notes: string    // Greg Nuckols - Evidence-based strength programming
+    adjustments_made: string // Summary of changes based on expert review
+  }
+}
+
+// Hybrid response with narrative + structured data (Galpin persona)
+export interface AIHybridPlanResponse {
+  plan: TrainingPlan
+  program_philosophy: string  // 2-3 paragraphs in Galpin's voice
+  coaching_notes: string      // Key focus areas and warnings
 }
 
 // UI State Types
@@ -396,6 +417,13 @@ export interface CardioStructure {
   cooldown_minutes: number
 }
 
+// Linked workout info from workouts table (for showing completion status)
+export interface LinkedWorkoutInfo {
+  id: string
+  status: string
+  completed_at: string | null
+}
+
 // Main suggested workout interface
 export interface SuggestedWorkout {
   id: string
@@ -424,6 +452,7 @@ export interface SuggestedWorkout {
   // Status
   status: SuggestedWorkoutStatus
   scheduled_workout_id: string | null  // Link to actual workout once scheduled
+  linked_workout?: LinkedWorkoutInfo | null  // Joined workout data for completion status
 
   // Metadata
   week_number: number | null
@@ -493,4 +522,202 @@ export const INTENSITY_COLORS: Record<PrimaryIntensity, string> = {
   z5: 'bg-red-500',
   hit: 'bg-red-600',
   mixed: 'bg-purple-400',
+}
+
+// ============================================================================
+// P0: ENHANCED WORKOUT DETAILS
+// ============================================================================
+
+// Warmup/cooldown exercise definition
+export interface WarmupExercise {
+  exercise_name: string
+  duration_seconds?: number
+  reps?: number
+  notes?: string
+}
+
+// Load type for exercises
+export type LoadType = 'percent_1rm' | 'rpe' | 'weight' | 'bodyweight'
+
+// Enhanced exercise with load, tempo, and coaching cues
+export interface EnhancedSuggestedExercise extends SuggestedExercise {
+  load_type?: LoadType
+  load_value?: number           // e.g., 75 = 75% 1RM or RPE 7 or 55 lbs
+  calculated_weight_lbs?: number
+  tempo?: string               // e.g., "3-1-2-0"
+  coaching_cues?: string[]
+}
+
+// Extended suggested workout with warmup/cooldown
+export interface EnhancedSuggestedWorkout extends Omit<SuggestedWorkout, 'exercises'> {
+  warmup_exercises?: WarmupExercise[]
+  exercises: EnhancedSuggestedExercise[] | null
+  cooldown_exercises?: WarmupExercise[]
+}
+
+// ============================================================================
+// P1: ATHLETE PROFILE & ASSESSMENTS
+// ============================================================================
+
+// Snapshot of athlete metrics at plan creation
+export interface AthleteProfileSnapshot {
+  age?: number
+  weight_lbs?: number
+  height_inches?: number
+  vo2max?: number
+  max_hr?: number
+  resting_hr?: number
+  squat_1rm?: number
+  bench_1rm?: number
+  deadlift_1rm?: number
+  ohp_1rm?: number
+  total_1rm?: number
+  injury_notes?: string
+  training_history?: string
+}
+
+// Goal breakdown for a specific metric
+export interface GoalBreakdown {
+  current: number
+  target: number
+  realistic_end?: number  // Realistic projection by end of plan
+  gain?: number
+}
+
+// Goal pathway with projections
+export interface GoalPathway {
+  [goalName: string]: {
+    current_total?: number
+    target?: number
+    realistic_end?: number
+    breakdown?: Record<string, GoalBreakdown>
+  } | GoalBreakdown
+}
+
+// Assessment test definition
+export interface AssessmentTest {
+  test_name: string
+  protocol: string
+  target_value?: string | number
+}
+
+// Assessment result entry
+export interface AssessmentResult {
+  test_name: string
+  value: string | number
+  notes?: string
+  recorded_at?: string
+}
+
+// Plan assessment checkpoint
+export interface PlanAssessment {
+  id: string
+  plan_id: string
+  assessment_week: number
+  assessment_date: string
+  assessment_type: 'mid_phase' | 'end_phase' | 'deload' | 'final'
+  tests: AssessmentTest[]
+  results?: AssessmentResult[]
+  completed: boolean
+  notes?: string
+  created_at: string
+  updated_at: string
+}
+
+// AI-generated assessment (before saving to DB)
+export interface AIAssessment {
+  assessment_week: number
+  assessment_type: 'mid_phase' | 'end_phase' | 'deload' | 'final'
+  tests: AssessmentTest[]
+}
+
+// Training parameters for a phase
+export interface TrainingParameters {
+  sets_per_muscle_per_week?: string
+  rep_range?: string
+  intensity_percent?: string
+  tempo?: string
+  rest_seconds?: string
+}
+
+// ============================================================================
+// P2: RECOVERY PROTOCOLS & SUBSTITUTIONS
+// ============================================================================
+
+// Sleep recovery protocol
+export interface SleepProtocol {
+  target_hours: number
+  recommendations: string[]
+}
+
+// Nutrition protocol
+export interface NutritionProtocol {
+  protein_g_per_lb?: number
+  carb_timing?: string
+  recommendations: string[]
+}
+
+// Mobility protocol
+export interface MobilityProtocol {
+  daily_minutes?: number
+  focus_areas?: string[]
+  recommendations: string[]
+}
+
+// Pain management protocol for a specific area
+export interface PainManagementProtocol {
+  morning_routine?: string[]
+  pre_workout?: string[]
+  post_workout?: string[]
+  avoid?: string[]
+  modifications?: string[]
+}
+
+// Complete recovery protocols
+export interface RecoveryProtocols {
+  sleep?: SleepProtocol
+  nutrition?: NutritionProtocol
+  mobility?: MobilityProtocol
+  pain_management?: Record<string, PainManagementProtocol>  // e.g., { "lower_back": {...}, "shoulder": {...} }
+}
+
+// Substitution reason type
+export type SubstitutionReason = 'knee_pain' | 'back_pain' | 'shoulder_pain' | 'hip_pain' | 'equipment' | 'preference'
+
+// Exercise substitution mapping
+export interface ExerciseSubstitutions {
+  [exerciseName: string]: {
+    [reason in SubstitutionReason]?: string[]
+  }
+}
+
+// ============================================================================
+// EXTENDED TRAINING PLAN WITH NEW FIELDS
+// ============================================================================
+
+// Extended TrainingPhase with training parameters
+export interface EnhancedTrainingPhase extends TrainingPhase {
+  training_parameters?: TrainingParameters
+}
+
+// Extended AI-generated suggested workout
+export interface AIEnhancedSuggestedWorkout extends AISuggestedWorkout {
+  warmup_exercises?: WarmupExercise[]
+  cooldown_exercises?: WarmupExercise[]
+  exercises?: EnhancedSuggestedExercise[]
+}
+
+// Extended AI response with all enhancements
+export interface AIEnhancedPlanResponse extends AIGeneratePlanResponse {
+  program_philosophy: string
+  coaching_notes: string
+  athlete_profile_snapshot?: AthleteProfileSnapshot
+  goal_pathway?: GoalPathway
+  assessments?: AIAssessment[]
+  recovery_protocols?: RecoveryProtocols
+  exercise_substitutions?: ExerciseSubstitutions
+  suggested_workouts: AIEnhancedSuggestedWorkout[]
+  phases: Array<AIGeneratePlanResponse['phases'][0] & {
+    training_parameters?: TrainingParameters
+  }>
 }

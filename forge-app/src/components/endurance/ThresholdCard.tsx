@@ -22,7 +22,7 @@ export function ThresholdCard({
   const FtpTrendIcon = thresholds.ftp_trend === 'improving' ? TrendingUp :
     thresholds.ftp_trend === 'declining' ? TrendingDown : Minus
   const ftpTrendColor = thresholds.ftp_trend === 'improving' ? 'text-green-400' :
-    thresholds.ftp_trend === 'declining' ? 'text-red-400' : 'text-white/30'
+    thresholds.ftp_trend === 'declining' ? 'text-red-400' : 'text-muted'
 
   // Check if thresholds are stale (>8 weeks old)
   const isStale = (date: string | null) => {
@@ -56,7 +56,7 @@ export function ThresholdCard({
       <div className="bg-dark-700/50 rounded-lg p-4 mb-3">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-white/50">FTP (Cycling Power)</span>
+            <span className="text-sm text-tertiary">FTP (Cycling Power)</span>
             {ftpStale && thresholds.ftp_watts && (
               <AlertCircle size={14} className="text-amber-400" />
             )}
@@ -73,10 +73,10 @@ export function ThresholdCard({
           <>
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-semibold">{thresholds.ftp_watts}</span>
-              <span className="text-white/50">watts</span>
+              <span className="text-tertiary">watts</span>
             </div>
             {thresholds.last_ftp_test && (
-              <div className="flex items-center gap-1 mt-1 text-xs text-white/40">
+              <div className="flex items-center gap-1 mt-1 text-xs text-secondary">
                 <Calendar size={12} />
                 <span>
                   Last tested: {new Date(thresholds.last_ftp_test).toLocaleDateString()}
@@ -86,14 +86,14 @@ export function ThresholdCard({
             )}
           </>
         ) : (
-          <div className="text-white/30 text-sm">Not set</div>
+          <div className="text-muted text-sm">Not set</div>
         )}
       </div>
 
       {/* LTHR */}
       <div className="bg-dark-700/50 rounded-lg p-4 mb-3">
         <div className="flex items-center gap-2 mb-2">
-          <span className="text-sm text-white/50">LTHR (Heart Rate)</span>
+          <span className="text-sm text-tertiary">LTHR (Heart Rate)</span>
           {lthrStale && thresholds.lthr_bpm && (
             <AlertCircle size={14} className="text-amber-400" />
           )}
@@ -103,10 +103,10 @@ export function ThresholdCard({
           <>
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-semibold">{thresholds.lthr_bpm}</span>
-              <span className="text-white/50">bpm</span>
+              <span className="text-tertiary">bpm</span>
             </div>
             {thresholds.last_lthr_test && (
-              <div className="flex items-center gap-1 mt-1 text-xs text-white/40">
+              <div className="flex items-center gap-1 mt-1 text-xs text-secondary">
                 <Calendar size={12} />
                 <span>
                   Last tested: {new Date(thresholds.last_lthr_test).toLocaleDateString()}
@@ -116,14 +116,14 @@ export function ThresholdCard({
             )}
           </>
         ) : (
-          <div className="text-white/30 text-sm">Not set</div>
+          <div className="text-muted text-sm">Not set</div>
         )}
       </div>
 
       {/* HR Zones reference */}
       {thresholds.lthr_bpm && (
         <div className="bg-dark-700/30 rounded-lg p-3 mb-3">
-          <div className="text-xs text-white/50 mb-2">HR Zones (based on LTHR)</div>
+          <div className="text-xs text-tertiary mb-2">HR Zones (based on LTHR)</div>
           <div className="grid grid-cols-5 gap-1 text-center text-xs">
             {[
               { zone: 'Z1', pct: '50-60%', hr: Math.round(thresholds.lthr_bpm * 0.55) },
@@ -134,7 +134,7 @@ export function ThresholdCard({
             ].map(({ zone, pct, hr }) => (
               <div key={zone} className="bg-dark-700/50 rounded p-1">
                 <div className="font-medium text-white/70">{zone}</div>
-                <div className="text-white/40">{hr}</div>
+                <div className="text-secondary">{hr}</div>
               </div>
             ))}
           </div>
@@ -144,13 +144,13 @@ export function ThresholdCard({
       {/* Other thresholds */}
       <div className="grid grid-cols-2 gap-3">
         <div className="bg-dark-700/30 rounded-lg p-3">
-          <div className="text-xs text-white/50 mb-1">Resting HR</div>
+          <div className="text-xs text-tertiary mb-1">Resting HR</div>
           <div className="font-medium">
             {thresholds.resting_hr ? `${thresholds.resting_hr} bpm` : '-'}
           </div>
         </div>
         <div className="bg-dark-700/30 rounded-lg p-3">
-          <div className="text-xs text-white/50 mb-1">Max HR</div>
+          <div className="text-xs text-tertiary mb-1">Max HR</div>
           <div className="font-medium">
             {thresholds.max_hr ? `${thresholds.max_hr} bpm` : '-'}
           </div>
@@ -161,7 +161,7 @@ export function ThresholdCard({
       {recentTests.length > 0 && (
         <button
           onClick={() => setShowHistory(!showHistory)}
-          className="w-full mt-4 py-2 text-xs text-white/50 hover:text-white/70 text-center"
+          className="w-full mt-4 py-2 text-xs text-tertiary hover:text-white/70 text-center"
         >
           {showHistory ? 'Hide history' : `View ${recentTests.length} recent tests`}
         </button>
@@ -176,10 +176,10 @@ export function ThresholdCard({
               className="flex items-center justify-between p-2 bg-dark-700/30 rounded-lg text-sm"
             >
               <div>
-                <div className="text-xs text-white/40">
+                <div className="text-xs text-secondary">
                   {new Date(test.test_date).toLocaleDateString()}
                 </div>
-                <div className="text-xs text-white/30">{test.test_type}</div>
+                <div className="text-xs text-muted">{test.test_type}</div>
               </div>
               <div className="text-right">
                 {test.ftp_watts && <div>{test.ftp_watts}W</div>}

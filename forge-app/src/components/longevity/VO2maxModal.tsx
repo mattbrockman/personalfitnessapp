@@ -224,7 +224,7 @@ export function VO2maxModal({
               className={`flex-1 py-3 text-sm font-medium transition-colors ${
                 activeTab === tab.id
                   ? 'text-amber-400 border-b-2 border-amber-400'
-                  : 'text-white/50 hover:text-white/80'
+                  : 'text-tertiary hover:text-white/80'
               }`}
             >
               {tab.label}
@@ -246,11 +246,11 @@ export function VO2maxModal({
                   </div>
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <div>
-                      <span className="text-white/40">Percentile</span>
+                      <span className="text-secondary">Percentile</span>
                       <p className="font-medium">{estimatePercentile.percentile}th</p>
                     </div>
                     <div>
-                      <span className="text-white/40">Fitness Age</span>
+                      <span className="text-secondary">Fitness Age</span>
                       <p className="font-medium">{estimatePercentile.fitnessAge} years</p>
                     </div>
                   </div>
@@ -269,7 +269,7 @@ export function VO2maxModal({
                       >
                         <div>
                           <p className="font-medium">{test.estimated_vo2max} ml/kg/min</p>
-                          <p className="text-xs text-white/40">
+                          <p className="text-xs text-secondary">
                             {format(parseISO(test.test_date), 'MMM d, yyyy')} •{' '}
                             {test.test_type.replace(/_/g, ' ')}
                           </p>
@@ -281,7 +281,7 @@ export function VO2maxModal({
                                 ? 'text-green-400'
                                 : test.estimated_vo2max < recentTests[i - 1].estimated_vo2max
                                 ? 'text-red-400'
-                                : 'text-white/40'
+                                : 'text-secondary'
                             }>
                               {test.estimated_vo2max > recentTests[i - 1].estimated_vo2max ? '+' : ''}
                               {(test.estimated_vo2max - recentTests[i - 1].estimated_vo2max).toFixed(1)}
@@ -293,7 +293,7 @@ export function VO2maxModal({
                   </div>
                 </div>
               ) : (
-                <div className="text-center py-8 text-white/40">
+                <div className="text-center py-8 text-secondary">
                   <Heart size={32} className="mx-auto mb-2 opacity-50" />
                   <p>No tests recorded yet</p>
                   <p className="text-sm">Take a field test to get started</p>
@@ -334,7 +334,7 @@ export function VO2maxModal({
                         </div>
                         <div>
                           <p className="font-medium">{test.name}</p>
-                          <p className="text-xs text-white/50">{test.description}</p>
+                          <p className="text-xs text-tertiary">{test.description}</p>
                         </div>
                       </button>
                     ))}
@@ -369,7 +369,7 @@ export function VO2maxModal({
                           placeholder="e.g., 2400"
                           className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white placeholder-white/30 focus:outline-none focus:border-amber-500/50"
                         />
-                        <p className="text-xs text-white/40 mt-1">
+                        <p className="text-xs text-secondary mt-1">
                           1 lap = 400m. Good: 2000m+, Excellent: 2800m+
                         </p>
                       </div>
@@ -512,7 +512,7 @@ export function VO2maxModal({
                       <p className="text-sm text-green-400 mb-1">Estimated VO2max</p>
                       <div className="flex items-baseline gap-2">
                         <span className="text-3xl font-bold">{estimate}</span>
-                        <span className="text-white/50">ml/kg/min</span>
+                        <span className="text-tertiary">ml/kg/min</span>
                       </div>
                       {estimatePercentile && (
                         <p className="text-sm text-white/60 mt-1">
@@ -541,7 +541,7 @@ export function VO2maxModal({
                     <span className="text-white/60">To be 90th percentile at 80</span>
                     <span className="text-xl font-bold text-green-400">{targetAt80}</span>
                   </div>
-                  <p className="text-xs text-white/40">
+                  <p className="text-xs text-secondary">
                     Target VO2max needed now, assuming 0.5%/year decline with training
                   </p>
                   {currentVO2max && (
@@ -564,7 +564,7 @@ export function VO2maxModal({
                     <span className="text-white/60">To be 90th percentile at 90</span>
                     <span className="text-xl font-bold text-blue-400">{targetAt90}</span>
                   </div>
-                  <p className="text-xs text-white/40">
+                  <p className="text-xs text-secondary">
                     More ambitious target for longevity at 90
                   </p>
                 </div>

@@ -147,6 +147,34 @@ export async function GET(request: NextRequest) {
     const totalVolume = allSets.reduce((sum: number, s: any) => sum + (s.actual_weight_lbs * s.actual_reps), 0)
     const totalSets = allSets.length
 
+    // Volume trend over time (for charts)
+    const volumeTrend = history
+      .map((h: any) => {
+        const sessionVolume = h.sets
+          .filter((s: any) => s.completed && s.actual_weight_lbs && s.actual_reps)
+          .reduce((sum: number, s: any) => sum + (s.actual_weight_lbs * s.actual_reps), 0)
+        return {
+          date: h.workout_date,
+          volume: sessionVolume,
+        }
+      })
+      .reverse()
+      .slice(-10) // Last 10 sessions
+
+    // Max weight trend over time (for charts)
+    const maxWeightTrend = history
+      .map((h: any) => {
+        const weights = h.sets
+          .filter((s: any) => s.completed && s.actual_weight_lbs)
+          .map((s: any) => s.actual_weight_lbs)
+        return {
+          date: h.workout_date,
+          weight: weights.length > 0 ? Math.max(...weights) : 0,
+        }
+      })
+      .reverse()
+      .slice(-10) // Last 10 sessions
+
     return NextResponse.json({
       history,
       stats: {
@@ -156,6 +184,8 @@ export async function GET(request: NextRequest) {
         estimated_1rm_pr: pr1RM,
         best_by_reps: bestByReps,
         one_rm_trend: oneRMTrend,
+        volume_trend: volumeTrend,
+        max_weight_trend: maxWeightTrend,
       }
     })
   } catch (error) {

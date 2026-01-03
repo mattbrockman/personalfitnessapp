@@ -93,7 +93,7 @@ export function PlanTimeline({
   if (phases.length === 0) {
     return (
       <div className="glass rounded-xl p-8 text-center">
-        <p className="text-white/50">No phases defined yet</p>
+        <p className="text-tertiary">No phases defined yet</p>
       </div>
     )
   }
@@ -109,7 +109,7 @@ export function PlanTimeline({
           {monthMarkers.map((marker, idx) => (
             <div
               key={idx}
-              className="absolute text-xs text-white/40"
+              className="absolute text-xs text-secondary"
               style={{ left: `${marker.position}%` }}
             >
               {marker.label}
@@ -190,7 +190,7 @@ export function PlanTimeline({
 
       {/* Legend */}
       <div className="mt-6 pt-4 border-t border-white/10">
-        <p className="text-xs text-white/40 mb-2">Phase Types</p>
+        <p className="text-xs text-secondary mb-2">Phase Types</p>
         <div className="flex flex-wrap gap-3">
           {(['base', 'build', 'peak', 'taper', 'recovery', 'transition'] as const).map(type => (
             <div key={type} className="flex items-center gap-2">
@@ -212,7 +212,7 @@ function PhaseDetail({ phase }: { phase: TrainingPhase }) {
       <div className="flex items-center gap-3 mb-3">
         <div className={`w-4 h-4 rounded ${PHASE_COLORS[phase.phase_type]}`} />
         <h4 className="font-semibold">{phase.name}</h4>
-        <span className="text-sm text-white/50">
+        <span className="text-sm text-tertiary">
           {new Date(phase.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
           {' - '}
           {new Date(phase.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
@@ -221,19 +221,19 @@ function PhaseDetail({ phase }: { phase: TrainingPhase }) {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
         <div>
-          <p className="text-xs text-white/50">Type</p>
+          <p className="text-xs text-tertiary">Type</p>
           <p className="font-medium">{PHASE_LABELS[phase.phase_type]}</p>
         </div>
         <div>
-          <p className="text-xs text-white/50">Volume</p>
+          <p className="text-xs text-tertiary">Volume</p>
           <p className="font-medium">{Math.round(phase.volume_modifier * 100)}%</p>
         </div>
         <div>
-          <p className="text-xs text-white/50">Intensity</p>
+          <p className="text-xs text-tertiary">Intensity</p>
           <p className="font-medium">{Math.round(phase.intensity_modifier * 100)}%</p>
         </div>
         <div>
-          <p className="text-xs text-white/50">Focus</p>
+          <p className="text-xs text-tertiary">Focus</p>
           <p className="font-medium capitalize">{phase.intensity_focus || 'Balanced'}</p>
         </div>
       </div>
@@ -241,7 +241,7 @@ function PhaseDetail({ phase }: { phase: TrainingPhase }) {
       {/* Activity Distribution Bar */}
       {activities.length > 0 && (
         <div>
-          <p className="text-xs text-white/50 mb-2">Activity Distribution</p>
+          <p className="text-xs text-tertiary mb-2">Activity Distribution</p>
           <div className="h-4 rounded-full overflow-hidden flex bg-white/10">
             {activities.map(([activity, pct], idx) => (
               <div
@@ -272,7 +272,7 @@ function PhaseDetail({ phase }: { phase: TrainingPhase }) {
       {/* Weekly Targets Preview */}
       {phase.weekly_targets && phase.weekly_targets.length > 0 && (
         <div className="mt-4">
-          <p className="text-xs text-white/50 mb-2">Weekly Breakdown</p>
+          <p className="text-xs text-tertiary mb-2">Weekly Breakdown</p>
           <div className="grid grid-cols-4 md:grid-cols-7 gap-1">
             {phase.weekly_targets.slice(0, 7).map(week => (
               <div
@@ -286,7 +286,7 @@ function PhaseDetail({ phase }: { phase: TrainingPhase }) {
                 }`}
               >
                 <p className="font-medium">W{week.week_number}</p>
-                <p className="text-white/50">{week.target_hours || '—'}h</p>
+                <p className="text-tertiary">{week.target_hours || '—'}h</p>
               </div>
             ))}
           </div>

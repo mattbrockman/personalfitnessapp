@@ -440,13 +440,13 @@ function EntryCard({
             {entry.tags && entry.tags.length > 0 && (
               <div className="flex flex-wrap gap-1 mt-2">
                 {entry.tags.map(tag => (
-                  <span key={tag} className="text-xs text-white/40">#{tag}</span>
+                  <span key={tag} className="text-xs text-secondary">#{tag}</span>
                 ))}
               </div>
             )}
           </div>
 
-          <div className="text-right text-sm text-white/40 flex-shrink-0">
+          <div className="text-right text-sm text-secondary flex-shrink-0">
             <p>{new Date(entry.entry_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</p>
           </div>
         </div>
@@ -455,7 +455,7 @@ function EntryCard({
         {expanded && (
           <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/10">
             {entry.workout_name && (
-              <span className="text-xs text-white/40 flex items-center gap-1">
+              <span className="text-xs text-secondary flex items-center gap-1">
                 <Activity size={12} />
                 {entry.workout_name}
               </span>
@@ -463,13 +463,13 @@ function EntryCard({
             <div className="flex-1" />
             <button
               onClick={(e) => { e.stopPropagation(); onEdit(); }}
-              className="p-1.5 hover:bg-white/10 rounded-lg text-white/40 hover:text-white transition-colors"
+              className="p-1.5 hover:bg-white/10 rounded-lg text-secondary hover:text-white transition-colors"
             >
               <Edit2 size={14} />
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); onDelete(); }}
-              className="p-1.5 hover:bg-white/10 rounded-lg text-white/40 hover:text-red-400 transition-colors"
+              className="p-1.5 hover:bg-white/10 rounded-lg text-secondary hover:text-red-400 transition-colors"
             >
               <Trash2 size={14} />
             </button>
@@ -548,7 +548,7 @@ export function Journal() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-display font-semibold">Journal</h1>
-          <p className="text-white/50">
+          <p className="text-tertiary">
             {entries.length} entries
             {activeInjuries > 0 && (
               <span className="text-red-400 ml-2">• {activeInjuries} active injuries</span>
@@ -568,7 +568,7 @@ export function Journal() {
       <div className="mb-6 space-y-3">
         <div className="flex gap-2">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted" />
             <input
               type="text"
               value={search}
@@ -595,7 +595,7 @@ export function Journal() {
           <div className="glass rounded-lg p-4 space-y-3">
             {/* Type filter */}
             <div>
-              <label className="block text-xs text-white/40 mb-2">Entry Type</label>
+              <label className="block text-xs text-secondary mb-2">Entry Type</label>
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => setFilterType(null)}
@@ -621,7 +621,7 @@ export function Journal() {
 
             {/* Body part filter */}
             <div>
-              <label className="block text-xs text-white/40 mb-2">Body Part</label>
+              <label className="block text-xs text-secondary mb-2">Body Part</label>
               <div className="flex flex-wrap gap-1.5">
                 <button
                   onClick={() => setFilterBodyPart(null)}
@@ -665,9 +665,9 @@ export function Journal() {
         {filteredEntries.length === 0 && (
           <div className="text-center py-12">
             <BookOpen size={48} className="mx-auto text-white/20 mb-4" />
-            <p className="text-white/40">No entries found</p>
+            <p className="text-secondary">No entries found</p>
             {search && (
-              <p className="text-sm text-white/30 mt-1">Try a different search term</p>
+              <p className="text-sm text-muted mt-1">Try a different search term</p>
             )}
           </div>
         )}
