@@ -122,22 +122,20 @@ export async function POST(request: NextRequest) {
             workout_type: workoutType,
             status: 'completed',
             scheduled_date: activity.start_date_local?.split('T')[0],
-            completed_at: activity.start_date,
             source: 'strava',
             external_id: String(activity.id),
-            external_url: `https://www.strava.com/activities/${activity.id}`,
             planned_duration_minutes: Math.round(activity.elapsed_time / 60),
             actual_duration_minutes: Math.round(activity.moving_time / 60),
             actual_distance_miles: activity.distance ? metersToMiles(activity.distance) : null,
             actual_elevation_ft: activity.total_elevation_gain
               ? Math.round(metersToFeet(activity.total_elevation_gain))
               : null,
-            actual_avg_hr: activity.average_heartrate || null,
-            actual_max_hr: activity.max_heartrate || null,
-            actual_avg_power: activity.average_watts || null,
-            actual_np: activity.weighted_average_watts || null,
+            avg_heart_rate: activity.average_heartrate || null,
+            max_heart_rate: activity.max_heartrate || null,
+            avg_power_watts: activity.average_watts || null,
             actual_tss: estimateTSS(activity, profile?.ftp) || null,
-            calories: activity.calories || null,
+            actual_calories: activity.calories || null,
+            notes: `Strava: https://www.strava.com/activities/${activity.id}`,
           }
 
           if (existingLink) {
