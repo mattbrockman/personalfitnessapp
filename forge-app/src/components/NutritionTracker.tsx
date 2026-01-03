@@ -505,7 +505,7 @@ function AddFoodModal({
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">{food.name}</p>
                     <p className="text-sm text-white/50">
-                      {food.calories} cal • {food.protein_g}p • {food.carbs_g}c • {food.fat_g}f
+                      {food.calories} cal • {food.protein_g}g P • {food.carbs_g}g C • {food.fat_g}g F
                     </p>
                   </div>
                   <Plus size={18} className="text-white/40" />
@@ -645,7 +645,7 @@ function MealCard({
         </div>
 
         <div className="text-right text-sm">
-          <p>{mealProtein}p • {mealCarbs}c • {mealFat}f</p>
+          <p>{mealProtein}g P • {mealCarbs}g C • {mealFat}g F</p>
         </div>
       </div>
 

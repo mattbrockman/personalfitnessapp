@@ -31,15 +31,37 @@ import {
   TrendingUp,
   ArrowLeftRight,
   Info,
+  MessageSquare,
+  MoreVertical,
+  Timer,
+  StickyNote,
+  RefreshCw,
+  Link2,
+  Settings2,
+  Bot,
+  Settings,
+  Menu,
+  Sparkles,
 } from 'lucide-react'
+import Link from 'next/link'
+import { openAIChat } from '@/components/AIChatBubble'
 import { useDebounce } from '@/hooks/useDebounce'
-import { EquipmentIcon } from '@/lib/equipment-icons'
+import { EquipmentIcon, formatEquipmentName } from '@/lib/equipment-icons'
+import { useWorkout } from '@/contexts/WorkoutContext'
 
 // Strength training imports (Greg Nuckols evidence-based methods)
 import { RelativeIntensityBadge } from '@/components/strength/RelativeIntensityBadge'
 import { EffectiveRepsDisplay } from '@/components/strength/EffectiveRepsDisplay'
 import { ProgressionSuggestionInline } from '@/components/strength/ProgressionSuggestionCard'
 import { calculate1RM, calculateEffectiveReps, calculateRelativeIntensity } from '@/lib/strength-calculations'
+
+// PR Detection and Celebration
+import { detectPRs, getMostSignificantPR, formatPRMessage, buildExerciseBests, ExerciseBests, PRResult } from '@/lib/pr-detection'
+import { usePRCelebration } from '@/components/PRCelebration'
+import { useCelebrationToast } from '@/components/Toast'
+
+// Charts for exercise progress
+import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 
 // Timer sound utility
 const playTimerSound = () => {
@@ -72,6 +94,38 @@ const playTimerSound = () => {
     playBeep(now, 800)
     playBeep(now + 0.2, 800)
     playBeep(now + 0.4, 1000) // Higher pitch on last beep
+  } catch (err) {
+    console.debug('Audio playback failed:', err)
+  }
+}
+
+// Set completion sound - satisfying confirmation tone
+const playSetCompleteSound = () => {
+  if (typeof window === 'undefined') return
+  try {
+    const AudioContext = window.AudioContext || (window as any).webkitAudioContext
+    if (!AudioContext) return
+
+    const audioContext = new AudioContext()
+    const now = audioContext.currentTime
+
+    // Play a satisfying "ding" sound - rising tone
+    const playTone = (startTime: number, freq: number, duration: number, vol: number) => {
+      const osc = audioContext.createOscillator()
+      const gain = audioContext.createGain()
+      osc.connect(gain)
+      gain.connect(audioContext.destination)
+      osc.frequency.value = freq
+      osc.type = 'sine'
+      gain.gain.setValueAtTime(vol, startTime)
+      gain.gain.exponentialRampToValueAtTime(0.01, startTime + duration)
+      osc.start(startTime)
+      osc.stop(startTime + duration)
+    }
+
+    // Quick satisfying ding
+    playTone(now, 880, 0.12, 0.25)
+    playTone(now + 0.05, 1320, 0.15, 0.2)
   } catch (err) {
     console.debug('Audio playback failed:', err)
   }
@@ -120,6 +174,7 @@ interface WorkoutExercise {
   notes: string
   sets: SetData[]
   collapsed: boolean
+  showNotesInput?: boolean // triggered by "Add Note" menu item
 }
 
 interface LiftingTrackerProps {
@@ -139,8 +194,8 @@ const SET_TYPES = [
   { value: 'amrap', label: 'AMRAP', color: 'text-purple-400' },
 ]
 
-// RIR (Reps in Reserve) options: 0-5 plus qualitative
-const RIR_OPTIONS = ['0', '1', '2', '3', '4', '5', 'few', 'some', 'many']
+// RIR (Reps in Reserve) options: failure, 0-5 plus qualitative
+const RIR_OPTIONS = ['fail', '0', '1', '2', '3', '4', '5', 'few', 'some', 'many']
 
 // Rest Timer Component
 function RestTimer({ 
@@ -231,17 +286,406 @@ function RestTimer({
   )
 }
 
+// Quick Timer state interface
+interface QuickTimerState {
+  timeLeft: number
+  selectedPreset: number
+  isRunning: boolean
+  hasStarted: boolean
+}
+
+// Quick Timer with Presets - one-off standalone timer (uses lifted state)
+function QuickTimerModal({
+  isOpen,
+  onClose,
+  timerState,
+  onTimerStateChange,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  timerState: QuickTimerState
+  onTimerStateChange: (state: Partial<QuickTimerState>) => void
+}) {
+  const { timeLeft, selectedPreset, isRunning, hasStarted } = timerState
+
+  const presets = [
+    { label: '30s', value: 30 },
+    { label: '45s', value: 45 },
+    { label: '60s', value: 60 },
+    { label: '90s', value: 90 },
+    { label: '2m', value: 120 },
+    { label: '3m', value: 180 },
+    { label: '5m', value: 300 },
+  ]
+
+  const formatTime = (s: number) => {
+    const mins = Math.floor(s / 60)
+    const secs = s % 60
+    return `${mins}:${secs.toString().padStart(2, '0')}`
+  }
+
+  const selectPreset = (value: number) => {
+    onTimerStateChange({
+      selectedPreset: value,
+      timeLeft: value,
+      isRunning: false,
+      hasStarted: false,
+    })
+  }
+
+  const startTimer = () => {
+    onTimerStateChange({ isRunning: true, hasStarted: true })
+  }
+
+  const resetTimer = () => {
+    onTimerStateChange({
+      timeLeft: selectedPreset,
+      isRunning: false,
+      hasStarted: false,
+    })
+  }
+
+  if (!isOpen) return null
+
+  const progress = hasStarted ? ((selectedPreset - timeLeft) / selectedPreset) * 100 : 0
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+      <div
+        className="bg-zinc-900 border border-white/10 rounded-2xl p-6 w-full max-w-sm animate-slide-up"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Timer Display */}
+        <div className="flex justify-center mb-6">
+          <div className="relative w-40 h-40">
+            <svg className="w-full h-full -rotate-90">
+              <circle
+                cx="80"
+                cy="80"
+                r="72"
+                fill="none"
+                stroke="rgba(255,255,255,0.1)"
+                strokeWidth="8"
+              />
+              <circle
+                cx="80"
+                cy="80"
+                r="72"
+                fill="none"
+                stroke="#f59e0b"
+                strokeWidth="8"
+                strokeLinecap="round"
+                strokeDasharray={`${progress * 4.52} 452`}
+                className="transition-all duration-1000"
+              />
+            </svg>
+            <span className="absolute inset-0 flex items-center justify-center text-4xl font-mono font-bold">
+              {formatTime(timeLeft)}
+            </span>
+          </div>
+        </div>
+
+        {/* Presets Grid */}
+        <div className="grid grid-cols-4 gap-2 mb-6">
+          {presets.map(preset => (
+            <button
+              key={preset.value}
+              onClick={() => selectPreset(preset.value)}
+              className={`py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                selectedPreset === preset.value && !hasStarted
+                  ? 'bg-amber-500 text-black'
+                  : 'bg-white/10 text-white/70 hover:bg-white/20'
+              }`}
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Controls */}
+        <div className="flex justify-center gap-4">
+          <button
+            onClick={resetTimer}
+            className="p-4 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+          >
+            <RotateCcw size={24} />
+          </button>
+          <button
+            onClick={() => isRunning ? onTimerStateChange({ isRunning: false }) : startTimer()}
+            className={`p-6 rounded-full transition-colors ${
+              isRunning
+                ? 'bg-red-500 hover:bg-red-600 text-white'
+                : 'bg-emerald-500 hover:bg-emerald-600 text-white'
+            }`}
+          >
+            {isRunning ? <Pause size={32} /> : <Play size={32} className="ml-1" />}
+          </button>
+          <button
+            onClick={onClose}
+            className="p-4 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+          >
+            <X size={24} />
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Inline Rest Timer - shows between sets
+function InlineRestTimer({
+  seconds,
+  isActive,
+  onComplete,
+  onAdjust,
+}: {
+  seconds: number
+  isActive: boolean
+  onComplete: () => void
+  onAdjust: (newSeconds: number) => void
+}) {
+  const [timeLeft, setTimeLeft] = useState(seconds)
+  const [isRunning, setIsRunning] = useState(isActive)
+
+  useEffect(() => {
+    setTimeLeft(seconds)
+    setIsRunning(isActive)
+  }, [seconds, isActive])
+
+  useEffect(() => {
+    if (!isRunning || timeLeft <= 0) {
+      if (timeLeft <= 0 && isRunning) {
+        playTimerSound()
+        onComplete()
+      }
+      return
+    }
+
+    const timer = setInterval(() => {
+      setTimeLeft(t => t - 1)
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [isRunning, timeLeft, onComplete])
+
+  const formatTime = (s: number) => {
+    const mins = Math.floor(s / 60)
+    const secs = s % 60
+    return `${mins}:${secs.toString().padStart(2, '0')}`
+  }
+
+  const progress = ((seconds - timeLeft) / seconds) * 100
+
+  if (!isActive) return null
+
+  return (
+    <div className="flex items-center justify-center gap-3 py-2 px-3 my-1 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+      {/* Progress bar background */}
+      <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
+        <div
+          className="h-full bg-amber-500 transition-all duration-1000"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+
+      {/* Timer display */}
+      <span className="font-mono text-amber-400 text-sm font-medium min-w-[48px] text-center">
+        {formatTime(timeLeft)}
+      </span>
+
+      {/* Quick adjust buttons */}
+      <div className="flex items-center gap-1">
+        <button
+          onClick={() => {
+            setTimeLeft(t => Math.max(0, t - 15))
+          }}
+          className="px-1.5 py-0.5 text-xs text-white/50 hover:text-white hover:bg-white/10 rounded transition-colors"
+        >
+          -15
+        </button>
+        <button
+          onClick={() => {
+            setTimeLeft(t => t + 30)
+          }}
+          className="px-1.5 py-0.5 text-xs text-white/50 hover:text-white hover:bg-white/10 rounded transition-colors"
+        >
+          +30
+        </button>
+      </div>
+
+      {/* Skip button */}
+      <button
+        onClick={onComplete}
+        className="p-1 text-white/40 hover:text-white transition-colors"
+        title="Skip rest"
+      >
+        <SkipForward size={14} />
+      </button>
+    </div>
+  )
+}
+
+// Exercise Menu Modal - 3-dot menu options
+function ExerciseMenu({
+  isOpen,
+  onClose,
+  exercise,
+  restSeconds,
+  notes,
+  supersetGroup,
+  onShowDetails,
+  onFormCoach,
+  onSwapExercise,
+  onUpdateRest,
+  onAddNote,
+  onSetSuperset,
+  onRemove,
+}: {
+  isOpen: boolean
+  onClose: () => void
+  exercise: Exercise
+  restSeconds: number
+  notes: string
+  supersetGroup: string | null
+  onShowDetails: () => void
+  onFormCoach: () => void
+  onSwapExercise: () => void
+  onUpdateRest: (seconds: number) => void
+  onAddNote: () => void
+  onSetSuperset: (group: string | null) => void
+  onRemove: () => void
+}) {
+  if (!isOpen) return null
+
+  const supersetGroups = ['A', 'B', 'C', 'D']
+
+  const menuItems = [
+    { icon: Info, label: 'Exercise Info', action: () => { onShowDetails(); onClose(); } },
+    { icon: Camera, label: 'AI Form Coach', action: () => { onFormCoach(); onClose(); } },
+    { icon: ArrowLeftRight, label: 'Replace Exercise', action: () => { onSwapExercise(); onClose(); } },
+    { icon: MessageSquare, label: 'Add Note', action: () => { onAddNote(); onClose(); } },
+    { divider: true },
+    { icon: Trash2, label: 'Remove Exercise', action: () => { onRemove(); onClose(); }, danger: true },
+  ]
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60" onClick={onClose}>
+      <div
+        className="absolute bottom-0 left-0 right-0 bg-zinc-900 border-t border-white/10 rounded-t-2xl p-4 pb-8 animate-slide-up"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Handle */}
+        <div className="w-10 h-1 bg-white/20 rounded-full mx-auto mb-4" />
+
+        {/* Exercise name header */}
+        <div className="flex items-center gap-3 mb-4 pb-3 border-b border-white/10">
+          <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center">
+            <EquipmentIcon equipment={exercise.equipment} size={18} />
+          </div>
+          <div className="flex-1">
+            <h3 className="font-medium">{exercise.name}</h3>
+            <p className="text-xs text-white/50 capitalize">{exercise.primary_muscle}</p>
+          </div>
+        </div>
+
+        {/* Rest timer setting */}
+        <div className="flex items-center justify-between py-3 border-b border-white/10">
+          <div className="flex items-center gap-2 text-white/70">
+            <Clock size={18} />
+            <span className="text-sm">Rest Timer</span>
+          </div>
+          <div className="flex items-center gap-1">
+            {[60, 90, 120, 180].map(sec => (
+              <button
+                key={sec}
+                onClick={() => onUpdateRest(sec)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  restSeconds === sec
+                    ? 'bg-amber-500 text-black'
+                    : 'bg-white/10 text-white/60 hover:bg-white/20'
+                }`}
+              >
+                {sec < 60 ? `${sec}s` : `${sec / 60}m`}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Superset setting */}
+        <div className="flex items-center justify-between py-3 border-b border-white/10">
+          <div className="flex items-center gap-2 text-white/70">
+            <Link2 size={18} />
+            <span className="text-sm">Superset</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => onSetSuperset(null)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                supersetGroup === null
+                  ? 'bg-white/20 text-white'
+                  : 'bg-white/10 text-white/60 hover:bg-white/20'
+              }`}
+            >
+              None
+            </button>
+            {supersetGroups.map(group => {
+              const colors = SUPERSET_COLORS[group] || SUPERSET_COLORS['A']
+              return (
+                <button
+                  key={group}
+                  onClick={() => onSetSuperset(group)}
+                  className={`w-8 h-8 rounded-lg text-xs font-bold transition-colors ${
+                    supersetGroup === group
+                      ? `${colors.bg} ${colors.text} ring-2 ${colors.ring}`
+                      : 'bg-white/10 text-white/60 hover:bg-white/20'
+                  }`}
+                >
+                  {group}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Menu items */}
+        <div className="mt-2">
+          {menuItems.map((item, i) => (
+            'divider' in item ? (
+              <div key={i} className="h-px bg-white/10 my-2" />
+            ) : (
+              <button
+                key={i}
+                onClick={item.action}
+                className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${
+                  item.danger
+                    ? 'text-red-400 hover:bg-red-500/10'
+                    : 'text-white/80 hover:bg-white/5'
+                }`}
+              >
+                <item.icon size={20} />
+                <span className="text-sm">{item.label}</span>
+              </button>
+            )
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // Exercise Search Modal
 function ExerciseSearchModal({
   onSelect,
   onClose,
   title,
   subtitle,
+  keepOpenOnAdd = false,
 }: {
   onSelect: (exercise: Exercise) => void
   onClose: () => void
   title?: string
   subtitle?: string
+  keepOpenOnAdd?: boolean
 }) {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<string | null>(null)
@@ -251,6 +695,7 @@ function ExerciseSearchModal({
   const [isSearching, setIsSearching] = useState(false) // Subtle indicator for search updates
   const [detailExercise, setDetailExercise] = useState<Exercise | null>(null) // For detail popup
   const [showCreateExercise, setShowCreateExercise] = useState(false) // For AI exercise creation
+  const [addedExercises, setAddedExercises] = useState<Set<string>>(new Set()) // Track added exercises
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Debounce search term to prevent flickering on every keystroke
@@ -313,19 +758,23 @@ function ExerciseSearchModal({
         aria-modal="true"
         aria-label={title || "Search exercises"}
       >
-        {/* Optional title header for swap mode */}
-        {title && (
+        {/* Header - shows title or Done button for keep-open mode */}
+        {(title || keepOpenOnAdd) && (
           <div className="flex items-center justify-between p-4 border-b border-white/10 bg-violet-500/10">
             <div>
-              <h2 className="font-semibold text-white">{title}</h2>
+              <h2 className="font-semibold text-white">{title || 'Add Exercises'}</h2>
               {subtitle && <p className="text-sm text-white/60">{subtitle}</p>}
             </div>
             <button
               onClick={onClose}
-              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-              aria-label="Close"
+              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                keepOpenOnAdd
+                  ? 'bg-amber-500 text-black hover:bg-amber-400'
+                  : 'hover:bg-white/10'
+              }`}
+              aria-label="Done"
             >
-              <X size={20} className="text-white/60" />
+              {keepOpenOnAdd ? 'Done' : <X size={20} className="text-white/60" />}
             </button>
           </div>
         )}
@@ -400,18 +849,39 @@ function ExerciseSearchModal({
                         className="flex-1 min-w-0 text-left hover:text-amber-400 transition-colors"
                       >
                         <p className="font-medium">{exercise.name}</p>
-                        <p className="text-sm text-white/50 capitalize">{exercise.primary_muscle?.replace('_', ' ')} • {exercise.equipment}</p>
+                        <p className="text-sm text-white/50 capitalize">{exercise.primary_muscle?.replace('_', ' ')} • {formatEquipmentName(exercise.equipment)}</p>
                       </button>
 
                       {/* Add button - adds exercise to workout */}
                       <button
                         onClick={() => {
                           onSelect(exercise)
-                          onClose()
+                          if (keepOpenOnAdd) {
+                            setAddedExercises(prev => new Set(prev).add(exercise.id))
+                            // Clear the "Added" state after 2 seconds
+                            setTimeout(() => {
+                              setAddedExercises(prev => {
+                                const next = new Set(prev)
+                                next.delete(exercise.id)
+                                return next
+                              })
+                            }, 2000)
+                          } else {
+                            onClose()
+                          }
                         }}
-                        className="px-3 py-1.5 bg-amber-500/20 text-amber-400 rounded-lg hover:bg-amber-500/30 transition-colors text-sm font-medium shrink-0"
+                        disabled={addedExercises.has(exercise.id)}
+                        className={`px-3 py-1.5 rounded-lg transition-all text-sm font-medium shrink-0 ${
+                          addedExercises.has(exercise.id)
+                            ? 'bg-emerald-500/20 text-emerald-400'
+                            : 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30'
+                        }`}
                       >
-                        Add
+                        {addedExercises.has(exercise.id) ? (
+                          <span className="flex items-center gap-1">
+                            <Check size={14} /> Added
+                          </span>
+                        ) : 'Add'}
                       </button>
                     </div>
                   ))}
@@ -452,7 +922,18 @@ function ExerciseSearchModal({
             onAdd={() => {
               onSelect(detailExercise)
               setDetailExercise(null)
-              onClose()
+              if (keepOpenOnAdd) {
+                setAddedExercises(prev => new Set(prev).add(detailExercise.id))
+                setTimeout(() => {
+                  setAddedExercises(prev => {
+                    const next = new Set(prev)
+                    next.delete(detailExercise.id)
+                    return next
+                  })
+                }, 2000)
+              } else {
+                onClose()
+              }
             }}
           />
         )}
@@ -465,7 +946,9 @@ function ExerciseSearchModal({
             onCreated={(exercise) => {
               onSelect(exercise)
               setShowCreateExercise(false)
-              onClose()
+              if (!keepOpenOnAdd) {
+                onClose()
+              }
             }}
           />
         )}
@@ -499,7 +982,7 @@ function ExerciseSearchDetailPopup({
             <div>
               <h3 className="text-lg font-semibold">{exercise.name}</h3>
               <p className="text-sm text-white/50 capitalize">
-                {exercise.primary_muscle?.replace('_', ' ')} • {exercise.equipment}
+                {exercise.primary_muscle?.replace('_', ' ')} • {formatEquipmentName(exercise.equipment)}
               </p>
             </div>
           </div>
@@ -811,6 +1294,34 @@ function SetRow({
   const timerRef = useRef<NodeJS.Timeout | null>(null)
   const wakeLockRef = useRef<WakeLockSentinel | null>(null)
 
+  // Swipe-to-delete state
+  const [swipeX, setSwipeX] = useState(0)
+  const [isSwiping, setIsSwiping] = useState(false)
+  const startXRef = useRef(0)
+  const DELETE_THRESHOLD = -80 // pixels to swipe to trigger delete
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    startXRef.current = e.touches[0].clientX
+    setIsSwiping(true)
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isSwiping) return
+    const currentX = e.touches[0].clientX
+    const diff = currentX - startXRef.current
+    // Only allow swiping left (negative values)
+    setSwipeX(Math.min(0, diff))
+  }
+
+  const handleTouchEnd = () => {
+    if (swipeX < DELETE_THRESHOLD) {
+      // Trigger delete
+      onDelete()
+    }
+    setSwipeX(0)
+    setIsSwiping(false)
+  }
+
   // Timer effect
   useEffect(() => {
     if (timerRunning) {
@@ -901,26 +1412,36 @@ function SetRow({
     onUpdate({ actual_duration: null })
   }
 
-  // Render timed set row
+  // Render timed set row - for exercises like wall sit, plank, etc.
   if (set.is_timed) {
     return (
-      <div className={`flex items-center gap-2 py-2 ${set.completed ? 'opacity-60' : ''}`}>
-        {/* Set number/type + toggle back to reps */}
-        <div className="w-10 text-center flex items-center justify-center gap-0.5">
-          <span className={`text-sm font-medium ${setType?.color || 'text-white'}`}>
-            {set.set_type === 'warmup' ? 'W' : set.set_number}
-          </span>
-          {/* Small toggle to switch back to rep-based */}
-          <button
-            onClick={() => onUpdate({ is_timed: false })}
-            className="p-0.5 text-amber-400 hover:text-white transition-colors"
-            title="Switch to rep-based set"
+      <div className="relative overflow-hidden">
+        {/* Delete zone revealed on swipe */}
+        {swipeX < 0 && (
+          <div
+            className="absolute inset-y-0 right-0 flex items-center justify-end bg-red-500 px-4"
+            style={{ width: Math.abs(swipeX) + 60 }}
           >
-            <Dumbbell size={10} />
-          </button>
-        </div>
+            <Trash2 size={18} className="text-white" />
+          </div>
+        )}
 
-        {/* Target duration */}
+        {/* Swipeable content */}
+        <div
+          className={`flex items-center gap-2 py-1.5 bg-zinc-900 relative ${set.completed ? 'opacity-50' : ''}`}
+          style={{ transform: `translateX(${swipeX}px)` }}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
+          {/* Set number */}
+          <div className="w-8 text-center">
+            <span className={`text-sm font-medium ${setType?.color || 'text-white/70'}`}>
+              {set.set_type === 'warmup' ? 'W' : set.set_number}
+            </span>
+          </div>
+
+        {/* Target duration input */}
         <div className="w-14">
           <input
             type="number"
@@ -929,183 +1450,199 @@ function SetRow({
             onChange={e => onUpdate({ target_duration: e.target.value ? Number(e.target.value) : null })}
             onFocus={e => e.target.select()}
             placeholder="goal"
-            className="w-full bg-white/5 border border-white/10 rounded px-2 py-1.5 text-center text-sm focus:outline-none focus:border-amber-500/50"
+            className={`w-full rounded px-1.5 py-1.5 text-center text-sm font-medium tabular-nums focus:outline-none focus:ring-1 focus:ring-amber-500/50 ${
+              set.completed
+                ? 'bg-emerald-500/20 text-emerald-300'
+                : 'bg-white/10 text-white'
+            }`}
           />
         </div>
 
-        {/* Timer display and manual duration input */}
-        <div className="flex-1 flex items-center gap-2">
-          {/* Editable actual duration */}
-          <input
-            type="number"
-            inputMode="numeric"
-            value={timerRunning ? timerSeconds : (set.actual_duration ?? '')}
-            onChange={e => onUpdate({ actual_duration: e.target.value ? Number(e.target.value) : null })}
-            onFocus={e => e.target.select()}
-            placeholder="sec"
-            disabled={timerRunning}
-            className={`w-16 font-mono tabular-nums text-lg text-center bg-transparent border-b focus:outline-none ${
-              timerRunning
-                ? 'text-amber-400 border-amber-400/30'
-                : 'text-white/60 border-white/20 focus:border-amber-500/50'
-            }`}
-          />
+        {/* Timer display */}
+        <div className="flex items-center gap-1.5">
+          <span className={`font-mono tabular-nums text-sm min-w-[40px] text-center ${
+            timerRunning ? 'text-amber-400' : 'text-white/60'
+          }`}>
+            {formatTime(timerRunning ? timerSeconds : (set.actual_duration || 0))}
+          </span>
 
           {/* Timer controls */}
           <button
             onClick={toggleTimer}
-            className={`p-2 rounded-lg transition-colors ${
+            className={`p-1.5 rounded-lg transition-colors ${
               timerRunning
-                ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
-                : 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
+                ? 'bg-red-500/20 text-red-400'
+                : 'bg-emerald-500/20 text-emerald-400'
             }`}
           >
-            {timerRunning ? <Pause size={16} /> : <Play size={16} />}
+            {timerRunning ? <Pause size={14} /> : <Play size={14} />}
           </button>
 
           <button
             onClick={resetTimer}
-            className="p-2 rounded-lg bg-white/10 text-white/40 hover:text-white/60 transition-colors"
+            className="p-1.5 rounded-lg bg-white/10 text-white/40 hover:text-white/60 transition-colors"
           >
-            <RotateCcw size={14} />
+            <RotateCcw size={12} />
           </button>
         </div>
 
-        {/* Complete button */}
-        <button
-          onClick={onComplete}
-          className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
-            set.completed
-              ? 'bg-emerald-500 text-white'
-              : 'bg-white/10 text-white/60 hover:bg-amber-500 hover:text-black'
-          }`}
-        >
-          <Check size={16} />
-        </button>
+        {/* Spacer */}
+        <div className="flex-1" />
 
-        {/* Delete button */}
-        <button
-          onClick={onDelete}
-          className="w-8 h-8 rounded-lg flex items-center justify-center text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-        >
-          <X size={16} />
-        </button>
+          {/* Complete button */}
+          <button
+            onClick={onComplete}
+            className={`w-8 h-8 rounded-full flex items-center justify-center transition-all outline-none ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 active:outline-none active:ring-0 ${
+              set.completed
+                ? 'bg-emerald-500 text-white'
+                : 'bg-white/10 text-white/40 hover:bg-amber-500 hover:text-black active:bg-amber-600'
+            }`}
+          >
+            <Check size={18} strokeWidth={2.5} />
+          </button>
+        </div>
       </div>
     )
   }
 
-  // Toggle between timed and rep-based set
-  const toggleTimed = () => {
-    onUpdate({ is_timed: !set.is_timed })
-  }
-
-  // Render regular (reps-based) set row
+  // Render regular (reps-based) set row - Clean Strong-style layout
   return (
-    <div className={`flex items-center gap-2 py-2 ${set.completed ? 'opacity-60' : ''}`}>
-      {/* Set number/type + timed toggle */}
-      <div className="w-10 text-center flex items-center justify-center gap-0.5">
-        <span className={`text-sm font-medium ${setType?.color || 'text-white'}`}>
-          {set.set_type === 'warmup' ? 'W' : set.set_number}
-        </span>
-        {/* Small toggle to switch to timed set */}
-        <button
-          onClick={toggleTimed}
-          className="p-0.5 text-white/20 hover:text-amber-400 transition-colors"
-          title="Switch to timed set"
+    <div className="relative overflow-hidden">
+      {/* Delete zone revealed on swipe */}
+      {swipeX < 0 && (
+        <div
+          className="absolute inset-y-0 right-0 flex items-center justify-end bg-red-500 px-4"
+          style={{ width: Math.abs(swipeX) + 60 }}
         >
-          <Clock size={10} />
+          <Trash2 size={18} className="text-white" />
+        </div>
+      )}
+
+      {/* Swipeable content */}
+      <div
+        className={`flex items-center gap-2 py-1.5 bg-zinc-900 relative ${set.completed ? 'opacity-50' : ''}`}
+        style={{ transform: `translateX(${swipeX}px)` }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        {/* Set number */}
+        <div className="w-8 text-center">
+          <span className={`text-sm font-medium ${setType?.color || 'text-white/70'}`}>
+            {set.set_type === 'warmup' ? 'W' : set.set_number}
+          </span>
+        </div>
+
+        {/* Previous (reference) - clickable to autofill */}
+        <div className="w-16 text-center">
+          {previousSet ? (
+            <button
+              onClick={() => {
+                onUpdate({
+                  actual_weight: previousSet.weight,
+                  actual_reps: previousSet.reps
+                })
+              }}
+              className="text-xs hover:bg-amber-500/20 px-1.5 py-0.5 rounded transition-colors group w-full"
+              title="Tap to copy"
+            >
+              <span className="text-white/50 font-medium group-hover:text-amber-400 tabular-nums">
+                {previousSet.weight}×{previousSet.reps}
+              </span>
+            </button>
+          ) : (
+            <span className="text-white/20 text-xs">—</span>
+          )}
+        </div>
+
+        {/* Weight input */}
+        <div className="w-14">
+          <input
+            type="number"
+            inputMode="decimal"
+            value={set.actual_weight ?? set.target_weight ?? ''}
+            onChange={e => onUpdate({ actual_weight: e.target.value ? Number(e.target.value) : null })}
+            onFocus={e => e.target.select()}
+            placeholder="—"
+            className={`w-full rounded px-1.5 py-1.5 text-center text-sm font-medium tabular-nums focus:outline-none focus:ring-1 focus:ring-amber-500/50 ${
+              set.completed
+                ? 'bg-emerald-500/20 text-emerald-300'
+                : 'bg-white/10 text-white'
+            }`}
+          />
+        </div>
+
+        <span className="text-white/20 text-xs">×</span>
+
+        {/* Reps input */}
+        <div className="w-12">
+          <input
+            type="number"
+            inputMode="numeric"
+            value={set.actual_reps ?? set.target_reps ?? ''}
+            onChange={e => onUpdate({ actual_reps: e.target.value ? Number(e.target.value) : null })}
+            onFocus={e => e.target.select()}
+            placeholder="—"
+            className={`w-full rounded px-1.5 py-1.5 text-center text-sm font-medium tabular-nums focus:outline-none focus:ring-1 focus:ring-amber-500/50 ${
+              set.completed
+                ? 'bg-emerald-500/20 text-emerald-300'
+                : 'bg-white/10 text-white'
+            }`}
+          />
+        </div>
+
+        {/* RIR selector - compact dropdown */}
+        <div className="w-12">
+          <select
+            value={set.actual_rir ?? ''}
+            onChange={e => onUpdate({ actual_rir: e.target.value || null })}
+            className={`w-full rounded px-1 py-1.5 text-center text-xs font-medium appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-amber-500/50 ${
+              set.completed
+                ? 'bg-emerald-500/20 text-emerald-300'
+                : 'bg-white/10 text-white'
+            }`}
+          >
+            <option value="" className="bg-zinc-800">RIR</option>
+            {RIR_OPTIONS.map(rir => (
+              <option key={rir} value={rir} className="bg-zinc-800">{rir}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Complete button - checkmark */}
+        <button
+          onClick={onComplete}
+          className={`w-8 h-8 rounded-full flex items-center justify-center transition-all outline-none ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 active:outline-none active:ring-0 ${
+            set.completed
+              ? 'bg-emerald-500 text-white'
+              : 'bg-white/10 text-white/40 hover:bg-amber-500 hover:text-black active:bg-amber-600'
+          }`}
+        >
+          <Check size={18} strokeWidth={2.5} />
         </button>
       </div>
-
-      {/* Previous (reference) - shows lbs x reps with date */}
-      <div className="w-20 text-center">
-        {previousSet ? (
-          <div className="text-xs">
-            <span className="text-white/60 font-medium">{previousSet.weight}×{previousSet.reps}</span>
-            <div className="text-white/30 text-[10px]">{formatPrevDate(previousSet.date)}</div>
-          </div>
-        ) : (
-          <span className="text-white/30 text-sm">—</span>
-        )}
-      </div>
-
-      {/* Weight input - prefilled with target */}
-      <div className="w-16">
-        <input
-          type="number"
-          inputMode="decimal"
-          value={set.actual_weight ?? set.target_weight ?? ''}
-          onChange={e => onUpdate({ actual_weight: e.target.value ? Number(e.target.value) : null })}
-          onFocus={e => e.target.select()}
-          placeholder="lbs"
-          className={`w-full border rounded px-2 py-1.5 text-center text-sm focus:outline-none focus:border-amber-500/50 ${
-            set.completed
-              ? 'bg-emerald-500/20 border-emerald-500/30'
-              : 'bg-white/10 border-white/20'
-          }`}
-        />
-      </div>
-
-      <span className="text-white/30 text-sm">×</span>
-
-      {/* Reps input - prefilled with target */}
-      <div className="w-14">
-        <input
-          type="number"
-          inputMode="numeric"
-          value={set.actual_reps ?? set.target_reps ?? ''}
-          onChange={e => onUpdate({ actual_reps: e.target.value ? Number(e.target.value) : null })}
-          onFocus={e => e.target.select()}
-          placeholder="reps"
-          className={`w-full border rounded px-2 py-1.5 text-center text-sm focus:outline-none focus:border-amber-500/50 ${
-            set.completed
-              ? 'bg-emerald-500/20 border-emerald-500/30'
-              : 'bg-white/10 border-white/20'
-          }`}
-        />
-      </div>
-
-      {/* RIR selector */}
-      <select
-        value={set.actual_rir ?? ''}
-        onChange={e => onUpdate({ actual_rir: e.target.value || null })}
-        className={`w-14 border rounded px-1 py-1.5 text-center text-xs focus:outline-none focus:border-amber-500/50 ${
-          set.completed
-            ? 'bg-emerald-500/20 border-emerald-500/30'
-            : 'bg-white/5 border-white/10'
-        }`}
-      >
-        <option value="">RIR</option>
-        {RIR_OPTIONS.map(rir => (
-          <option key={rir} value={rir}>{rir}</option>
-        ))}
-      </select>
-
-      {/* Complete button */}
-      <button
-        onClick={onComplete}
-        className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
-          set.completed
-            ? 'bg-emerald-500 text-white'
-            : 'bg-white/10 text-white/60 hover:bg-amber-500 hover:text-black'
-        }`}
-      >
-        <Check size={16} />
-      </button>
-
-      {/* Delete button */}
-      <button
-        onClick={onDelete}
-        className="w-8 h-8 rounded-lg flex items-center justify-center text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-      >
-        <X size={16} />
-      </button>
     </div>
   )
 }
 
-// Superset groups
+// Superset groups with distinct colors
 const SUPERSET_GROUPS = ['A', 'B', 'C', 'D', 'E']
+
+const SUPERSET_COLORS: Record<string, { ring: string; bg: string; text: string }> = {
+  'A': { ring: 'ring-amber-500/40', bg: 'bg-amber-500/20', text: 'text-amber-400' },
+  'B': { ring: 'ring-sky-500/40', bg: 'bg-sky-500/20', text: 'text-sky-400' },
+  'C': { ring: 'ring-violet-500/40', bg: 'bg-violet-500/20', text: 'text-violet-400' },
+  'D': { ring: 'ring-emerald-500/40', bg: 'bg-emerald-500/20', text: 'text-emerald-400' },
+  'E': { ring: 'ring-rose-500/40', bg: 'bg-rose-500/20', text: 'text-rose-400' },
+}
+
+function getSupersetColor(group: string | null) {
+  if (!group) return null
+  return SUPERSET_COLORS[group] || SUPERSET_COLORS['A']
+}
 
 // Exercise Detail Modal - shows info, history, PRs
 function ExerciseDetailModal({
@@ -1169,7 +1706,7 @@ function ExerciseDetailModal({
             <div className="flex-1">
               <h3 className="font-semibold text-lg">{exercise.name}</h3>
               <p className="text-sm text-white/50 capitalize">
-                {exercise.primary_muscle?.replace('_', ' ')} • {exercise.equipment}
+                {exercise.primary_muscle?.replace('_', ' ')} • {formatEquipmentName(exercise.equipment)}
               </p>
             </div>
             <button onClick={onClose} className="p-1 hover:bg-white/10 rounded-lg">
@@ -1336,7 +1873,7 @@ function ExerciseDetailModal({
                 </div>
               )}
 
-              {/* Estimated 1RM */}
+              {/* Estimated 1RM Trend Chart */}
               <div className="mb-6">
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="text-sm font-medium text-amber-400">Estimated 1RM Trend</h4>
@@ -1345,24 +1882,30 @@ function ExerciseDetailModal({
                   )}
                 </div>
                 {e1rmHistory.length > 0 ? (
-                  <div className="h-32 bg-white/5 rounded-lg p-3">
-                    {/* Simple bar chart representation */}
-                    <div className="flex items-end justify-between h-full gap-1">
-                      {e1rmHistory.slice(-10).map((item: any, i: number) => {
-                        const max = Math.max(...e1rmHistory.map((h: any) => h.estimated1RM))
-                        const height = (item.estimated1RM / max) * 100
-                        return (
-                          <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                            <div
-                              className="w-full bg-amber-500/50 rounded-t hover:bg-amber-500/70 transition-colors cursor-default"
-                              style={{ height: `${height}%` }}
-                              title={`${item.estimated1RM}lbs on ${new Date(item.date).toLocaleDateString()}`}
-                            />
-                            <span className="text-[10px] text-white/30">{item.estimated1RM}</span>
-                          </div>
-                        )
-                      })}
-                    </div>
+                  <div className="h-32 bg-white/5 rounded-lg p-2">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={e1rmHistory.slice(-10)}>
+                        <defs>
+                          <linearGradient id="e1rmGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.3}/>
+                            <stop offset="95%" stopColor="#F59E0B" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                        <XAxis
+                          dataKey="date"
+                          tick={{ fill: '#666', fontSize: 10 }}
+                          tickFormatter={(val) => new Date(val).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        />
+                        <YAxis tick={{ fill: '#666', fontSize: 10 }} domain={['dataMin - 10', 'dataMax + 10']} />
+                        <Tooltip
+                          contentStyle={{ background: '#1a1a1a', border: '1px solid #333', borderRadius: '8px' }}
+                          labelFormatter={(val) => new Date(val).toLocaleDateString()}
+                          formatter={(value: any) => [`${value} lbs`, 'Est. 1RM']}
+                        />
+                        <Area type="monotone" dataKey="estimated1RM" stroke="#F59E0B" fill="url(#e1rmGradient)" />
+                      </AreaChart>
+                    </ResponsiveContainer>
                   </div>
                 ) : (
                   <div className="h-32 bg-white/5 rounded-lg flex items-center justify-center text-white/30 text-sm">
@@ -1370,6 +1913,58 @@ function ExerciseDetailModal({
                   </div>
                 )}
               </div>
+
+              {/* Volume Trend Chart */}
+              {stats?.volume_trend && stats.volume_trend.length > 0 && (
+                <div className="mb-6">
+                  <h4 className="text-sm font-medium text-amber-400 mb-3">Volume Per Session</h4>
+                  <div className="h-32 bg-white/5 rounded-lg p-2">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={stats.volume_trend}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                        <XAxis
+                          dataKey="date"
+                          tick={{ fill: '#666', fontSize: 10 }}
+                          tickFormatter={(val) => new Date(val).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        />
+                        <YAxis tick={{ fill: '#666', fontSize: 10 }} />
+                        <Tooltip
+                          contentStyle={{ background: '#1a1a1a', border: '1px solid #333', borderRadius: '8px' }}
+                          labelFormatter={(val) => new Date(val).toLocaleDateString()}
+                          formatter={(value: any) => [`${value.toLocaleString()} lbs`, 'Volume']}
+                        />
+                        <Line type="monotone" dataKey="volume" stroke="#10B981" strokeWidth={2} dot={{ r: 3, fill: '#10B981' }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+
+              {/* Max Weight Trend Chart */}
+              {stats?.max_weight_trend && stats.max_weight_trend.length > 0 && (
+                <div className="mb-6">
+                  <h4 className="text-sm font-medium text-amber-400 mb-3">Max Weight Per Session</h4>
+                  <div className="h-32 bg-white/5 rounded-lg p-2">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={stats.max_weight_trend}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#333" />
+                        <XAxis
+                          dataKey="date"
+                          tick={{ fill: '#666', fontSize: 10 }}
+                          tickFormatter={(val) => new Date(val).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        />
+                        <YAxis tick={{ fill: '#666', fontSize: 10 }} domain={['dataMin - 5', 'dataMax + 5']} />
+                        <Tooltip
+                          contentStyle={{ background: '#1a1a1a', border: '1px solid #333', borderRadius: '8px' }}
+                          labelFormatter={(val) => new Date(val).toLocaleDateString()}
+                          formatter={(value: any) => [`${value} lbs`, 'Max Weight']}
+                        />
+                        <Line type="monotone" dataKey="weight" stroke="#8B5CF6" strokeWidth={2} dot={{ r: 3, fill: '#8B5CF6' }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
 
               {/* Best Performances by Rep Range */}
               <div>
@@ -1756,25 +2351,38 @@ function ExerciseCard({
   workoutExercise,
   index,
   previousSetData,
+  previousNotes,
   onUpdate,
   onRemove,
   onSetComplete,
   onShowDetails,
   onFormCoach,
   onSwapExercise,
+  onOpenMenu,
 }: {
   workoutExercise: WorkoutExercise
   index: number
   previousSetData?: Record<number, PreviousSetData> // set_number -> previous data
+  previousNotes?: string | null // Notes from the last session
   onUpdate: (updates: Partial<WorkoutExercise>) => void
   onRemove: () => void
   onSetComplete: (setId: string) => void
   onShowDetails: () => void
   onFormCoach: () => void
   onSwapExercise: () => void
+  onOpenMenu: () => void
 }) {
-  const { exercise, sets, collapsed, superset_group, rest_seconds, notes } = workoutExercise
-  const completedSets = sets.filter(s => s.completed).length
+  const { exercise, sets, collapsed, superset_group, rest_seconds, notes, showNotesInput } = workoutExercise
+  const [showPreviousNotes, setShowPreviousNotes] = useState(false)
+  const [activeRestAfterSetId, setActiveRestAfterSetId] = useState<string | null>(null)
+  const [localShowNotes, setLocalShowNotes] = useState(!!notes)
+
+  // Show notes if locally toggled or parent triggered it
+  const showNotes = localShowNotes || showNotesInput
+
+  // Check if all sets are complete
+  const allSetsComplete = sets.length > 0 && sets.every(s => s.completed)
+  const completedCount = sets.filter(s => s.completed).length
 
   const addSet = () => {
     const lastSet = sets[sets.length - 1]
@@ -1837,189 +2445,145 @@ function ExerciseCard({
     })
   }
 
+  // Handle set completion with rest timer
+  const handleLocalSetComplete = (setId: string) => {
+    onSetComplete(setId)
+    playSetCompleteSound()
+    // Start rest timer after this set
+    setActiveRestAfterSetId(setId)
+  }
+
+  const supersetColor = getSupersetColor(superset_group)
+
   return (
-    <div className={`glass rounded-xl overflow-hidden ${superset_group ? 'ring-2 ring-amber-500/30' : ''}`}>
-      {/* Header */}
+    <div className={`glass rounded-xl overflow-hidden ${supersetColor ? `ring-2 ${supersetColor.ring}` : ''}`}>
+      {/* Header - Clean and minimal */}
       <div
-        className="p-4 flex items-center gap-3 cursor-pointer hover:bg-white/[0.02] transition-colors"
+        className="p-3 flex items-center gap-3 cursor-pointer hover:bg-white/[0.02] transition-colors"
         onClick={() => onUpdate({ collapsed: !collapsed })}
       >
-        <button className="text-white/30 hover:text-white cursor-grab" onClick={e => e.stopPropagation()}>
-          <GripVertical size={18} />
-        </button>
-
-        {superset_group && (
-          <span className="px-2 py-0.5 text-xs font-bold bg-amber-500/20 text-amber-400 rounded">
+        {superset_group && supersetColor && (
+          <span className={`px-1.5 py-0.5 text-[10px] font-bold ${supersetColor.bg} ${supersetColor.text} rounded`}>
             {superset_group}
           </span>
         )}
 
         <div
-          className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center cursor-pointer hover:bg-white/15 transition-colors"
+          className="w-9 h-9 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0"
           onClick={(e) => { e.stopPropagation(); onShowDetails(); }}
         >
-          <EquipmentIcon equipment={exercise.equipment} size={18} />
+          <EquipmentIcon equipment={exercise.equipment} size={16} />
         </div>
 
         <div className="flex-1 min-w-0">
-          <h3
-            className="font-medium truncate cursor-pointer hover:text-amber-400 transition-colors"
-            onClick={(e) => { e.stopPropagation(); onShowDetails(); }}
-          >
+          <h3 className="font-semibold text-base truncate">
             {exercise.name}
           </h3>
-          <p className="text-sm text-white/50">
-            {completedSets}/{sets.length} sets • {rest_seconds}s rest
-          </p>
         </div>
 
-        {/* Swap + Form Coach buttons - hidden on mobile, visible on larger screens */}
-        <div className="hidden sm:flex items-center gap-1">
-          <button
-            onClick={(e) => { e.stopPropagation(); onSwapExercise(); }}
-            className="p-1.5 rounded-lg bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 transition-colors"
-            title="Swap Exercise"
-            aria-label="Swap exercise for alternative"
-          >
-            <ArrowLeftRight size={14} />
-          </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); onFormCoach(); }}
-            className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-colors"
-            title="AI Form Coach"
-            aria-label="AI Form Coach"
-          >
-            <Camera size={14} />
-          </button>
-        </div>
+        {/* Completion indicator when collapsed */}
+        {collapsed && (
+          <span className={`text-xs font-medium px-2 py-0.5 rounded ${
+            allSetsComplete
+              ? 'bg-emerald-500/20 text-emerald-400'
+              : 'bg-white/10 text-white/50'
+          }`}>
+            {allSetsComplete ? (
+              <span className="flex items-center gap-1">
+                <Check size={12} /> Done
+              </span>
+            ) : (
+              `${completedCount}/${sets.length}`
+            )}
+          </span>
+        )}
 
-        {/* Quick Superset Toggle - hidden on mobile */}
-        <div className="hidden sm:flex items-center gap-1 mr-2">
-          {SUPERSET_GROUPS.slice(0, 3).map(group => (
-            <button
-              key={group}
-              onClick={(e) => { e.stopPropagation(); toggleSuperset(group); }}
-              className={`w-5 h-5 rounded text-[10px] font-bold transition-colors ${
-                superset_group === group
-                  ? 'bg-amber-500 text-black'
-                  : 'bg-white/10 text-white/30 hover:bg-white/20 hover:text-white/50'
-              }`}
-              title={`Superset group ${group}`}
-            >
-              {group}
-            </button>
-          ))}
-        </div>
-
+        {/* 3-dot menu */}
         <button
-          onClick={(e) => { e.stopPropagation(); onRemove(); }}
-          className="p-2 text-white/30 hover:text-red-400 transition-colors"
+          onClick={(e) => { e.stopPropagation(); onOpenMenu(); }}
+          className="p-2 text-white/40 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
         >
-          <Trash2 size={16} />
+          <MoreVertical size={18} />
         </button>
 
-        {collapsed ? <ChevronDown size={20} /> : <ChevronUp size={20} />}
+        {collapsed ? <ChevronDown size={18} className="text-white/40" /> : <ChevronUp size={18} className="text-white/40" />}
       </div>
 
       {/* Sets (collapsible) */}
       {!collapsed && (
-        <div className="px-4 pb-4">
-          {/* Cues */}
-          {exercise.cues && exercise.cues.length > 0 && (
-            <div className="mb-3 p-2 bg-amber-500/10 rounded-lg">
-              <p className="text-xs text-amber-400 font-medium mb-1">Cues</p>
-              <p className="text-xs text-white/60">
-                {exercise.cues.join(' • ')}
-              </p>
+        <div className="px-3 pb-3">
+          {/* Previous notes indicator - compact */}
+          {previousNotes && (
+            <button
+              onClick={() => setShowPreviousNotes(!showPreviousNotes)}
+              className="flex items-center gap-1.5 text-xs text-amber-400/70 hover:text-amber-400 transition-colors mb-2"
+            >
+              <MessageSquare size={12} />
+              <span>Last session note</span>
+              <ChevronDown size={12} className={`transform transition-transform ${showPreviousNotes ? 'rotate-180' : ''}`} />
+            </button>
+          )}
+          {showPreviousNotes && previousNotes && (
+            <div className="mb-3 p-2 bg-amber-500/10 border border-amber-500/20 rounded-lg text-xs text-white/70 italic">
+              "{previousNotes}"
             </div>
           )}
 
-          {/* Rest timer + Superset controls */}
-          <div className="flex items-center gap-4 mb-3 p-2 bg-white/5 rounded-lg">
-            <div className="flex items-center gap-2">
-              <Clock size={14} className="text-white/40" />
-              <span className="text-xs text-white/40">Rest:</span>
-              <select
-                value={rest_seconds}
-                onChange={(e) => onUpdate({ rest_seconds: Number(e.target.value) })}
-                onClick={e => e.stopPropagation()}
-                className="bg-white/10 border border-white/10 rounded px-2 py-1 text-xs focus:outline-none focus:border-amber-500/50"
-              >
-                <option value={30}>30s</option>
-                <option value={45}>45s</option>
-                <option value={60}>60s</option>
-                <option value={90}>90s</option>
-                <option value={120}>2m</option>
-                <option value={150}>2.5m</option>
-                <option value={180}>3m</option>
-                <option value={240}>4m</option>
-                <option value={300}>5m</option>
-              </select>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-white/40">Superset:</span>
-              <div className="flex gap-1">
-                {SUPERSET_GROUPS.map(group => (
-                  <button
-                    key={group}
-                    onClick={(e) => { e.stopPropagation(); toggleSuperset(group); }}
-                    className={`w-6 h-6 rounded text-xs font-bold transition-colors ${
-                      superset_group === group
-                        ? 'bg-amber-500 text-black'
-                        : 'bg-white/10 text-white/40 hover:bg-white/20'
-                    }`}
-                  >
-                    {group}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Header row */}
-          <div className="flex items-center gap-2 text-[10px] text-white/40 mb-2 px-1 uppercase tracking-wide">
-            <div className="w-10 text-center">Set</div>
-            <div className="w-20 text-center">Prev</div>
-            <div className="w-16 text-center">Lbs</div>
-            <div className="w-4"></div>
-            <div className="w-14 text-center">Reps</div>
-            <div className="w-14 text-center">RIR</div>
-            <div className="w-8"></div>
+          {/* Header row - compact */}
+          <div className="flex items-center gap-2 text-[10px] text-white/30 mb-1 px-1 uppercase tracking-wider">
+            <div className="w-8 text-center">Set</div>
+            <div className="w-16 text-center">Prev</div>
+            <div className="w-14 text-center">Lbs</div>
+            <div className="w-3"></div>
+            <div className="w-12 text-center">Reps</div>
+            <div className="w-12 text-center">RIR</div>
+            <div className="flex-1"></div>
             <div className="w-8"></div>
           </div>
 
-          {/* Sets */}
-          {sets.map((set) => (
-            <SetRow
-              key={set.id}
-              set={set}
-              exerciseName={exercise.name}
-              previousSet={previousSetData?.[set.set_number]}
-              onUpdate={(updates) => updateSet(set.id, updates)}
-              onComplete={() => onSetComplete(set.id)}
-              onDelete={() => deleteSet(set.id)}
-            />
+          {/* Sets with inline rest timers */}
+          {sets.map((set, index) => (
+            <div key={set.id}>
+              <SetRow
+                set={set}
+                exerciseName={exercise.name}
+                previousSet={previousSetData?.[set.set_number]}
+                onUpdate={(updates) => updateSet(set.id, updates)}
+                onComplete={() => handleLocalSetComplete(set.id)}
+                onDelete={() => deleteSet(set.id)}
+              />
+              {/* Inline rest timer after completed set */}
+              {set.completed && index < sets.length - 1 && (
+                <InlineRestTimer
+                  seconds={rest_seconds}
+                  isActive={activeRestAfterSetId === set.id}
+                  onComplete={() => setActiveRestAfterSetId(null)}
+                  onAdjust={() => {}}
+                />
+              )}
+            </div>
           ))}
 
-          {/* Add set button */}
+          {/* Add set button - minimal */}
           <button
             onClick={addSet}
-            className="w-full mt-2 py-2 border border-dashed border-white/10 rounded-lg text-white/40 hover:text-white hover:border-white/20 transition-colors flex items-center justify-center gap-2 text-sm"
+            className="w-full mt-2 py-1.5 text-white/30 hover:text-white/60 transition-colors flex items-center justify-center gap-1.5 text-xs"
           >
-            <Plus size={16} /> Add Set
+            <Plus size={14} /> Add Set
           </button>
 
-          {/* Notes */}
-          <div className="mt-3">
-            <textarea
-              value={notes}
-              onChange={(e) => onUpdate({ notes: e.target.value })}
-              placeholder="Notes for this exercise..."
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm placeholder-white/30 focus:outline-none focus:border-amber-500/50 resize-none"
-              rows={2}
-            />
-          </div>
+          {/* Notes - only show if toggled or has content */}
+          {(showNotes || notes) && (
+            <div className="mt-2 pt-2 border-t border-white/5">
+              <textarea
+                value={notes}
+                onChange={(e) => onUpdate({ notes: e.target.value })}
+                placeholder="Add notes..."
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs placeholder-white/30 focus:outline-none focus:border-amber-500/50 resize-none"
+                rows={2}
+              />
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -2034,15 +2598,183 @@ export function LiftingTracker({
   onFinish,
   onCancel,
 }: LiftingTrackerProps) {
-  const [exercises, setExercises] = useState<WorkoutExercise[]>(initialExercises)
+  // Get workout context for persistence across navigation
+  const { activeWorkout, updateWorkout, minimizeWorkout, expandWorkout, isMinimized } = useWorkout()
+
+  // Use context state if available (restored from minimize), otherwise use props
+  const [exercises, setExercises] = useState<WorkoutExercise[]>(
+    activeWorkout?.exercises ?? initialExercises
+  )
   const [showExerciseSearch, setShowExerciseSearch] = useState(false)
-  const [restTimer, setRestTimer] = useState<{ show: boolean; seconds: number } | null>(null)
-  const [workoutStartTime] = useState(new Date())
-  const [workoutName, setWorkoutName] = useState(initialName)
+  // Quick timer modal visibility
+  const [showQuickTimer, setShowQuickTimer] = useState(false)
+  // Quick timer state (lifted so timer continues when modal closed)
+  const [quickTimerState, setQuickTimerState] = useState<QuickTimerState>(
+    activeWorkout?.timerState ?? {
+      timeLeft: 90,
+      selectedPreset: 90,
+      isRunning: false,
+      hasStarted: false,
+    }
+  )
+  const [workoutStartTime] = useState(activeWorkout?.startTime ?? new Date())
+  const [workoutName, setWorkoutName] = useState(activeWorkout?.name ?? initialName)
   const [saving, setSaving] = useState(false)
   const [selectedExerciseForDetails, setSelectedExerciseForDetails] = useState<Exercise | null>(null)
   const [selectedExerciseForFormCoach, setSelectedExerciseForFormCoach] = useState<Exercise | null>(null)
   const [exerciseToSwap, setExerciseToSwap] = useState<{ workoutExerciseId: string; exercise: Exercise } | null>(null)
+  const [exerciseMenuOpen, setExerciseMenuOpen] = useState<{ exerciseId: string; exercise: Exercise; restSeconds: number; notes: string; supersetGroup: string | null } | null>(null)
+
+  // PR Detection state
+  const [exerciseBests, setExerciseBests] = useState<Map<string, ExerciseBests>>(new Map())
+  const [previousExerciseNotes, setPreviousExerciseNotes] = useState<Map<string, string>>(new Map())
+  // Previous set data: exercise_id -> { set_number -> { weight, reps, date } }
+  const [previousSetData, setPreviousSetData] = useState<Map<string, Record<number, PreviousSetData>>>(new Map())
+  const { activePR, celebrate, dismiss, CelebrationComponent } = usePRCelebration()
+  const showCelebrationToast = useCelebrationToast()
+
+  // Sync local state changes to context for persistence
+  useEffect(() => {
+    updateWorkout({
+      exercises,
+      name: workoutName,
+      startTime: workoutStartTime,
+      timerState: quickTimerState,
+      plannedWorkoutId,
+      isMinimized,
+    })
+  }, [exercises, workoutName, quickTimerState, isMinimized])
+
+  // Expand workout when component mounts (user navigated to /lifting)
+  useEffect(() => {
+    if (activeWorkout && isMinimized) {
+      expandWorkout()
+    }
+  }, [])
+
+  // Hide global navigation when workout tracker is active and NOT minimized
+  useEffect(() => {
+    if (isMinimized) {
+      document.body.classList.remove('workout-active')
+    } else {
+      document.body.classList.add('workout-active')
+    }
+    return () => {
+      document.body.classList.remove('workout-active')
+    }
+  }, [isMinimized])
+
+  // Quick timer countdown effect - runs even when modal is closed
+  useEffect(() => {
+    if (!quickTimerState.isRunning || quickTimerState.timeLeft <= 0) {
+      if (quickTimerState.timeLeft <= 0 && quickTimerState.hasStarted) {
+        playTimerSound()
+        setQuickTimerState(prev => ({ ...prev, isRunning: false }))
+      }
+      return
+    }
+
+    const timer = setInterval(() => {
+      setQuickTimerState(prev => ({ ...prev, timeLeft: prev.timeLeft - 1 }))
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [quickTimerState.isRunning, quickTimerState.timeLeft, quickTimerState.hasStarted])
+
+  // Helper to update quick timer state
+  const updateQuickTimerState = (updates: Partial<QuickTimerState>) => {
+    setQuickTimerState(prev => ({ ...prev, ...updates }))
+  }
+
+  // Format time for display
+  const formatQuickTimerTime = (s: number) => {
+    const mins = Math.floor(s / 60)
+    const secs = s % 60
+    return `${mins}:${secs.toString().padStart(2, '0')}`
+  }
+
+  // Set initial collapsed state: expand first exercise (and its superset group), collapse rest
+  useEffect(() => {
+    if (initialExercises.length === 0) return
+
+    // Find what superset group the first exercise is in (if any)
+    const firstSupersetGroup = initialExercises[0]?.superset_group
+
+    setExercises(prev => prev.map((ex, index) => {
+      // First exercise is always expanded
+      if (index === 0) return { ...ex, collapsed: false }
+
+      // If first exercise is in a superset, expand all in that group
+      if (firstSupersetGroup && ex.superset_group === firstSupersetGroup) {
+        return { ...ex, collapsed: false }
+      }
+
+      // All others collapsed
+      return { ...ex, collapsed: true }
+    }))
+  }, []) // Only run once on mount
+
+  // Fetch exercise history for PR detection, previous notes, and previous set data on mount
+  useEffect(() => {
+    const fetchExerciseHistory = async () => {
+      const exerciseIds = exercises.map(ex => ex.exercise.id).filter(Boolean)
+      if (exerciseIds.length === 0) return
+
+      const bestsMap = new Map<string, ExerciseBests>()
+      const notesMap = new Map<string, string>()
+      const setDataMap = new Map<string, Record<number, PreviousSetData>>()
+
+      // Fetch history for each unique exercise
+      const uniqueIds = Array.from(new Set(exerciseIds))
+      await Promise.all(
+        uniqueIds.map(async (exerciseId) => {
+          try {
+            const res = await fetch(`/api/exercise-history?exercise_id=${exerciseId}&limit=50`)
+            if (res.ok) {
+              const data = await res.json()
+              if (data.history) {
+                const bests = buildExerciseBests(data.history)
+                bestsMap.set(exerciseId, bests)
+
+                // Get data from the most recent session
+                const mostRecent = data.history[0]
+                if (mostRecent?.notes && mostRecent.notes.trim()) {
+                  notesMap.set(exerciseId, mostRecent.notes)
+                }
+
+                // Extract previous set data from most recent session
+                if (mostRecent?.sets) {
+                  const prevSets: Record<number, PreviousSetData> = {}
+                  mostRecent.sets
+                    .filter((s: any) => s.completed && s.actual_weight_lbs != null && s.actual_reps != null)
+                    .forEach((s: any) => {
+                      prevSets[s.set_number] = {
+                        weight: s.actual_weight_lbs,
+                        reps: s.actual_reps,
+                        date: mostRecent.workout_date,
+                      }
+                    })
+                  if (Object.keys(prevSets).length > 0) {
+                    setDataMap.set(exerciseId, prevSets)
+                  }
+                }
+              }
+            }
+          } catch (err) {
+            console.debug('Failed to fetch exercise history:', err)
+          }
+        })
+      )
+
+      setExerciseBests(bestsMap)
+      setPreviousExerciseNotes(notesMap)
+      setPreviousSetData(setDataMap)
+    }
+
+    if (exercises.length > 0) {
+      fetchExerciseHistory()
+    }
+  }, []) // Run once on mount
 
   // Swap an exercise for a new one, keeping the sets
   const swapExercise = (newExercise: Exercise) => {
@@ -2127,12 +2859,16 @@ export function LiftingTracker({
   }
 
   const handleSetComplete = (exerciseId: string, setId: string) => {
+    const exercise = exercises.find(ex => ex.id === exerciseId)
+    const set = exercise?.sets.find(s => s.id === setId)
+    const isCompleting = set && !set.completed
+
     setExercises(prev => prev.map(ex => {
       if (ex.id !== exerciseId) return ex
-      
+
       const updatedSets = ex.sets.map(s => {
         if (s.id !== setId) return s
-        
+
         // If completing, auto-fill actuals from targets if empty
         if (!s.completed) {
           return {
@@ -2149,10 +2885,149 @@ export function LiftingTracker({
       return { ...ex, sets: updatedSets }
     }))
 
-    // Start rest timer
-    const exercise = exercises.find(ex => ex.id === exerciseId)
-    if (exercise) {
-      setRestTimer({ show: true, seconds: exercise.rest_seconds })
+    // Check for PR when completing a set (not uncompleting)
+    if (isCompleting && exercise && set) {
+      const actualWeight = set.actual_weight ?? set.target_weight ?? 0
+      const actualReps = set.actual_reps ?? set.target_reps ?? 0
+
+      if (actualWeight > 0 && actualReps > 0) {
+        const bests = exerciseBests.get(exercise.exercise.id)
+        if (bests) {
+          const prs = detectPRs(
+            exercise.exercise.id,
+            exercise.exercise.name,
+            actualWeight,
+            actualReps,
+            bests
+          )
+
+          if (prs.length > 0) {
+            const mainPR = getMostSignificantPR(prs)
+            if (mainPR) {
+              // Show celebration modal for significant PRs (1RM or weight)
+              if (mainPR.type === 'e1rm' || mainPR.type === 'weight') {
+                celebrate(mainPR)
+              } else {
+                // Show toast for other PR types
+                showCelebrationToast(formatPRMessage(mainPR))
+              }
+
+              // Update local bests to prevent duplicate celebrations
+              setExerciseBests(prev => {
+                const updated = new Map(prev)
+                const currentBests = updated.get(exercise.exercise.id) || {
+                  maxWeight: null,
+                  maxReps: null,
+                  maxVolume: null,
+                  best1RM: null,
+                  maxRepsAtWeight: {},
+                }
+
+                const newWeight = actualWeight
+                const newReps = actualReps
+                const newVolume = newWeight * newReps
+                const { estimated1RM } = calculate1RM(newWeight, newReps)
+
+                updated.set(exercise.exercise.id, {
+                  maxWeight: Math.max(currentBests.maxWeight ?? 0, newWeight),
+                  maxReps: Math.max(currentBests.maxReps ?? 0, newReps),
+                  maxVolume: Math.max(currentBests.maxVolume ?? 0, newVolume),
+                  best1RM: Math.max(currentBests.best1RM ?? 0, estimated1RM),
+                  maxRepsAtWeight: {
+                    ...currentBests.maxRepsAtWeight,
+                    [Math.round(newWeight / 2.5) * 2.5]: Math.max(
+                      currentBests.maxRepsAtWeight[Math.round(newWeight / 2.5) * 2.5] ?? 0,
+                      newReps
+                    ),
+                  },
+                })
+
+                return updated
+              })
+            }
+          }
+        }
+      }
+    }
+
+    // Rest timer is now handled inline in ExerciseCard
+
+    // Auto-collapse current exercise and expand next when all sets complete
+    if (isCompleting) {
+      setTimeout(() => {
+        setExercises(prev => {
+          const exerciseIndex = prev.findIndex(ex => ex.id === exerciseId)
+          if (exerciseIndex === -1) return prev
+
+          const currentExercise = prev[exerciseIndex]
+          const allSetsComplete = currentExercise.sets.every(s => s.completed)
+
+          if (!allSetsComplete) return prev
+
+          // Check if this exercise is part of a superset
+          const supersetGroup = currentExercise.superset_group
+
+          if (supersetGroup) {
+            // Find all exercises in this superset group
+            const supersetExercises = prev.filter(ex => ex.superset_group === supersetGroup)
+            const allSupersetComplete = supersetExercises.every(ex =>
+              ex.sets.every(s => s.completed)
+            )
+
+            if (!allSupersetComplete) {
+              // Don't collapse yet - more exercises in superset to complete
+              return prev
+            }
+
+            // All superset exercises complete - find next exercise outside this superset
+            const lastSupersetIndex = prev.reduce((maxIdx, ex, i) =>
+              ex.superset_group === supersetGroup ? i : maxIdx, -1)
+            const nextIndex = lastSupersetIndex + 1
+
+            if (nextIndex >= prev.length) {
+              // No more exercises, collapse superset group
+              return prev.map(ex =>
+                ex.superset_group === supersetGroup ? { ...ex, collapsed: true } : ex
+              )
+            }
+
+            // Collapse superset, expand next exercise (and its superset group if any)
+            const nextExercise = prev[nextIndex]
+            const nextSupersetGroup = nextExercise.superset_group
+
+            return prev.map((ex, i) => {
+              if (ex.superset_group === supersetGroup) return { ...ex, collapsed: true }
+              if (i === nextIndex) return { ...ex, collapsed: false }
+              if (nextSupersetGroup && ex.superset_group === nextSupersetGroup) {
+                return { ...ex, collapsed: false }
+              }
+              return ex
+            })
+          }
+
+          // Not a superset - simple case
+          const nextIndex = exerciseIndex + 1
+          if (nextIndex >= prev.length) {
+            // No next exercise, just collapse current
+            return prev.map((ex, i) =>
+              i === exerciseIndex ? { ...ex, collapsed: true } : ex
+            )
+          }
+
+          // Collapse current, expand next (and its superset group if any)
+          const nextExercise = prev[nextIndex]
+          const nextSupersetGroup = nextExercise.superset_group
+
+          return prev.map((ex, i) => {
+            if (i === exerciseIndex) return { ...ex, collapsed: true }
+            if (i === nextIndex) return { ...ex, collapsed: false }
+            if (nextSupersetGroup && ex.superset_group === nextSupersetGroup) {
+              return { ...ex, collapsed: false }
+            }
+            return ex
+          })
+        })
+      }, 300) // Small delay to let the UI update first
     }
   }
 
@@ -2223,7 +3098,7 @@ export function LiftingTracker({
           name: workoutName || 'Lifting Workout',
           workout_type: 'strength',
           category: 'strength',
-          scheduled_date: new Date().toISOString().split('T')[0],
+          scheduled_date: new Date().toLocaleDateString('sv-SE'), // Local date in YYYY-MM-DD format
           status: 'completed',
           completed_at: new Date().toISOString(),
           actual_duration_minutes: elapsedMinutes,
@@ -2254,8 +3129,88 @@ export function LiftingTracker({
     }
   }
 
+  // When minimized, return null - MinimizedWorkoutBar (in layout) handles the display
+  if (isMinimized) {
+    return null
+  }
+
   return (
     <div className="pb-24">
+      {/* Top Navbar - App name left, actions right */}
+      <div className="sticky top-0 z-30 bg-black/80 backdrop-blur-xl border-b border-white/5">
+        <div className="flex items-center justify-between px-4 py-3">
+          {/* Left side - App name */}
+          <Link href="/lifting" className="text-xl font-display font-semibold tracking-tight">
+            Forge
+          </Link>
+
+          {/* Right side - Menu, Settings, AI Coach, Timer (outside to inside) */}
+          <div className="flex items-center gap-1">
+            {/* Timer button (innermost) */}
+            <button
+              onClick={() => {
+                if (quickTimerState.timeLeft <= 0 && quickTimerState.hasStarted) {
+                  setQuickTimerState(prev => ({
+                    ...prev,
+                    hasStarted: false,
+                    timeLeft: prev.selectedPreset,
+                  }))
+                } else {
+                  setShowQuickTimer(true)
+                }
+              }}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg font-mono text-sm transition-colors ${
+                quickTimerState.hasStarted
+                  ? quickTimerState.isRunning
+                    ? 'bg-emerald-500/20 text-emerald-400'
+                    : quickTimerState.timeLeft <= 0
+                      ? 'bg-amber-500/30 text-amber-400 animate-pulse'
+                      : 'bg-zinc-700/50 text-white/70'
+                  : 'hover:bg-white/5 text-white/50'
+              }`}
+              title="Rest Timer"
+            >
+              <Timer size={18} />
+              {quickTimerState.hasStarted && (
+                <span className="font-bold">
+                  {quickTimerState.timeLeft <= 0 ? 'Done!' : formatQuickTimerTime(quickTimerState.timeLeft)}
+                </span>
+              )}
+            </button>
+
+            {/* AI Coach button */}
+            <button
+              onClick={() => openAIChat()}
+              className="relative p-2 hover:bg-violet-500/20 rounded-lg transition-colors group"
+              title="AI Coach"
+            >
+              <Bot size={20} className="text-violet-400 group-hover:text-violet-300" />
+              <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-amber-400 rounded-full flex items-center justify-center">
+                <Sparkles size={8} className="text-black" />
+              </span>
+            </button>
+
+            {/* Settings */}
+            <Link
+              href="/settings"
+              className="p-2 hover:bg-white/5 rounded-lg transition-colors"
+              title="Settings"
+            >
+              <Settings size={20} className="text-white/50 hover:text-white/70" />
+            </Link>
+
+            {/* Minimize button (outermost) - collapses workout to floating bar */}
+            <button
+              onClick={() => minimizeWorkout()}
+              className="p-2 hover:bg-white/5 rounded-lg transition-colors"
+              title="Minimize workout"
+            >
+              <ChevronDown size={20} className="text-white/50 hover:text-white/70" />
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Header */}
       <div className="p-4 lg:p-6 border-b border-white/5">
         <input
@@ -2293,12 +3248,21 @@ export function LiftingTracker({
             key={ex.id}
             workoutExercise={ex}
             index={i}
+            previousNotes={previousExerciseNotes.get(ex.exercise.id)}
+            previousSetData={previousSetData.get(ex.exercise.id)}
             onUpdate={(updates) => updateExercise(ex.id, updates)}
             onRemove={() => removeExercise(ex.id)}
             onSetComplete={(setId) => handleSetComplete(ex.id, setId)}
             onShowDetails={() => setSelectedExerciseForDetails(ex.exercise)}
             onFormCoach={() => setSelectedExerciseForFormCoach(ex.exercise)}
             onSwapExercise={() => setExerciseToSwap({ workoutExerciseId: ex.id, exercise: ex.exercise })}
+            onOpenMenu={() => setExerciseMenuOpen({
+              exerciseId: ex.id,
+              exercise: ex.exercise,
+              restSeconds: ex.rest_seconds,
+              notes: ex.notes,
+              supersetGroup: ex.superset_group,
+            })}
           />
         ))}
 
@@ -2340,20 +3304,12 @@ export function LiftingTracker({
         </div>
       </div>
 
-      {/* Rest Timer */}
-      {restTimer?.show && (
-        <RestTimer
-          seconds={restTimer.seconds}
-          onComplete={() => setRestTimer(null)}
-          onSkip={() => setRestTimer(null)}
-        />
-      )}
-
       {/* Exercise Search Modal */}
       {showExerciseSearch && (
         <ExerciseSearchModal
           onSelect={addExercise}
           onClose={() => setShowExerciseSearch(false)}
+          keepOpenOnAdd={true}
         />
       )}
 
@@ -2382,6 +3338,67 @@ export function LiftingTracker({
           subtitle="Select an alternative exercise"
         />
       )}
+
+      {/* PR Celebration */}
+      {CelebrationComponent}
+
+      {/* Quick Timer Modal */}
+      <QuickTimerModal
+        isOpen={showQuickTimer}
+        onClose={() => setShowQuickTimer(false)}
+        timerState={quickTimerState}
+        onTimerStateChange={updateQuickTimerState}
+      />
+
+      {/* Exercise Menu - rendered at top level to avoid backdrop-filter containing block issue */}
+      {exerciseMenuOpen && (
+        <ExerciseMenu
+          isOpen={true}
+          onClose={() => setExerciseMenuOpen(null)}
+          exercise={exerciseMenuOpen.exercise}
+          restSeconds={exerciseMenuOpen.restSeconds}
+          notes={exerciseMenuOpen.notes}
+          supersetGroup={exerciseMenuOpen.supersetGroup}
+          onShowDetails={() => {
+            setSelectedExerciseForDetails(exerciseMenuOpen.exercise)
+            setExerciseMenuOpen(null)
+          }}
+          onFormCoach={() => {
+            setSelectedExerciseForFormCoach(exerciseMenuOpen.exercise)
+            setExerciseMenuOpen(null)
+          }}
+          onSwapExercise={() => {
+            setExerciseToSwap({ workoutExerciseId: exerciseMenuOpen.exerciseId, exercise: exerciseMenuOpen.exercise })
+            setExerciseMenuOpen(null)
+          }}
+          onUpdateRest={(seconds) => {
+            updateExercise(exerciseMenuOpen.exerciseId, { rest_seconds: seconds })
+            setExerciseMenuOpen(prev => prev ? { ...prev, restSeconds: seconds } : null)
+          }}
+          onAddNote={() => {
+            // Expand the exercise and show notes input
+            updateExercise(exerciseMenuOpen.exerciseId, { collapsed: false, showNotesInput: true })
+            setExerciseMenuOpen(null)
+          }}
+          onSetSuperset={(group) => {
+            // Check if any exercise in this superset group is expanded
+            const shouldExpand = group && exercises.some(
+              ex => ex.superset_group === group && !ex.collapsed
+            )
+            updateExercise(exerciseMenuOpen.exerciseId, {
+              superset_group: group,
+              // Auto-expand if other exercises in this superset are expanded
+              ...(shouldExpand ? { collapsed: false } : {})
+            })
+            setExerciseMenuOpen(prev => prev ? { ...prev, supersetGroup: group } : null)
+          }}
+          onRemove={() => {
+            removeExercise(exerciseMenuOpen.exerciseId)
+            setExerciseMenuOpen(null)
+          }}
+        />
+      )}
+
     </div>
   )
 }

@@ -8,7 +8,7 @@ export async function GET(request: Request) {
   const state = searchParams.get('state') // User ID passed from initiation
   const error = searchParams.get('error')
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://personalfitnessapp.vercel.app'
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://forge.app'
 
   // Handle user denial
   if (error) {

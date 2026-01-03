@@ -587,7 +587,7 @@ export function WorkoutTemplateLibrary({ onStartWorkout }: WorkoutTemplateLibrar
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-display font-semibold">Workout Templates</h1>
-          <p className="text-white/50">{templates.length} templates</p>
+          <p className="text-white/50">{templates.length} {templates.length === 1 ? 'template' : 'templates'}</p>
         </div>
         <button className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black font-medium rounded-lg transition-colors flex items-center gap-2">
           <Plus size={18} />

@@ -111,6 +111,16 @@ function normalizeEquipment(equipment: string | undefined | null): string {
 }
 
 /**
+ * Format equipment name for display (replaces underscores with spaces and capitalizes)
+ */
+export function formatEquipmentName(equipment: string | undefined | null): string {
+  if (!equipment) return ''
+  return equipment
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase())
+}
+
+/**
  * Get the appropriate icon for an equipment type
  */
 export function getEquipmentIcon(equipment: string | undefined | null): LucideIcon {

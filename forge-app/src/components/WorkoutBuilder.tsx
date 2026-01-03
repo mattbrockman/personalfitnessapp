@@ -19,7 +19,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { useDebounce } from '@/hooks/useDebounce'
-import { EquipmentIcon } from '@/lib/equipment-icons'
+import { EquipmentIcon, formatEquipmentName } from '@/lib/equipment-icons'
 
 // Types
 interface Exercise {
@@ -56,9 +56,11 @@ interface WorkoutBuilderProps {
 function ExerciseSearchModal({
   onSelect,
   onClose,
+  keepOpenOnAdd = false,
 }: {
   onSelect: (exercise: Exercise) => void
   onClose: () => void
+  keepOpenOnAdd?: boolean
 }) {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<string | null>(null)
@@ -68,6 +70,8 @@ function ExerciseSearchModal({
   const [isSearching, setIsSearching] = useState(false)
   const [showCreateExercise, setShowCreateExercise] = useState(false)
   const [detailExercise, setDetailExercise] = useState<Exercise | null>(null)
+  // Track recently added exercises for "Added ✓" feedback
+  const [recentlyAdded, setRecentlyAdded] = useState<Set<string>>(new Set())
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Debounce search to prevent flickering
@@ -188,18 +192,33 @@ function ExerciseSearchModal({
                     className="flex-1 min-w-0 text-left hover:text-amber-400 transition-colors"
                   >
                     <p className="font-medium">{exercise.name}</p>
-                    <p className="text-sm text-white/50 capitalize">{exercise.primary_muscle?.replace('_', ' ')} • {exercise.equipment}</p>
+                    <p className="text-sm text-white/50 capitalize">{exercise.primary_muscle?.replace('_', ' ')} • {formatEquipmentName(exercise.equipment)}</p>
                   </button>
 
                   {/* Add button */}
                   <button
                     onClick={() => {
                       onSelect(exercise)
-                      onClose()
+                      if (keepOpenOnAdd) {
+                        setRecentlyAdded(prev => new Set(prev).add(exercise.id))
+                        setTimeout(() => {
+                          setRecentlyAdded(prev => {
+                            const next = new Set(prev)
+                            next.delete(exercise.id)
+                            return next
+                          })
+                        }, 2000)
+                      } else {
+                        onClose()
+                      }
                     }}
-                    className="px-3 py-1.5 bg-amber-500/20 text-amber-400 rounded-lg hover:bg-amber-500/30 transition-colors text-sm font-medium shrink-0"
+                    className={`px-3 py-1.5 rounded-lg transition-colors text-sm font-medium shrink-0 ${
+                      recentlyAdded.has(exercise.id)
+                        ? 'bg-emerald-500/20 text-emerald-400'
+                        : 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30'
+                    }`}
                   >
-                    Add
+                    {recentlyAdded.has(exercise.id) ? 'Added ✓' : 'Add'}
                   </button>
                 </div>
               ))}
@@ -237,8 +256,20 @@ function ExerciseSearchModal({
             onClose={() => setDetailExercise(null)}
             onAdd={() => {
               onSelect(detailExercise)
-              setDetailExercise(null)
-              onClose()
+              if (keepOpenOnAdd) {
+                setRecentlyAdded(prev => new Set(prev).add(detailExercise.id))
+                setTimeout(() => {
+                  setRecentlyAdded(prev => {
+                    const next = new Set(prev)
+                    next.delete(detailExercise.id)
+                    return next
+                  })
+                }, 2000)
+                setDetailExercise(null)
+              } else {
+                setDetailExercise(null)
+                onClose()
+              }
             }}
           />
         )}
@@ -251,7 +282,18 @@ function ExerciseSearchModal({
             onCreated={(exercise) => {
               onSelect(exercise)
               setShowCreateExercise(false)
-              onClose()
+              if (keepOpenOnAdd) {
+                setRecentlyAdded(prev => new Set(prev).add(exercise.id))
+                setTimeout(() => {
+                  setRecentlyAdded(prev => {
+                    const next = new Set(prev)
+                    next.delete(exercise.id)
+                    return next
+                  })
+                }, 2000)
+              } else {
+                onClose()
+              }
             }}
           />
         )}
@@ -285,7 +327,7 @@ function ExerciseDetailPopup({
             <div>
               <h3 className="text-lg font-semibold">{exercise.name}</h3>
               <p className="text-sm text-white/50 capitalize">
-                {exercise.primary_muscle?.replace('_', ' ')} • {exercise.equipment}
+                {exercise.primary_muscle?.replace('_', ' ')} • {formatEquipmentName(exercise.equipment)}
               </p>
             </div>
           </div>
@@ -680,21 +722,44 @@ function SaveTemplateModal({
 // Exercise Card in Builder
 function BuilderExerciseCard({
   exercise,
+  index,
   onUpdate,
   onRemove,
   onShowDetails,
+  onDragStart,
+  onDragOver,
+  onDragEnd,
+  onDrop,
+  isDragging,
+  isDragOver,
 }: {
   exercise: BuilderExercise
+  index: number
   onUpdate: (updates: Partial<BuilderExercise>) => void
   onRemove: () => void
   onShowDetails: () => void
+  onDragStart: () => void
+  onDragOver: (e: React.DragEvent) => void
+  onDragEnd: () => void
+  onDrop: () => void
+  isDragging: boolean
+  isDragOver: boolean
 }) {
   return (
-    <div className="glass rounded-xl p-4">
+    <div
+      draggable
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDragEnd={onDragEnd}
+      onDrop={onDrop}
+      className={`glass rounded-xl p-4 transition-all ${
+        isDragging ? 'opacity-50 scale-95' : ''
+      } ${isDragOver ? 'ring-2 ring-amber-500/50 bg-amber-500/10' : ''}`}
+    >
       <div className="flex items-start gap-3">
-        <button className="text-white/30 hover:text-white cursor-grab mt-1">
+        <div className="text-white/30 hover:text-white cursor-grab active:cursor-grabbing mt-1">
           <GripVertical size={18} />
-        </button>
+        </div>
 
         <button
           onClick={onShowDetails}
@@ -712,7 +777,7 @@ function BuilderExerciseCard({
             {exercise.exercise.name}
           </button>
           <p className="text-sm text-white/50 capitalize">
-            {exercise.exercise.primary_muscle?.replace('_', ' ')} • {exercise.exercise.equipment}
+            {exercise.exercise.primary_muscle?.replace('_', ' ')} • {formatEquipmentName(exercise.exercise.equipment)}
           </p>
 
           {/* Set configuration */}
@@ -810,6 +875,21 @@ export function WorkoutBuilder({
   const [showSaveTemplate, setShowSaveTemplate] = useState(false)
   const [detailExercise, setDetailExercise] = useState<Exercise | null>(null)
 
+  // Drag and drop state
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+
+  // Reorder exercises via drag and drop
+  const reorderExercises = (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return
+    setExercises(prev => {
+      const newExercises = [...prev]
+      const [removed] = newExercises.splice(fromIndex, 1)
+      newExercises.splice(toIndex, 0, removed)
+      return newExercises
+    })
+  }
+
   const addExercise = (exercise: Exercise) => {
     const isTimed = exercise.is_timed || false
     const newExercise: BuilderExercise = {
@@ -898,13 +978,35 @@ export function WorkoutBuilder({
 
       {/* Exercise List */}
       <div className="p-4 lg:p-6 space-y-3">
-        {exercises.map((exercise) => (
+        {exercises.map((exercise, index) => (
           <BuilderExerciseCard
             key={exercise.id}
             exercise={exercise}
+            index={index}
             onUpdate={(updates) => updateExercise(exercise.id, updates)}
             onRemove={() => removeExercise(exercise.id)}
             onShowDetails={() => setDetailExercise(exercise.exercise)}
+            onDragStart={() => setDraggedIndex(index)}
+            onDragOver={(e) => {
+              e.preventDefault()
+              setDragOverIndex(index)
+            }}
+            onDragEnd={() => {
+              if (draggedIndex !== null && dragOverIndex !== null) {
+                reorderExercises(draggedIndex, dragOverIndex)
+              }
+              setDraggedIndex(null)
+              setDragOverIndex(null)
+            }}
+            onDrop={() => {
+              if (draggedIndex !== null) {
+                reorderExercises(draggedIndex, index)
+              }
+              setDraggedIndex(null)
+              setDragOverIndex(null)
+            }}
+            isDragging={draggedIndex === index}
+            isDragOver={dragOverIndex === index && draggedIndex !== index}
           />
         ))}
 
@@ -966,6 +1068,7 @@ export function WorkoutBuilder({
         <ExerciseSearchModal
           onSelect={addExercise}
           onClose={() => setShowExerciseSearch(false)}
+          keepOpenOnAdd={true}
         />
       )}
 
@@ -1000,7 +1103,7 @@ export function WorkoutBuilder({
                 <div>
                   <h3 className="text-lg font-semibold">{detailExercise.name}</h3>
                   <p className="text-sm text-white/50 capitalize">
-                    {detailExercise.primary_muscle?.replace('_', ' ')} • {detailExercise.equipment}
+                    {detailExercise.primary_muscle?.replace('_', ' ')} • {formatEquipmentName(detailExercise.equipment)}
                   </p>
                 </div>
               </div>
