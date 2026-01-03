@@ -1,17 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { format } from 'date-fns'
 import {
   X,
-  Bike,
-  Footprints,
-  Dumbbell,
-  Activity,
   Clock,
   Calendar,
   Loader2,
+  ChevronDown,
+  Sparkles,
 } from 'lucide-react'
+import { WORKOUT_TYPES, detectWorkoutTypeFromName, type WorkoutType } from '@/lib/strava'
 
 interface CreateWorkoutModalProps {
   selectedDate: Date
@@ -19,36 +18,72 @@ interface CreateWorkoutModalProps {
   onCreated: () => void
 }
 
-const categories = [
-  { value: 'cardio', label: 'Cardio', color: 'bg-sky-500' },
-  { value: 'strength', label: 'Strength', color: 'bg-violet-500' },
-  { value: 'other', label: 'Other', color: 'bg-emerald-500' },
-] as const
-
-const workoutTypes = [
-  { value: 'bike', label: 'Bike', icon: Bike, category: 'cardio' },
-  { value: 'run', label: 'Run', icon: Footprints, category: 'cardio' },
-  { value: 'upper', label: 'Upper', icon: Dumbbell, category: 'strength' },
-  { value: 'lower', label: 'Lower', icon: Dumbbell, category: 'strength' },
-  { value: 'full_body', label: 'Full Body', icon: Dumbbell, category: 'strength' },
-  { value: 'soccer', label: 'Soccer', icon: Activity, category: 'other' },
-  { value: 'tennis', label: 'Tennis', icon: Activity, category: 'other' },
-  { value: 'skiing', label: 'Skiing', icon: Activity, category: 'other' },
-  { value: 'other', label: 'Other', icon: Activity, category: 'other' },
-] as const
+// Group workout types by category for the dropdown
+const workoutTypeGroups = {
+  cardio: ['bike', 'run', 'swim', 'row', 'elliptical', 'stairclimber', 'kayak', 'canoe', 'paddle'],
+  strength: ['strength', 'crossfit', 'hiit'],
+  other: [
+    'ski', 'nordic_ski', 'snowboard', 'snowshoe', 'ice_skate',
+    'tennis', 'pickleball', 'badminton', 'squash', 'table_tennis', 'racquetball',
+    'soccer', 'basketball', 'football', 'hockey', 'volleyball',
+    'walk', 'hike', 'rock_climb', 'golf', 'surf',
+    'yoga', 'pilates', 'class', 'other'
+  ],
+} as const
 
 export function CreateWorkoutModal({ selectedDate, onClose, onCreated }: CreateWorkoutModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showTypeDropdown, setShowTypeDropdown] = useState(false)
+  const [detectedType, setDetectedType] = useState<WorkoutType | null>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
   const [formData, setFormData] = useState({
     name: '',
     category: 'cardio' as 'cardio' | 'strength' | 'other',
-    workout_type: 'bike',
+    workout_type: 'bike' as WorkoutType,
     scheduled_date: format(selectedDate, 'yyyy-MM-dd'),
     scheduled_time: '', // Empty = all day event
     planned_duration_minutes: 60,
     notes: '',
   })
+
+  // Smart detect workout type from name
+  useEffect(() => {
+    if (formData.name.length > 2) {
+      const detected = detectWorkoutTypeFromName(formData.name)
+      if (detected.workoutType !== 'other') {
+        setDetectedType(detected.workoutType)
+      } else {
+        setDetectedType(null)
+      }
+    } else {
+      setDetectedType(null)
+    }
+  }, [formData.name])
+
+  // Apply detected type
+  const applyDetectedType = () => {
+    if (detectedType) {
+      const typeInfo = WORKOUT_TYPES[detectedType]
+      setFormData(prev => ({
+        ...prev,
+        workout_type: detectedType,
+        category: typeInfo.category as 'cardio' | 'strength' | 'other',
+      }))
+      setDetectedType(null)
+    }
+  }
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowTypeDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -84,9 +119,10 @@ export function CreateWorkoutModal({ selectedDate, onClose, onCreated }: CreateW
     }
   }
 
-  const filteredWorkoutTypes = workoutTypes.filter(
-    t => t.category === formData.category || t.value === 'other'
-  )
+  // Get workout types for current category
+  const getTypesForCategory = (cat: 'cardio' | 'strength' | 'other') => {
+    return workoutTypeGroups[cat].filter(type => type in WORKOUT_TYPES)
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80" onClick={onClose}>
@@ -115,66 +151,99 @@ export function CreateWorkoutModal({ selectedDate, onClose, onCreated }: CreateW
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
-          {/* Name */}
+          {/* Name with smart detection */}
           <div>
             <label className="block text-sm text-white/60 mb-1.5">Workout Name</label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
-              placeholder="Morning Ride, Leg Day, etc."
-              className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-muted focus:outline-none focus:border-amber-500/50"
-            />
-          </div>
-
-          {/* Category */}
-          <div>
-            <label className="block text-sm text-white/60 mb-1.5">Category</label>
-            <div className="flex gap-2">
-              {categories.map(cat => (
+            <div className="relative">
+              <input
+                type="text"
+                value={formData.name}
+                onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Morning Ride, Ski at Cannon, Tennis, etc."
+                className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-muted focus:outline-none focus:border-amber-500/50"
+              />
+              {detectedType && detectedType !== formData.workout_type && (
                 <button
-                  key={cat.value}
                   type="button"
-                  onClick={() => setFormData(prev => ({
-                    ...prev,
-                    category: cat.value,
-                    workout_type: workoutTypes.find(t => t.category === cat.value)?.value || 'other'
-                  }))}
-                  className={`flex-1 py-2 px-3 rounded-lg border transition-all ${
-                    formData.category === cat.value
-                      ? `${cat.color} border-transparent text-white`
-                      : 'border-white/10 text-white/60 hover:bg-white/5'
-                  }`}
+                  onClick={applyDetectedType}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5 px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 rounded text-xs text-amber-400 transition-colors"
                 >
-                  {cat.label}
+                  <Sparkles size={12} />
+                  Set as {WORKOUT_TYPES[detectedType].label}?
                 </button>
-              ))}
+              )}
             </div>
           </div>
 
-          {/* Workout Type */}
-          <div>
-            <label className="block text-sm text-white/60 mb-1.5">Type</label>
-            <div className="grid grid-cols-3 gap-2">
-              {filteredWorkoutTypes.map(type => {
-                const Icon = type.icon
-                return (
+          {/* Workout Type Dropdown */}
+          <div ref={dropdownRef} className="relative">
+            <label className="block text-sm text-white/60 mb-1.5">Sport Type</label>
+            <button
+              type="button"
+              onClick={() => setShowTypeDropdown(!showTypeDropdown)}
+              className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white flex items-center justify-between hover:border-white/20 transition-colors"
+            >
+              <span>{WORKOUT_TYPES[formData.workout_type]?.label || 'Select type'}</span>
+              <ChevronDown size={16} className={`text-white/60 transition-transform ${showTypeDropdown ? 'rotate-180' : ''}`} />
+            </button>
+
+            {showTypeDropdown && (
+              <div className="absolute z-10 w-full mt-1 bg-zinc-800 border border-white/10 rounded-lg shadow-xl max-h-64 overflow-y-auto">
+                {/* Cardio types */}
+                <div className="px-2 py-1.5 text-xs font-medium text-sky-400 bg-sky-500/10 sticky top-0">Cardio</div>
+                {getTypesForCategory('cardio').map(type => (
                   <button
-                    key={type.value}
+                    key={type}
                     type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, workout_type: type.value }))}
-                    className={`py-2 px-3 rounded-lg border transition-all flex items-center justify-center gap-2 ${
-                      formData.workout_type === type.value
-                        ? 'bg-white/10 border-white/30 text-white'
-                        : 'border-white/10 text-white/60 hover:bg-white/5'
+                    onClick={() => {
+                      setFormData(prev => ({ ...prev, workout_type: type as WorkoutType, category: 'cardio' }))
+                      setShowTypeDropdown(false)
+                    }}
+                    className={`w-full px-3 py-2 text-left text-sm hover:bg-white/5 ${
+                      formData.workout_type === type ? 'bg-white/10 text-white' : 'text-white/80'
                     }`}
                   >
-                    <Icon size={16} />
-                    {type.label}
+                    {WORKOUT_TYPES[type as WorkoutType]?.label}
                   </button>
-                )
-              })}
-            </div>
+                ))}
+
+                {/* Strength types */}
+                <div className="px-2 py-1.5 text-xs font-medium text-violet-400 bg-violet-500/10 sticky top-0">Strength</div>
+                {getTypesForCategory('strength').map(type => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => {
+                      setFormData(prev => ({ ...prev, workout_type: type as WorkoutType, category: 'strength' }))
+                      setShowTypeDropdown(false)
+                    }}
+                    className={`w-full px-3 py-2 text-left text-sm hover:bg-white/5 ${
+                      formData.workout_type === type ? 'bg-white/10 text-white' : 'text-white/80'
+                    }`}
+                  >
+                    {WORKOUT_TYPES[type as WorkoutType]?.label}
+                  </button>
+                ))}
+
+                {/* Other types */}
+                <div className="px-2 py-1.5 text-xs font-medium text-emerald-400 bg-emerald-500/10 sticky top-0">Other Sports</div>
+                {getTypesForCategory('other').map(type => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => {
+                      setFormData(prev => ({ ...prev, workout_type: type as WorkoutType, category: 'other' }))
+                      setShowTypeDropdown(false)
+                    }}
+                    className={`w-full px-3 py-2 text-left text-sm hover:bg-white/5 ${
+                      formData.workout_type === type ? 'bg-white/10 text-white' : 'text-white/80'
+                    }`}
+                  >
+                    {WORKOUT_TYPES[type as WorkoutType]?.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Time */}

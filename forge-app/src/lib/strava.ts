@@ -239,6 +239,150 @@ export async function getStravaAthleteZones(accessToken: string): Promise<Strava
 /**
  * Map Strava sport_type to our workout_type
  */
+// All supported workout types with their Strava mappings
+export const WORKOUT_TYPES = {
+  // Cardio
+  bike: { category: 'cardio', label: 'Cycling', stravaType: 'Ride' },
+  run: { category: 'cardio', label: 'Running', stravaType: 'Run' },
+  swim: { category: 'cardio', label: 'Swimming', stravaType: 'Swim' },
+  row: { category: 'cardio', label: 'Rowing', stravaType: 'Rowing' },
+  elliptical: { category: 'cardio', label: 'Elliptical', stravaType: 'Elliptical' },
+  stairclimber: { category: 'cardio', label: 'Stair Climber', stravaType: 'StairStepper' },
+
+  // Strength
+  strength: { category: 'strength', label: 'Weight Training', stravaType: 'WeightTraining' },
+  crossfit: { category: 'strength', label: 'CrossFit', stravaType: 'Crossfit' },
+
+  // Winter sports
+  ski: { category: 'other', label: 'Alpine Skiing', stravaType: 'AlpineSki' },
+  nordic_ski: { category: 'other', label: 'Nordic Skiing', stravaType: 'NordicSki' },
+  snowboard: { category: 'other', label: 'Snowboarding', stravaType: 'Snowboard' },
+  snowshoe: { category: 'other', label: 'Snowshoeing', stravaType: 'Snowshoe' },
+  ice_skate: { category: 'other', label: 'Ice Skating', stravaType: 'IceSkate' },
+
+  // Racquet sports
+  tennis: { category: 'other', label: 'Tennis', stravaType: 'Tennis' },
+  pickleball: { category: 'other', label: 'Pickleball', stravaType: 'Pickleball' },
+  badminton: { category: 'other', label: 'Badminton', stravaType: 'Badminton' },
+  squash: { category: 'other', label: 'Squash', stravaType: 'Squash' },
+  table_tennis: { category: 'other', label: 'Table Tennis', stravaType: 'TableTennis' },
+  racquetball: { category: 'other', label: 'Racquetball', stravaType: 'Racquetball' },
+
+  // Team sports
+  soccer: { category: 'other', label: 'Soccer', stravaType: 'Soccer' },
+  basketball: { category: 'other', label: 'Basketball', stravaType: 'Basketball' },
+  football: { category: 'other', label: 'Football', stravaType: 'Football' },
+  hockey: { category: 'other', label: 'Hockey', stravaType: 'Hockey' },
+  volleyball: { category: 'other', label: 'Volleyball', stravaType: 'Volleyball' },
+
+  // Water sports
+  kayak: { category: 'cardio', label: 'Kayaking', stravaType: 'Kayaking' },
+  canoe: { category: 'cardio', label: 'Canoeing', stravaType: 'Canoeing' },
+  paddle: { category: 'cardio', label: 'Stand Up Paddling', stravaType: 'StandUpPaddling' },
+  surf: { category: 'other', label: 'Surfing', stravaType: 'Surfing' },
+
+  // Outdoor activities
+  walk: { category: 'other', label: 'Walking', stravaType: 'Walk' },
+  hike: { category: 'other', label: 'Hiking', stravaType: 'Hike' },
+  rock_climb: { category: 'other', label: 'Rock Climbing', stravaType: 'RockClimbing' },
+  golf: { category: 'other', label: 'Golf', stravaType: 'Golf' },
+
+  // Fitness classes
+  yoga: { category: 'other', label: 'Yoga', stravaType: 'Yoga' },
+  pilates: { category: 'other', label: 'Pilates', stravaType: 'Pilates' },
+  hiit: { category: 'strength', label: 'HIIT', stravaType: 'HIIT' },
+  class: { category: 'other', label: 'Fitness Class', stravaType: 'Workout' },
+
+  // Other
+  other: { category: 'other', label: 'Other', stravaType: 'Workout' },
+} as const
+
+export type WorkoutType = keyof typeof WORKOUT_TYPES
+
+/**
+ * Detect workout type from name using keyword matching
+ */
+export function detectWorkoutTypeFromName(name: string): {
+  category: 'cardio' | 'strength' | 'other'
+  workoutType: WorkoutType
+} {
+  const lower = name.toLowerCase()
+
+  // Keywords mapped to workout types (order matters - more specific first)
+  const keywords: Array<{ patterns: string[]; type: WorkoutType }> = [
+    // Winter sports (check before generic terms)
+    { patterns: ['snowboard'], type: 'snowboard' },
+    { patterns: ['snowshoe'], type: 'snowshoe' },
+    { patterns: ['nordic ski', 'cross country ski', 'xc ski'], type: 'nordic_ski' },
+    { patterns: ['ski', 'skiing', 'cannon', 'loon', 'killington', 'stowe', 'sugarloaf'], type: 'ski' },
+    { patterns: ['ice skat', 'skating rink'], type: 'ice_skate' },
+
+    // Racquet sports
+    { patterns: ['pickleball'], type: 'pickleball' },
+    { patterns: ['badminton'], type: 'badminton' },
+    { patterns: ['squash'], type: 'squash' },
+    { patterns: ['table tennis', 'ping pong'], type: 'table_tennis' },
+    { patterns: ['racquetball'], type: 'racquetball' },
+    { patterns: ['tennis'], type: 'tennis' },
+
+    // Team sports
+    { patterns: ['soccer', 'futbol', 'football match'], type: 'soccer' },
+    { patterns: ['basketball', 'hoops'], type: 'basketball' },
+    { patterns: ['football', 'nfl'], type: 'football' },
+    { patterns: ['hockey'], type: 'hockey' },
+    { patterns: ['volleyball'], type: 'volleyball' },
+
+    // Water sports
+    { patterns: ['kayak'], type: 'kayak' },
+    { patterns: ['canoe'], type: 'canoe' },
+    { patterns: ['paddle board', 'sup ', 'paddl'], type: 'paddle' },
+    { patterns: ['surf'], type: 'surf' },
+
+    // Cardio
+    { patterns: ['mountain bike', 'mtb'], type: 'bike' },
+    { patterns: ['bike', 'ride', 'cycling', 'spin', 'peloton', 'zwift'], type: 'bike' },
+    { patterns: ['trail run'], type: 'run' },
+    { patterns: ['run', 'jog', 'sprint', 'track'], type: 'run' },
+    { patterns: ['swim', 'pool', 'lap'], type: 'swim' },
+    { patterns: ['row', 'erg', 'concept2'], type: 'row' },
+    { patterns: ['elliptical'], type: 'elliptical' },
+    { patterns: ['stair', 'stairmaster'], type: 'stairclimber' },
+
+    // Strength
+    { patterns: ['crossfit', 'wod', 'amrap', 'emom'], type: 'crossfit' },
+    { patterns: ['hiit', 'interval', 'tabata'], type: 'hiit' },
+    { patterns: ['lift', 'weight', 'strength', 'gym', 'deadlift', 'squat', 'bench', 'press'], type: 'strength' },
+
+    // Outdoor
+    { patterns: ['hike', 'hiking', 'trail walk'], type: 'hike' },
+    { patterns: ['walk', 'walking'], type: 'walk' },
+    { patterns: ['climb', 'boulder'], type: 'rock_climb' },
+    { patterns: ['golf'], type: 'golf' },
+
+    // Fitness classes
+    { patterns: ['yoga'], type: 'yoga' },
+    { patterns: ['pilates'], type: 'pilates' },
+    { patterns: ['class', 'studio', 'orangetheory', 'f45', 'barry'], type: 'class' },
+  ]
+
+  for (const { patterns, type } of keywords) {
+    for (const pattern of patterns) {
+      if (lower.includes(pattern)) {
+        const typeInfo = WORKOUT_TYPES[type]
+        return {
+          category: typeInfo.category as 'cardio' | 'strength' | 'other',
+          workoutType: type
+        }
+      }
+    }
+  }
+
+  return { category: 'other', workoutType: 'other' }
+}
+
+/**
+ * Map Strava sport_type to our workout_type
+ */
 export function mapStravaTypeToWorkoutType(sportType: string): {
   category: 'cardio' | 'strength' | 'other'
   workoutType: string
@@ -250,32 +394,65 @@ export function mapStravaTypeToWorkoutType(sportType: string): {
     'MountainBikeRide': { category: 'cardio', workoutType: 'bike' },
     'GravelRide': { category: 'cardio', workoutType: 'bike' },
     'EBikeRide': { category: 'cardio', workoutType: 'bike' },
-    
+
     // Running
     'Run': { category: 'cardio', workoutType: 'run' },
     'VirtualRun': { category: 'cardio', workoutType: 'run' },
     'TrailRun': { category: 'cardio', workoutType: 'run' },
-    
+
     // Swimming
     'Swim': { category: 'cardio', workoutType: 'swim' },
-    
+
     // Other cardio
     'Rowing': { category: 'cardio', workoutType: 'row' },
     'Elliptical': { category: 'cardio', workoutType: 'elliptical' },
     'StairStepper': { category: 'cardio', workoutType: 'stairclimber' },
+    'Kayaking': { category: 'cardio', workoutType: 'kayak' },
+    'Canoeing': { category: 'cardio', workoutType: 'canoe' },
+    'StandUpPaddling': { category: 'cardio', workoutType: 'paddle' },
+
+    // Walking/Hiking
     'Walk': { category: 'other', workoutType: 'walk' },
     'Hike': { category: 'other', workoutType: 'hike' },
-    
+
     // Strength
     'WeightTraining': { category: 'strength', workoutType: 'strength' },
-    'Crossfit': { category: 'strength', workoutType: 'class' },
-    
-    // Other sports
-    'Tennis': { category: 'other', workoutType: 'tennis' },
-    'Soccer': { category: 'other', workoutType: 'soccer' },
+    'Crossfit': { category: 'strength', workoutType: 'crossfit' },
+    'HIIT': { category: 'strength', workoutType: 'hiit' },
+
+    // Winter sports
     'AlpineSki': { category: 'other', workoutType: 'ski' },
-    'NordicSki': { category: 'other', workoutType: 'ski' },
+    'BackcountrySki': { category: 'other', workoutType: 'ski' },
+    'NordicSki': { category: 'other', workoutType: 'nordic_ski' },
+    'Snowboard': { category: 'other', workoutType: 'snowboard' },
+    'Snowshoe': { category: 'other', workoutType: 'snowshoe' },
+    'IceSkate': { category: 'other', workoutType: 'ice_skate' },
+
+    // Racquet sports
+    'Tennis': { category: 'other', workoutType: 'tennis' },
+    'Pickleball': { category: 'other', workoutType: 'pickleball' },
+    'Badminton': { category: 'other', workoutType: 'badminton' },
+    'Squash': { category: 'other', workoutType: 'squash' },
+    'TableTennis': { category: 'other', workoutType: 'table_tennis' },
+    'Racquetball': { category: 'other', workoutType: 'racquetball' },
+
+    // Team sports
+    'Soccer': { category: 'other', workoutType: 'soccer' },
+    'Basketball': { category: 'other', workoutType: 'basketball' },
+    'Football': { category: 'other', workoutType: 'football' },
+    'Hockey': { category: 'other', workoutType: 'hockey' },
+    'Volleyball': { category: 'other', workoutType: 'volleyball' },
+
+    // Water sports
+    'Surfing': { category: 'other', workoutType: 'surf' },
+
+    // Outdoor
+    'RockClimbing': { category: 'other', workoutType: 'rock_climb' },
+    'Golf': { category: 'other', workoutType: 'golf' },
+
+    // Fitness
     'Yoga': { category: 'other', workoutType: 'yoga' },
+    'Pilates': { category: 'other', workoutType: 'pilates' },
     'Workout': { category: 'other', workoutType: 'class' },
   }
 
@@ -357,43 +534,24 @@ export async function createStravaActivity(
 
 /**
  * Map app workout types to Strava sport_type for pushing activities
- * Reverse of mapStravaTypeToWorkoutType
+ * Uses WORKOUT_TYPES constant for consistent mapping
  */
 export function mapWorkoutTypeToStravaType(
   category: string,
   workoutType: string
 ): string {
-  // Strength activities
+  // Look up in WORKOUT_TYPES first
+  const typeInfo = WORKOUT_TYPES[workoutType as WorkoutType]
+  if (typeInfo) {
+    return typeInfo.stravaType
+  }
+
+  // Fallback for legacy/unknown types
   if (category === 'strength') {
     return 'WeightTraining'
   }
 
-  // Cardio activities
-  const cardioMapping: Record<string, string> = {
-    'bike': 'Ride',
-    'run': 'Run',
-    'swim': 'Swim',
-    'row': 'Rowing',
-    'elliptical': 'Elliptical',
-    'stairclimber': 'StairStepper',
-  }
-
-  if (category === 'cardio' && cardioMapping[workoutType]) {
-    return cardioMapping[workoutType]
-  }
-
-  // Other activities
-  const otherMapping: Record<string, string> = {
-    'walk': 'Walk',
-    'hike': 'Hike',
-    'yoga': 'Yoga',
-    'ski': 'AlpineSki',
-    'tennis': 'Tennis',
-    'soccer': 'Soccer',
-    'class': 'Workout',
-  }
-
-  return otherMapping[workoutType] || 'Workout'
+  return 'Workout'
 }
 
 /**
