@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { format } from 'date-fns'
 import {
   Camera,
   Plus,
@@ -22,6 +23,7 @@ import {
   Droplet,
   Apple,
   Clock,
+  Loader2,
 } from 'lucide-react'
 
 // Types
@@ -420,8 +422,71 @@ function AddFoodModal({
     fat: '',
     servings: '1',
   })
+  const [searchResults, setSearchResults] = useState<FoodItem[]>([])
+  const [isSearching, setIsSearching] = useState(false)
+  const [searchError, setSearchError] = useState<string | null>(null)
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  const filteredFavorites = FAVORITE_FOODS.filter(f => 
+  // Debounced search effect
+  useEffect(() => {
+    if (tab !== 'search' || search.length < 2) {
+      setSearchResults([])
+      setSearchError(null)
+      return
+    }
+
+    // Clear previous timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current)
+    }
+
+    // Debounce search by 300ms
+    searchTimeoutRef.current = setTimeout(async () => {
+      setIsSearching(true)
+      setSearchError(null)
+
+      try {
+        const response = await fetch(`/api/nutrition/search?q=${encodeURIComponent(search)}`)
+
+        if (!response.ok) {
+          const data = await response.json()
+          throw new Error(data.error || 'Search failed')
+        }
+
+        const data = await response.json()
+
+        // Transform to FoodItem format
+        const foods: FoodItem[] = data.results.map((r: any) => ({
+          id: r.id,
+          name: r.name,
+          brand: r.brand,
+          servings: 1,
+          serving_unit: r.serving_size,
+          calories: r.calories,
+          protein_g: r.protein_g,
+          carbs_g: r.carbs_g,
+          fat_g: r.fat_g,
+          fiber_g: r.fiber_g,
+          source: 'database' as const,
+        }))
+
+        setSearchResults(foods)
+      } catch (err: any) {
+        console.error('Search error:', err)
+        setSearchError(err.message || 'Failed to search. Please try again.')
+      } finally {
+        setIsSearching(false)
+      }
+    }, 300)
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current)
+      }
+    }
+  }, [search, tab])
+
+  const filteredFavorites = FAVORITE_FOODS.filter(f =>
     f.name.toLowerCase().includes(search.toLowerCase())
   )
 
@@ -515,9 +580,54 @@ function AddFoodModal({
           )}
 
           {tab === 'search' && (
-            <div className="text-center py-8 text-secondary">
-              <Search size={32} className="mx-auto mb-2" />
-              <p>Food database search coming soon</p>
+            <div className="space-y-2">
+              {search.length < 2 && (
+                <p className="text-center text-secondary py-8 text-sm">
+                  Type at least 2 characters to search the USDA food database
+                </p>
+              )}
+
+              {isSearching && (
+                <div className="text-center py-8">
+                  <Loader2 className="w-8 h-8 mx-auto animate-spin text-amber-500" />
+                  <p className="text-sm text-tertiary mt-2">Searching...</p>
+                </div>
+              )}
+
+              {searchError && (
+                <p className="text-center text-red-400 py-4 text-sm">{searchError}</p>
+              )}
+
+              {!isSearching && search.length >= 2 && searchResults.length === 0 && !searchError && (
+                <p className="text-center text-secondary py-8 text-sm">
+                  No foods found for &quot;{search}&quot;
+                </p>
+              )}
+
+              {searchResults.map(food => (
+                <button
+                  key={food.id}
+                  onClick={() => {
+                    onAdd({ ...food, id: `food-${Date.now()}` })
+                    onClose()
+                  }}
+                  className="w-full p-3 bg-white/5 hover:bg-white/10 rounded-lg flex items-center gap-3 text-left transition-colors"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center flex-shrink-0">
+                    <Search size={18} className="text-blue-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">{food.name}</p>
+                    {food.brand && (
+                      <p className="text-xs text-tertiary truncate">{food.brand}</p>
+                    )}
+                    <p className="text-sm text-tertiary">
+                      {food.calories} cal • {food.protein_g}g P • {food.carbs_g}g C • {food.fat_g}g F
+                    </p>
+                  </div>
+                  <Plus size={18} className="text-secondary flex-shrink-0" />
+                </button>
+              ))}
             </div>
           )}
 
@@ -690,7 +800,7 @@ function MealCard({
               <Camera size={16} /> Photo
             </button>
             <button
-              onClick={() => onAddFood}
+              onClick={onAddFood}
               className="flex-1 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm flex items-center justify-center gap-2 transition-colors"
             >
               <Plus size={16} /> Add Food
@@ -700,6 +810,23 @@ function MealCard({
       )}
     </div>
   )
+}
+
+// Helper function to transform API food items to component format
+function transformApiFoods(apiFoods: any[]): FoodItem[] {
+  return (apiFoods || []).map(f => ({
+    id: f.id,
+    name: f.food_name,
+    brand: f.brand,
+    servings: 1,
+    serving_unit: f.serving_size || 'serving',
+    calories: f.calories || 0,
+    protein_g: f.protein_g || 0,
+    carbs_g: f.carbs_g || 0,
+    fat_g: f.fat_g || 0,
+    fiber_g: f.fiber_g,
+    source: f.source || 'manual',
+  }))
 }
 
 // Main Nutrition Tracker
@@ -713,15 +840,69 @@ export function NutritionTracker() {
   const [showAddFood, setShowAddFood] = useState<string | null>(null)
   const [showPhotoCapture, setShowPhotoCapture] = useState<string | null>(null)
   const [waterOz, setWaterOz] = useState(0)
-
-  // Targets (would come from user settings)
-  const targets: NutritionTargets = {
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [targets, setTargets] = useState<NutritionTargets>({
     calories: 2400,
     protein_g: 180,
     carbs_g: 250,
     fat_g: 80,
     fiber_g: 30,
-  }
+  })
+
+  // Load nutrition data on mount
+  useEffect(() => {
+    const loadNutritionData = async () => {
+      setIsLoading(true)
+      setError(null)
+
+      try {
+        const today = format(new Date(), 'yyyy-MM-dd')
+
+        // Fetch today's nutrition log and targets in parallel
+        const [nutritionResponse, targetsResponse] = await Promise.all([
+          fetch(`/api/nutrition/log?date=${today}`),
+          fetch('/api/nutrition/targets'),
+        ])
+
+        if (!nutritionResponse.ok) {
+          throw new Error('Failed to load nutrition data')
+        }
+
+        const nutritionData = await nutritionResponse.json()
+
+        // Transform API response to component state format
+        const loadedMeals: Meal[] = [
+          { id: 'breakfast', type: 'breakfast', foods: transformApiFoods(nutritionData.meals?.breakfast) },
+          { id: 'lunch', type: 'lunch', foods: transformApiFoods(nutritionData.meals?.lunch) },
+          { id: 'dinner', type: 'dinner', foods: transformApiFoods(nutritionData.meals?.dinner) },
+          { id: 'snack', type: 'snack', foods: transformApiFoods(nutritionData.meals?.snack) },
+        ]
+
+        setMeals(loadedMeals)
+        setWaterOz(nutritionData.water_oz || 0)
+
+        // Load targets from profile
+        if (targetsResponse.ok) {
+          const targetsData = await targetsResponse.json()
+          setTargets({
+            calories: targetsData.calorie_target || 2400,
+            protein_g: targetsData.protein_target_g || 180,
+            carbs_g: targetsData.carb_target_g || 250,
+            fat_g: targetsData.fat_target_g || 80,
+            fiber_g: 30,
+          })
+        }
+      } catch (err) {
+        console.error('Failed to load nutrition data:', err)
+        setError('Failed to load nutrition data')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadNutritionData()
+  }, [])
 
   // Calculate totals
   const totals = meals.reduce((acc, meal) => {
@@ -735,21 +916,104 @@ export function NutritionTracker() {
     return acc
   }, { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 })
 
-  const addFoodToMeal = (mealId: string, food: FoodItem) => {
-    setMeals(prev => prev.map(meal => 
-      meal.id === mealId 
+  const addFoodToMeal = async (mealId: string, food: FoodItem) => {
+    // Optimistic update
+    const tempId = food.id
+    setMeals(prev => prev.map(meal =>
+      meal.id === mealId
         ? { ...meal, foods: [...meal.foods, food] }
         : meal
     ))
+
+    try {
+      const response = await fetch('/api/nutrition/log', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          meal_type: mealId,
+          foods: [{
+            food_name: food.name,
+            serving_size: `${food.servings} ${food.serving_unit}`,
+            calories: Math.round(food.calories * food.servings),
+            protein_g: Math.round(food.protein_g * food.servings * 10) / 10,
+            carbs_g: Math.round(food.carbs_g * food.servings * 10) / 10,
+            fat_g: Math.round(food.fat_g * food.servings * 10) / 10,
+            fiber_g: food.fiber_g ? Math.round(food.fiber_g * food.servings * 10) / 10 : null,
+            source: food.source,
+          }]
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to save food')
+      }
+
+      const data = await response.json()
+
+      // Update with server-generated ID
+      if (data.foods?.[0]?.id) {
+        setMeals(prev => prev.map(meal =>
+          meal.id === mealId
+            ? {
+                ...meal,
+                foods: meal.foods.map(f =>
+                  f.id === tempId ? { ...f, id: data.foods[0].id } : f
+                )
+              }
+            : meal
+        ))
+      }
+    } catch (err) {
+      console.error('Failed to save food:', err)
+      // Rollback on error
+      setMeals(prev => prev.map(meal =>
+        meal.id === mealId
+          ? { ...meal, foods: meal.foods.filter(f => f.id !== tempId) }
+          : meal
+      ))
+    }
   }
 
-  const removeFoodFromMeal = (mealId: string, foodId: string) => {
-    setMeals(prev => prev.map(meal => 
-      meal.id === mealId 
+  const removeFoodFromMeal = async (mealId: string, foodId: string) => {
+    // Store for potential rollback
+    const originalMeals = meals
+
+    // Optimistic update
+    setMeals(prev => prev.map(meal =>
+      meal.id === mealId
         ? { ...meal, foods: meal.foods.filter(f => f.id !== foodId) }
         : meal
     ))
+
+    try {
+      const response = await fetch(`/api/nutrition/log?food_id=${foodId}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to delete food')
+      }
+    } catch (err) {
+      console.error('Failed to delete food:', err)
+      // Rollback on error
+      setMeals(originalMeals)
+    }
   }
+
+  // Update water intake with debounce
+  const updateWater = useCallback(async (newWaterOz: number) => {
+    setWaterOz(newWaterOz)
+
+    try {
+      await fetch('/api/nutrition/water', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ water_oz: newWaterOz })
+      })
+    } catch (err) {
+      console.error('Failed to update water:', err)
+    }
+  }, [])
 
   const handlePhotoCapture = (mealId: string, foods: FoodItem[]) => {
     // Add all detected foods to the meal
@@ -760,6 +1024,35 @@ export function NutritionTracker() {
   }
 
   const caloriesRemaining = targets.calories - totals.calories
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="p-4 lg:p-6 flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 mx-auto animate-spin text-amber-500 mb-4" />
+          <p className="text-tertiary">Loading nutrition data...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="p-4 lg:p-6">
+        <div className="glass rounded-xl p-6 text-center">
+          <p className="text-red-400 mb-4">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black rounded-lg font-medium"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="p-4 lg:p-6 pb-24">
@@ -814,15 +1107,15 @@ export function NutritionTracker() {
           <p className="text-sm text-tertiary">{waterOz} / 100 oz</p>
         </div>
         <div className="flex items-center gap-2">
-          <button 
-            onClick={() => setWaterOz(w => Math.max(0, w - 8))}
+          <button
+            onClick={() => updateWater(Math.max(0, waterOz - 8))}
             className="w-8 h-8 bg-white/10 hover:bg-white/20 rounded-lg flex items-center justify-center transition-colors"
           >
             -
           </button>
           <span className="w-12 text-center font-mono">{waterOz}</span>
-          <button 
-            onClick={() => setWaterOz(w => w + 8)}
+          <button
+            onClick={() => updateWater(waterOz + 8)}
             className="w-8 h-8 bg-sky-500 hover:bg-sky-400 text-white rounded-lg flex items-center justify-center transition-colors"
           >
             +

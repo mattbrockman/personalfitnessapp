@@ -5,7 +5,9 @@ import { format } from 'date-fns'
 // Type for food item to log
 interface FoodItem {
   food_name: string
-  serving_size?: string
+  brand?: string
+  serving_size?: string | number  // Can be text description or number
+  servings?: number  // Number of servings
   calories?: number
   protein_g?: number
   carbs_g?: number
@@ -13,6 +15,16 @@ interface FoodItem {
   fiber_g?: number
   source?: 'manual' | 'photo_ai' | 'barcode' | 'database' | 'favorite'
   photo_url?: string
+}
+
+// Helper to parse numeric serving size from potentially text value
+function parseServingSize(value: string | number | undefined): number {
+  if (typeof value === 'number') return value
+  if (!value) return 1
+  // Try to extract a number from the beginning of the string
+  const match = value.toString().match(/^[\d.]+/)
+  if (match) return parseFloat(match[0])
+  return 1  // Default to 1 serving
 }
 
 // POST /api/nutrition/log - Log food items to nutrition log
@@ -81,7 +93,8 @@ export async function POST(request: NextRequest) {
       nutrition_log_id: nutritionLog.id,
       meal_type,
       food_name: food.food_name,
-      serving_size: food.serving_size || null,
+      brand: food.brand || null,
+      serving_size: parseServingSize(food.serving_size),
       calories: food.calories || null,
       protein_g: food.protein_g || null,
       carbs_g: food.carbs_g || null,
