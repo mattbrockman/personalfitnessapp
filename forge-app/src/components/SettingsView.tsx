@@ -107,7 +107,7 @@ export function SettingsView({ user, profile, integrations }: SettingsViewProps)
   const [isSavingNutrition, setIsSavingNutrition] = useState(false)
 
   const supabase = createClient() as any
-  const stravaIntegration = integrations.find(i => i.service === 'strava')
+  const stravaIntegration = integrations.find(i => i.provider === 'strava')
 
   // Load calendar settings on mount
   useEffect(() => {
@@ -957,13 +957,11 @@ export function SettingsView({ user, profile, integrations }: SettingsViewProps)
               <div className="flex items-center justify-between">
                 <span className="text-xs text-secondary">Last sync:</span>
                 <span className="text-xs text-tertiary">
-                  {(stravaIntegration as any).last_webhook_at
-                    ? `Webhook: ${new Date((stravaIntegration as any).last_webhook_at).toLocaleString()}`
-                    : (stravaIntegration as any).last_poll_at
-                      ? `Poll: ${new Date((stravaIntegration as any).last_poll_at).toLocaleString()}`
-                      : stravaIntegration.last_sync_at
-                        ? new Date(stravaIntegration.last_sync_at).toLocaleDateString()
-                        : 'Never'}
+                  {stravaIntegration.last_webhook_at
+                    ? `Webhook: ${new Date(stravaIntegration.last_webhook_at).toLocaleString()}`
+                    : stravaIntegration.last_poll_at
+                      ? `Poll: ${new Date(stravaIntegration.last_poll_at).toLocaleString()}`
+                      : 'Never'}
                 </span>
               </div>
             </div>

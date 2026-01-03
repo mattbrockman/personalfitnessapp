@@ -26,6 +26,16 @@ import {
 import { Workout } from '@/types/database'
 import { calculateWorkoutTSS } from '@/lib/calculate-workout-tss'
 
+// Exercise entry type for the exercises JSON field
+interface ExerciseEntry {
+  exercise_name: string
+  sets: number
+  reps_min: number
+  reps_max: number
+  rest_seconds?: number
+  notes?: string
+}
+
 interface WorkoutDetailModalProps {
   workout: Workout
   onClose: () => void
@@ -167,7 +177,20 @@ export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate 
   )
 
   // Form state for editing
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string
+    scheduled_date: string
+    scheduled_time: string
+    planned_duration_minutes: number
+    actual_duration_minutes: number
+    actual_distance_miles: number
+    actual_avg_hr: number
+    actual_max_hr: number
+    actual_avg_power: number
+    actual_np: number
+    notes: string
+    exercises: ExerciseEntry[]
+  }>({
     name: workout.name || '',
     scheduled_date: workout.scheduled_date || '',
     scheduled_time: workout.scheduled_time || '',
@@ -179,7 +202,7 @@ export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate 
     actual_avg_power: workout.actual_avg_power || 0,
     actual_np: workout.actual_np || 0,
     notes: workout.notes || '',
-    exercises: workout.exercises ? [...workout.exercises] : [],
+    exercises: Array.isArray(workout.exercises) ? (workout.exercises as unknown as ExerciseEntry[]) : [],
   })
 
   // Form state for full completion (with feeling/RPE)
@@ -949,11 +972,11 @@ export function WorkoutDetailModal({ workout: initialWorkout, onClose, onUpdate 
           </div>
 
           {/* Exercises (for strength workouts) */}
-          {workout.exercises && workout.exercises.length > 0 && (
+          {Array.isArray(workout.exercises) && workout.exercises.length > 0 && (
             <div className="glass rounded-xl p-4">
-              <p className="text-xs text-secondary mb-3">Exercises ({workout.exercises.length})</p>
+              <p className="text-xs text-secondary mb-3">Exercises ({(workout.exercises as any[]).length})</p>
               <div className="space-y-3 max-h-[300px] overflow-y-auto">
-                {workout.exercises.map((ex: any, idx: number) => {
+                {(workout.exercises as any[]).map((ex: any, idx: number) => {
                   // Handle both formats: array of sets or simple sets count
                   const setsArray = Array.isArray(ex.sets) ? ex.sets : []
                   const completedSets = setsArray.filter((s: any) => s.completed)

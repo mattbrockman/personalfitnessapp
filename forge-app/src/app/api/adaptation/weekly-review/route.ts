@@ -2,7 +2,7 @@
 // Weekly Review API Endpoint
 // GET: Get current week analysis without creating recommendations
 // POST: Run full weekly review and generate recommendations
-// TODO: Fix Supabase type generation to include newer tables
+// Note: @ts-nocheck is needed until training-plan.ts types are updated
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'

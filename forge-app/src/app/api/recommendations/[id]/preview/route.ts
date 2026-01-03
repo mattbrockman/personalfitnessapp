@@ -2,7 +2,7 @@
 // Recommendation Preview API Endpoint
 // POST: Get a what-if analysis of accepting a recommendation
 // Shows the projected impact without actually applying the changes
-// TODO: Fix Supabase type generation to include newer tables
+// Note: @ts-nocheck is needed until training-plan.ts types are updated
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'

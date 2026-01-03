@@ -1,7 +1,7 @@
 // @ts-nocheck
 // Metrics Collector for Adaptive Periodization
 // Gathers all data needed for the adaptation engine to make recommendations
-// TODO: Fix Supabase type generation to include newer tables (training_load_history, etc.)
+// Note: @ts-nocheck is needed until training-plan.ts types are updated to match implementation
 
 import { createClient } from '@/lib/supabase/server'
 import { calculateCTL, calculateATL, calculateTSB, calculateACWR } from '@/lib/training-load'

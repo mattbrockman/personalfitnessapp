@@ -1,7 +1,7 @@
 // @ts-nocheck
 // Week Evaluator for Weekly Adaptation Analysis
 // Analyzes compliance, recovery needs, and generates week-level recommendations
-// TODO: Fix Supabase type generation to include newer tables
+// Note: @ts-nocheck is needed until training-plan.ts types are updated to match implementation
 
 import { createAdminClient } from '@/lib/supabase/server'
 import { collectMetrics, CollectedMetrics } from './metrics-collector'

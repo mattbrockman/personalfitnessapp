@@ -1,7 +1,7 @@
 // @ts-nocheck
 // Phase Evaluator for Phase-Level Adaptation Analysis
 // Analyzes progress vs projections, generates phase-level recommendations
-// TODO: Fix Supabase type generation to include newer tables
+// Note: @ts-nocheck is needed until training-plan.ts types are updated to match implementation
 
 import { createAdminClient } from '@/lib/supabase/server'
 import { collectMetrics, CollectedMetrics } from './metrics-collector'

@@ -2,7 +2,7 @@
 // Phase Review API Endpoint
 // GET: Get current phase analysis and timeline
 // POST: Run full phase review and generate recommendations
-// TODO: Fix Supabase type generation to include newer tables
+// Note: @ts-nocheck is needed until training-plan.ts types are updated
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'

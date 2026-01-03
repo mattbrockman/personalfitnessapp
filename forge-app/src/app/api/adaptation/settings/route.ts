@@ -2,7 +2,7 @@
 // Adaptation Settings API Endpoint
 // GET: Get user's adaptation settings
 // PATCH: Update user's adaptation settings
-// TODO: Fix Supabase type generation to include newer tables
+// Note: @ts-nocheck is needed until training-plan.ts types are updated
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'

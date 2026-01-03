@@ -3,7 +3,7 @@
 // GET: Get current plan mode configuration
 // PUT: Update plan mode configuration
 // POST: Convert plan between modes (rolling <-> goal)
-// TODO: Fix Supabase type generation to include newer tables
+// Note: @ts-nocheck is needed until training-plan.ts types are updated
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'

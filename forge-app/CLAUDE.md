@@ -37,7 +37,7 @@ src/
 │   │   ├── sleep/       # Sleep tracking (8sleep)
 │   │   ├── progress/    # Analytics dashboard
 │   │   └── settings/    # User profile, integrations
-│   ├── api/             # 65+ API routes
+│   ├── api/             # 70+ API routes
 │   └── login/           # Auth pages
 ├── components/          # React components
 │   └── plan/            # Training plan components
@@ -68,16 +68,48 @@ src/
 
 When a suggested workout is scheduled, it creates an actual workout in the `workouts` table and links via `scheduled_workout_id`.
 
+**Nutrition System**: The nutrition tracking has three layers:
+1. `nutrition_logs` - Daily log with totals (calories, protein, carbs, fat)
+2. `nutrition_foods` - Individual food entries linked to a log, with meal_type (breakfast/lunch/dinner/snack)
+3. `nutrition_favorites` - User's saved foods for quick logging, with usage tracking
+
+API routes (`/api/nutrition/`):
+- `log` - GET/POST/PATCH/DELETE for daily logs and food entries
+- `targets` - GET/PATCH for user's calorie/macro goals (stored in profiles)
+- `favorites` - GET/POST/DELETE for saved foods
+- `search` - USDA FoodData Central search integration
+- `barcode` - Open Food Facts barcode lookup
+- `analyze` - AI-powered photo analysis for food recognition
+
+The `NutritionTracker` component (`src/components/NutritionTracker.tsx`) provides:
+- Daily macro tracking with progress rings
+- Meal-based food logging (breakfast, lunch, dinner, snacks)
+- Food search via USDA database
+- Barcode scanning (native BarcodeDetector API + manual fallback)
+- AI photo analysis for food recognition
+- Favorites system with database persistence
+- Edit/delete food entries
+
 ### Database
 
-SQL migrations are in `sql/` directory (001-020+). Core tables:
-- `profiles` - User settings, training zones
-- `workouts` - All training sessions (cardio, strength, etc.)
+SQL migrations are in `sql/` directory and `supabase/migrations/`. Core tables:
+- `profiles` - User settings, training zones, nutrition targets, polarized training settings
+- `workouts` - All training sessions (cardio, strength, etc.) with session_rpe and training_load
 - `exercises` - Exercise library with muscle groups, equipment
 - `training_plans`, `training_phases`, `suggested_workouts` - Plan system
-- `integrations` - OAuth tokens (Strava, 8sleep)
+- `integrations` - OAuth tokens (Strava, 8sleep) with provider field
+- `nutrition_logs`, `nutrition_foods`, `nutrition_favorites` - Nutrition tracking
+- `training_load_history` - Daily CTL/ATL/TSB metrics for periodization
+- `threshold_history` - FTP/LTHR test history tracking
+- `adaptation_settings`, `plan_recommendations` - Adaptive periodization system
 
 All tables have RLS policies - users can only access their own data.
+
+**Regenerating Types**: When database schema changes, regenerate types with:
+```bash
+npx supabase gen types typescript --project-id vmrqsofuqtavzdiklpzb > src/types/database.ts
+```
+Then add helper type exports at the end of the file (Profile, Workout, etc.).
 
 ### Environment Variables
 

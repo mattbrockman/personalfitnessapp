@@ -1,7 +1,7 @@
 // @ts-nocheck
 // Workout Evaluator for Day-of Readiness Adjustments
 // Analyzes readiness data and generates workout-level recommendations
-// TODO: Fix Supabase type generation to include newer tables
+// Note: @ts-nocheck is needed until training-plan.ts types are updated to match implementation
 
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import type {
