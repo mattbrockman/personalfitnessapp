@@ -90,6 +90,15 @@ The `NutritionTracker` component (`src/components/NutritionTracker.tsx`) provide
 - Favorites system with database persistence
 - Edit/delete food entries
 
+**Lifting Tracker**: The `LiftingTracker` component (`src/components/LiftingTracker.tsx`) provides:
+- Exercise cards with sets, reps, weight, and RIR tracking
+- Inline rest timers between sets (Strong app style design)
+- Previous set data auto-fill from last workout
+- Timer shows after every set except the last set of the last exercise
+- Superset grouping support (A/B/C/D labels)
+- Exercise notes and history viewing
+- AI form coach integration
+
 ### Database
 
 SQL migrations are in `sql/` directory and `supabase/migrations/`. Core tables:

@@ -433,7 +433,7 @@ function QuickTimerModal({
   )
 }
 
-// Inline Rest Timer - shows between sets
+// Inline Rest Timer - shows between sets (Strong app style)
 function InlineRestTimer({
   seconds,
   isActive,
@@ -446,16 +446,26 @@ function InlineRestTimer({
   onAdjust: (newSeconds: number) => void
 }) {
   const [timeLeft, setTimeLeft] = useState(seconds)
-  const [isRunning, setIsRunning] = useState(isActive)
+  const [isRunning, setIsRunning] = useState(false)
+  const hasCompletedRef = useRef(false)
 
+  // Reset timer when it becomes active
   useEffect(() => {
-    setTimeLeft(seconds)
-    setIsRunning(isActive)
-  }, [seconds, isActive])
+    if (isActive && !isRunning) {
+      setTimeLeft(seconds)
+      setIsRunning(true)
+      hasCompletedRef.current = false
+    } else if (!isActive) {
+      setIsRunning(false)
+      hasCompletedRef.current = false
+    }
+  }, [isActive, seconds])
 
+  // Countdown effect
   useEffect(() => {
     if (!isRunning || timeLeft <= 0) {
-      if (timeLeft <= 0 && isRunning) {
+      if (timeLeft <= 0 && isRunning && !hasCompletedRef.current) {
+        hasCompletedRef.current = true
         playTimerSound()
         onComplete()
       }
@@ -475,53 +485,56 @@ function InlineRestTimer({
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
-  const progress = ((seconds - timeLeft) / seconds) * 100
+  // Inactive state - horizontal lines with time in center
+  if (!isActive) {
+    return (
+      <div className="flex items-center gap-3 py-2 my-0.5">
+        <div className="flex-1 h-px bg-blue-400/30" />
+        <span className="text-sm text-blue-400/70 font-medium">
+          {formatTime(seconds)}
+        </span>
+        <div className="flex-1 h-px bg-blue-400/30" />
+      </div>
+    )
+  }
 
-  if (!isActive) return null
-
+  // Active state - full width blue bar with inline controls
   return (
-    <div className="flex items-center justify-center gap-3 py-2 px-3 my-1 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-      {/* Progress bar background */}
-      <div className="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
-        <div
-          className="h-full bg-amber-500 transition-all duration-1000"
-          style={{ width: `${progress}%` }}
-        />
+    <div className="my-1">
+      <div className="w-full bg-blue-500 rounded-lg px-3 py-1.5 flex items-center">
+        {/* Spacer for balance */}
+        <div className="flex-1" />
+
+        {/* Centered controls: minus, time, plus */}
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setTimeLeft(t => Math.max(0, t - 15))}
+            className="w-7 h-7 flex items-center justify-center text-white/80 hover:text-white hover:bg-white/20 rounded-full transition-colors text-lg font-medium"
+          >
+            −
+          </button>
+          <span className="font-mono text-white text-sm font-semibold min-w-[40px] text-center">
+            {formatTime(timeLeft)}
+          </span>
+          <button
+            onClick={() => setTimeLeft(t => t + 15)}
+            className="w-7 h-7 flex items-center justify-center text-white/80 hover:text-white hover:bg-white/20 rounded-full transition-colors text-lg font-medium"
+          >
+            +
+          </button>
+        </div>
+
+        {/* Spacer + skip button right aligned */}
+        <div className="flex-1 flex justify-end">
+          <button
+            onClick={onComplete}
+            className="w-7 h-7 flex items-center justify-center text-white/70 hover:text-white hover:bg-white/20 rounded-full transition-colors"
+            title="Skip rest"
+          >
+            <SkipForward size={14} />
+          </button>
+        </div>
       </div>
-
-      {/* Timer display */}
-      <span className="font-mono text-amber-400 text-sm font-medium min-w-[48px] text-center">
-        {formatTime(timeLeft)}
-      </span>
-
-      {/* Quick adjust buttons */}
-      <div className="flex items-center gap-1">
-        <button
-          onClick={() => {
-            setTimeLeft(t => Math.max(0, t - 15))
-          }}
-          className="px-1.5 py-0.5 text-xs text-tertiary hover:text-white hover:bg-white/10 rounded transition-colors"
-        >
-          -15
-        </button>
-        <button
-          onClick={() => {
-            setTimeLeft(t => t + 30)
-          }}
-          className="px-1.5 py-0.5 text-xs text-tertiary hover:text-white hover:bg-white/10 rounded transition-colors"
-        >
-          +30
-        </button>
-      </div>
-
-      {/* Skip button */}
-      <button
-        onClick={onComplete}
-        className="p-1 text-secondary hover:text-white transition-colors"
-        title="Skip rest"
-      >
-        <SkipForward size={14} />
-      </button>
     </div>
   )
 }
@@ -1534,7 +1547,7 @@ function SetRow({
           </span>
         </div>
 
-        {/* Previous (reference) - clickable to autofill */}
+        {/* Previous (reference) - clickable to autofill, no box */}
         <div className="w-16 text-center">
           {previousSet ? (
             <button
@@ -1544,7 +1557,7 @@ function SetRow({
                   actual_reps: previousSet.reps
                 })
               }}
-              className="text-xs hover:bg-amber-500/20 px-1.5 py-0.5 rounded transition-colors group w-full"
+              className="text-xs hover:text-amber-400 transition-colors group w-full py-1"
               title="Tap to copy"
             >
               <span className="text-tertiary font-medium group-hover:text-amber-400 tabular-nums">
@@ -1567,7 +1580,7 @@ function SetRow({
             placeholder="—"
             className={`w-full rounded px-1.5 py-1.5 text-center text-sm font-medium tabular-nums focus:outline-none focus:ring-1 focus:ring-amber-500/50 ${
               set.completed
-                ? 'bg-emerald-500/20 text-emerald-300'
+                ? 'bg-transparent text-emerald-400'
                 : 'bg-white/10 text-white'
             }`}
           />
@@ -1575,8 +1588,8 @@ function SetRow({
 
         <span className="text-white/20 text-xs">×</span>
 
-        {/* Reps input */}
-        <div className="w-12">
+        {/* Reps input - same width as weight */}
+        <div className="w-14">
           <input
             type="number"
             inputMode="numeric"
@@ -1586,7 +1599,7 @@ function SetRow({
             placeholder="—"
             className={`w-full rounded px-1.5 py-1.5 text-center text-sm font-medium tabular-nums focus:outline-none focus:ring-1 focus:ring-amber-500/50 ${
               set.completed
-                ? 'bg-emerald-500/20 text-emerald-300'
+                ? 'bg-transparent text-emerald-400'
                 : 'bg-white/10 text-white'
             }`}
           />
@@ -1599,7 +1612,7 @@ function SetRow({
             onChange={e => onUpdate({ actual_rir: e.target.value || null })}
             className={`w-full rounded px-1 py-1.5 text-center text-xs font-medium appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-amber-500/50 ${
               set.completed
-                ? 'bg-emerald-500/20 text-emerald-300'
+                ? 'bg-transparent text-emerald-400'
                 : 'bg-white/10 text-white'
             }`}
           >
@@ -2353,6 +2366,7 @@ function ExerciseCard({
   index,
   previousSetData,
   previousNotes,
+  isLastExercise,
   onUpdate,
   onRemove,
   onSetComplete,
@@ -2365,6 +2379,7 @@ function ExerciseCard({
   index: number
   previousSetData?: Record<number, PreviousSetData> // set_number -> previous data
   previousNotes?: string | null // Notes from the last session
+  isLastExercise: boolean // Whether this is the last exercise in the workout
   onUpdate: (updates: Partial<WorkoutExercise>) => void
   onRemove: () => void
   onSetComplete: (setId: string) => void
@@ -2531,12 +2546,12 @@ function ExerciseCard({
           )}
 
           {/* Header row - compact */}
-          <div className="flex items-center gap-2 text-xs text-muted mb-1 px-1 uppercase tracking-wider">
+          <div className="flex items-center gap-2 text-xs text-muted mb-2 px-1 uppercase tracking-wider">
             <div className="w-8 text-center">Set</div>
             <div className="w-16 text-center">Prev</div>
             <div className="w-14 text-center">Lbs</div>
             <div className="w-3"></div>
-            <div className="w-12 text-center">Reps</div>
+            <div className="w-14 text-center">Reps</div>
             <div className="w-12 text-center">RIR</div>
             <div className="flex-1"></div>
             <div className="w-8"></div>
@@ -2553,8 +2568,9 @@ function ExerciseCard({
                 onComplete={() => handleLocalSetComplete(set.id)}
                 onDelete={() => deleteSet(set.id)}
               />
-              {/* Inline rest timer after completed set */}
-              {set.completed && index < sets.length - 1 && (
+              {/* Inline rest timer between sets - shows planned time or active countdown */}
+              {/* Show timer after each set except the last set of the last exercise */}
+              {(index < sets.length - 1 || !isLastExercise) && (
                 <InlineRestTimer
                   seconds={rest_seconds}
                   isActive={activeRestAfterSetId === set.id}
@@ -3256,6 +3272,7 @@ export function LiftingTracker({
             index={i}
             previousNotes={previousExerciseNotes.get(ex.exercise.id)}
             previousSetData={previousSetData.get(ex.exercise.id)}
+            isLastExercise={i === exercises.length - 1}
             onUpdate={(updates) => updateExercise(ex.id, updates)}
             onRemove={() => removeExercise(ex.id)}
             onSetComplete={(setId) => handleSetComplete(ex.id, setId)}
