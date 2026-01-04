@@ -876,6 +876,7 @@ export type Database = {
           created_at: string | null
           external_user_id: string | null
           id: string
+          intervals_athlete_id: string | null
           last_poll_at: string | null
           last_webhook_at: string | null
           metadata: Json | null
@@ -893,6 +894,7 @@ export type Database = {
           created_at?: string | null
           external_user_id?: string | null
           id?: string
+          intervals_athlete_id?: string | null
           last_poll_at?: string | null
           last_webhook_at?: string | null
           metadata?: Json | null
@@ -910,6 +912,7 @@ export type Database = {
           created_at?: string | null
           external_user_id?: string | null
           id?: string
+          intervals_athlete_id?: string | null
           last_poll_at?: string | null
           last_webhook_at?: string | null
           metadata?: Json | null
@@ -928,6 +931,79 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      intervals_event_links: {
+        Row: {
+          created_at: string | null
+          external_id: string
+          id: string
+          intervals_event_id: string
+          last_sync_error: string | null
+          last_sync_status: string | null
+          scheduled_date: string | null
+          suggested_workout_id: string | null
+          sync_direction: string
+          synced_at: string | null
+          updated_at: string | null
+          user_id: string
+          workout_id: string | null
+          zwo_content: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          external_id: string
+          id?: string
+          intervals_event_id: string
+          last_sync_error?: string | null
+          last_sync_status?: string | null
+          scheduled_date?: string | null
+          suggested_workout_id?: string | null
+          sync_direction: string
+          synced_at?: string | null
+          updated_at?: string | null
+          user_id: string
+          workout_id?: string | null
+          zwo_content?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          external_id?: string
+          id?: string
+          intervals_event_id?: string
+          last_sync_error?: string | null
+          last_sync_status?: string | null
+          scheduled_date?: string | null
+          suggested_workout_id?: string | null
+          sync_direction?: string
+          synced_at?: string | null
+          updated_at?: string | null
+          user_id?: string
+          workout_id?: string | null
+          zwo_content?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "intervals_event_links_suggested_workout_id_fkey"
+            columns: ["suggested_workout_id"]
+            isOneToOne: false
+            referencedRelation: "suggested_workouts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "intervals_event_links_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "intervals_event_links_workout_id_fkey"
+            columns: ["workout_id"]
+            isOneToOne: false
+            referencedRelation: "workouts"
             referencedColumns: ["id"]
           },
         ]
@@ -1609,13 +1685,16 @@ export type Database = {
           grip_strength_left_lbs: number | null
           grip_strength_right_lbs: number | null
           id: string
+          intervals_sync_enabled: boolean | null
           lthr_bpm: number | null
           max_hr: number | null
           max_hr_bpm: number | null
           polarized_training_enabled: boolean | null
           protein_target_g: number | null
+          push_notifications_enabled: boolean | null
           resting_hr: number | null
           resting_hr_baseline: number | null
+          rpe_prompt_delay_minutes: number | null
           target_high_intensity_pct: number | null
           target_low_intensity_pct: number | null
           threshold_pace_min_mile: number | null
@@ -1654,13 +1733,16 @@ export type Database = {
           grip_strength_left_lbs?: number | null
           grip_strength_right_lbs?: number | null
           id: string
+          intervals_sync_enabled?: boolean | null
           lthr_bpm?: number | null
           max_hr?: number | null
           max_hr_bpm?: number | null
           polarized_training_enabled?: boolean | null
           protein_target_g?: number | null
+          push_notifications_enabled?: boolean | null
           resting_hr?: number | null
           resting_hr_baseline?: number | null
+          rpe_prompt_delay_minutes?: number | null
           target_high_intensity_pct?: number | null
           target_low_intensity_pct?: number | null
           threshold_pace_min_mile?: number | null
@@ -1699,13 +1781,16 @@ export type Database = {
           grip_strength_left_lbs?: number | null
           grip_strength_right_lbs?: number | null
           id?: string
+          intervals_sync_enabled?: boolean | null
           lthr_bpm?: number | null
           max_hr?: number | null
           max_hr_bpm?: number | null
           polarized_training_enabled?: boolean | null
           protein_target_g?: number | null
+          push_notifications_enabled?: boolean | null
           resting_hr?: number | null
           resting_hr_baseline?: number | null
+          rpe_prompt_delay_minutes?: number | null
           target_high_intensity_pct?: number | null
           target_low_intensity_pct?: number | null
           threshold_pace_min_mile?: number | null
@@ -1720,6 +1805,47 @@ export type Database = {
           weather_zip_code?: string | null
         }
         Relationships: []
+      }
+      push_subscriptions: {
+        Row: {
+          created_at: string | null
+          endpoint: string
+          id: string
+          keys_auth: string
+          keys_p256dh: string
+          last_used_at: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          endpoint: string
+          id?: string
+          keys_auth: string
+          keys_p256dh: string
+          last_used_at?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          endpoint?: string
+          id?: string
+          keys_auth?: string
+          keys_p256dh?: string
+          last_used_at?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       readiness_assessments: {
         Row: {
@@ -1844,6 +1970,76 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: true
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rpe_prompts: {
+        Row: {
+          created_at: string | null
+          id: string
+          intervals_activity_id: string | null
+          notes: string | null
+          prompt_type: string
+          responded_at: string | null
+          rpe_value: number | null
+          scheduled_for: string
+          sent_at: string | null
+          source_platform: string | null
+          suggested_workout_id: string | null
+          user_id: string
+          workout_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          intervals_activity_id?: string | null
+          notes?: string | null
+          prompt_type?: string
+          responded_at?: string | null
+          rpe_value?: number | null
+          scheduled_for: string
+          sent_at?: string | null
+          source_platform?: string | null
+          suggested_workout_id?: string | null
+          user_id: string
+          workout_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          intervals_activity_id?: string | null
+          notes?: string | null
+          prompt_type?: string
+          responded_at?: string | null
+          rpe_value?: number | null
+          scheduled_for?: string
+          sent_at?: string | null
+          source_platform?: string | null
+          suggested_workout_id?: string | null
+          user_id?: string
+          workout_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rpe_prompts_suggested_workout_id_fkey"
+            columns: ["suggested_workout_id"]
+            isOneToOne: false
+            referencedRelation: "suggested_workouts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rpe_prompts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rpe_prompts_workout_id_fkey"
+            columns: ["workout_id"]
+            isOneToOne: true
+            referencedRelation: "workouts"
             referencedColumns: ["id"]
           },
         ]
@@ -3189,6 +3385,18 @@ export type Database = {
     }
     Functions: {
       expire_old_recommendations: { Args: never; Returns: number }
+      get_pending_rpe_prompts: {
+        Args: { p_user_id: string }
+        Returns: {
+          completed_at: string
+          prompt_id: string
+          scheduled_for: string
+          source_platform: string
+          workout_date: string
+          workout_id: string
+          workout_name: string
+        }[]
+      }
       get_weekly_compliance: {
         Args: { p_user_id: string; p_week_start?: string }
         Returns: Json
@@ -3357,22 +3565,13 @@ export const Constants = {
   },
 } as const
 
-// Helper types for convenience
+// Helper type exports for common tables
 export type Profile = Database['public']['Tables']['profiles']['Row']
-export type Integration = Database['public']['Tables']['integrations']['Row']
 export type Workout = Database['public']['Tables']['workouts']['Row']
-export type WorkoutZone = Database['public']['Tables']['workout_zones']['Row']
-export type Exercise = Database['public']['Tables']['exercises']['Row']
-export type ExerciseSet = Database['public']['Tables']['exercise_sets']['Row']
+export type Integration = Database['public']['Tables']['integrations']['Row']
+export type IntervalsEventLink = Database['public']['Tables']['intervals_event_links']['Row']
+export type PushSubscription = Database['public']['Tables']['push_subscriptions']['Row']
+export type RpePrompt = Database['public']['Tables']['rpe_prompts']['Row']
 export type TrainingPlan = Database['public']['Tables']['training_plans']['Row']
 export type TrainingPhase = Database['public']['Tables']['training_phases']['Row']
-export type SuggestedWorkout = Database['public']['Tables']['suggested_workouts']['Row']
-export type NutritionLog = Database['public']['Tables']['nutrition_logs']['Row']
-export type NutritionFood = Database['public']['Tables']['nutrition_foods']['Row']
-export type JournalEntry = Database['public']['Tables']['journal_entries']['Row']
-export type SleepLog = Database['public']['Tables']['sleep_logs']['Row']
-export type ChatMessage = Database['public']['Tables']['chat_messages']['Row']
-export type AdaptationSetting = Database['public']['Tables']['adaptation_settings']['Row']
-export type PlanRecommendation = Database['public']['Tables']['plan_recommendations']['Row']
-export type TrainingLoadHistory = Database['public']['Tables']['training_load_history']['Row']
-export type ThresholdHistory = Database['public']['Tables']['threshold_history']['Row']
+export type SuggestedWorkoutRow = Database['public']['Tables']['suggested_workouts']['Row']

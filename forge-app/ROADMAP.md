@@ -105,19 +105,25 @@ FORGE is a comprehensive health and fitness platform that unifies training, nutr
 
 ---
 
+## Known Bugs
+
+- [x] Exercise timers triggered at wrong time (lifting tracker) - FIXED: Redesigned timer with Strong-style UI
+
+---
+
 ## Phase 1: Core Polish (Weeks 1-2)
 
 ### High Priority
 - [ ] Integrate built components into actual pages
   - [ ] Create `/lifting` route with LiftingTracker
-  - [ ] Create `/nutrition` route with NutritionTracker  
+  - [x] Create `/nutrition` route with NutritionTracker
   - [ ] Create `/journal` route with Journal
   - [ ] Create `/sleep` route with SleepTracker
   - [ ] Create `/coach` route with AICoach
   - [ ] Create `/progress` route with Progress
 - [ ] Wire up components to Supabase
   - [ ] Lifting: save/load workouts
-  - [ ] Nutrition: save/load food logs
+  - [x] Nutrition: save/load food logs
   - [ ] Journal: CRUD operations
   - [ ] Sleep: save/load logs
 - [ ] Add workout templates/library
@@ -171,6 +177,14 @@ FORGE is a comprehensive health and fitness platform that unifies training, nutr
 ## Phase 3: Integrations (Weeks 5-8)
 
 ### Fitness Platforms
+- [x] Intervals.icu integration
+  - [x] API Key authentication (connect/disconnect)
+  - [x] Push workouts to calendar (Zwift/Wahoo sync via Intervals.icu)
+  - [x] Pull completed activities
+  - [x] ZWO workout file generation
+  - [ ] Activity completion detection
+  - [ ] RPE collection after workouts
+  - [ ] Push notification infrastructure (VAPID keys configured)
 - [ ] TrainerRoad integration
   - [ ] Workout sync
   - [ ] TSS import
@@ -195,7 +209,9 @@ FORGE is a comprehensive health and fitness platform that unifies training, nutr
 ### Nutrition
 - [ ] MyFitnessPal import
 - [ ] Cronometer integration
-- [ ] Barcode scanning
+- [x] USDA FoodData Central search
+- [x] Open Food Facts barcode API (backend ready, UI pending)
+- [ ] Barcode scanner UI (camera integration)
 - [ ] Restaurant menu lookup
 
 ### Lab Work
@@ -296,6 +312,26 @@ FORGE is a comprehensive health and fitness platform that unifies training, nutr
 ---
 
 ## Future Ideas (Backlog)
+
+### Lifting Enhancements
+- Sticky notes for exercises
+  - Persistent notes that show by default below exercise name, above sets/reps
+  - Useful for form cues, injury modifications, equipment preferences
+- Exercise notes log
+  - Regular notes stored in exercise history log (viewable in exercise info popup)
+  - Notification bubble icon next to exercise name if there was a note last time
+  - Clicking bubble opens notes log with most recent note highlighted
+- [x] Redesign rest timer to match Strong app's timer UX - DONE
+  - [x] Replace -15/+30 buttons with simple -/+ buttons, each adjusting by 15 seconds
+  - [x] Inactive state shows planned rest time between sets (subtle blue text)
+  - [x] Active state shows blue pill with countdown and controls
+- Set completion indicator next to exercise name
+  - Show "0/3", "1/3", etc. when exercise is collapsed (hide when expanded)
+  - Replace "Done" button with green checkmark next to completed count (e.g., ✓ 3/3)
+- Exercise name abbreviations
+  - Shorten common terms: Barbell → BB, Dumbbell → DB, Romanian Deadlift → RDL, etc.
+  - Requires database update to store abbreviations tied to exercise names
+  - Allows more of the exercise name to be visible in compact views
 
 ### Gamification
 - Streaks and achievements
@@ -408,4 +444,4 @@ FORGE is a comprehensive health and fitness platform that unifies training, nutr
 
 ---
 
-*Last updated: December 30, 2024*
+*Last updated: January 4, 2026*

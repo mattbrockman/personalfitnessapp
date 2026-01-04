@@ -88,6 +88,19 @@ export function SettingsView({ user, profile, integrations }: SettingsViewProps)
   const [isRegeneratingUrl, setIsRegeneratingUrl] = useState(false)
   const [calendarCopied, setCalendarCopied] = useState(false)
 
+  // Intervals.icu state
+  const [intervalsConnected, setIntervalsConnected] = useState(false)
+  const [intervalsLoading, setIntervalsLoading] = useState(true)
+  const [intervalsConnecting, setIntervalsConnecting] = useState(false)
+  const [intervalsDisconnecting, setIntervalsDisconnecting] = useState(false)
+  const [intervalsAthleteName, setIntervalsAthleteName] = useState<string | null>(null)
+  const [intervalsAthleteId, setIntervalsAthleteId] = useState('')
+  const [intervalsSyncEnabled, setIntervalsSyncEnabled] = useState(false)
+  const [showIntervalsForm, setShowIntervalsForm] = useState(false)
+  const [intervalsApiKey, setIntervalsApiKey] = useState('')
+  const [intervalsError, setIntervalsError] = useState<string | null>(null)
+  const [showIntervalsApiKey, setShowIntervalsApiKey] = useState(false)
+
   // Eight Sleep state
   const [eightSleepConnected, setEightSleepConnected] = useState(false)
   const [eightSleepLoading, setEightSleepLoading] = useState(true)
@@ -108,6 +121,7 @@ export function SettingsView({ user, profile, integrations }: SettingsViewProps)
 
   const supabase = createClient() as any
   const stravaIntegration = integrations.find(i => i.provider === 'strava')
+  const intervalsIntegration = integrations.find(i => i.provider === 'intervals_icu')
 
   // Load calendar settings on mount
   useEffect(() => {
@@ -127,6 +141,19 @@ export function SettingsView({ user, profile, integrations }: SettingsViewProps)
     }
     loadCalendarSettings()
   }, [])
+
+  // Load Intervals.icu status on mount
+  useEffect(() => {
+    if (intervalsIntegration) {
+      setIntervalsConnected(true)
+      const metadata = intervalsIntegration.metadata as any
+      setIntervalsAthleteName(metadata?.athlete_name || null)
+      setIntervalsSyncEnabled((profile as any)?.intervals_sync_enabled ?? false)
+    } else {
+      setIntervalsConnected(false)
+    }
+    setIntervalsLoading(false)
+  }, [intervalsIntegration, profile])
 
   // Load Eight Sleep status on mount
   useEffect(() => {
@@ -367,6 +394,83 @@ export function SettingsView({ user, profile, integrations }: SettingsViewProps)
       .eq('service', 'strava')
 
     window.location.reload()
+  }
+
+  // Intervals.icu handlers
+  const handleIntervalsConnect = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!intervalsAthleteId || !intervalsApiKey) {
+      setIntervalsError('Please enter your Athlete ID and API Key')
+      return
+    }
+
+    try {
+      setIntervalsConnecting(true)
+      setIntervalsError(null)
+
+      const response = await fetch('/api/auth/intervals/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          athlete_id: intervalsAthleteId,
+          api_key: intervalsApiKey,
+        }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Connection failed')
+      }
+
+      const data = await response.json()
+      setIntervalsConnected(true)
+      setIntervalsAthleteName(data.athlete?.name || null)
+      setIntervalsSyncEnabled(true)
+      setShowIntervalsForm(false)
+      setIntervalsAthleteId('')
+      setIntervalsApiKey('')
+    } catch (err: any) {
+      setIntervalsError(err.message || 'Failed to connect. Check your credentials.')
+    } finally {
+      setIntervalsConnecting(false)
+    }
+  }
+
+  const handleDisconnectIntervals = async () => {
+    if (!confirm('Disconnect Intervals.icu? Your synced workouts will remain.')) return
+
+    setIntervalsDisconnecting(true)
+    try {
+      const response = await fetch('/api/auth/intervals/connect', {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to disconnect')
+      }
+
+      setIntervalsConnected(false)
+      setIntervalsSyncEnabled(false)
+      setIntervalsAthleteName(null)
+    } catch (error) {
+      console.error('Failed to disconnect Intervals.icu:', error)
+    } finally {
+      setIntervalsDisconnecting(false)
+    }
+  }
+
+  const handleToggleIntervalsSync = async () => {
+    const newValue = !intervalsSyncEnabled
+    try {
+      await supabase
+        .from('profiles')
+        .update({ intervals_sync_enabled: newValue })
+        .eq('id', user.id)
+
+      setIntervalsSyncEnabled(newValue)
+    } catch (error) {
+      console.error('Failed to toggle Intervals.icu sync:', error)
+    }
   }
 
   // Eight Sleep handlers
@@ -968,6 +1072,201 @@ export function SettingsView({ user, profile, integrations }: SettingsViewProps)
           )}
         </div>
 
+        {/* Intervals.icu */}
+        <div className="mt-4 p-4 bg-white/5 rounded-lg">
+          {intervalsLoading ? (
+            <div className="flex items-center gap-2">
+              <Loader2 size={16} className="animate-spin text-secondary" />
+              <span className="text-sm text-secondary">Loading...</span>
+            </div>
+          ) : intervalsConnected ? (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                    <svg className="w-6 h-6 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="font-medium">Intervals.icu</p>
+                    <p className="text-sm text-emerald-400 flex items-center gap-1">
+                      <Check size={14} />
+                      Connected{intervalsAthleteName ? ` • ${intervalsAthleteName}` : ''}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleDisconnectIntervals}
+                  disabled={intervalsDisconnecting}
+                  className="px-3 py-1.5 text-sm text-red-400 hover:bg-red-500/10 rounded-lg transition-colors flex items-center gap-1"
+                >
+                  {intervalsDisconnecting ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <Unlink size={14} />
+                  )}
+                  Disconnect
+                </button>
+              </div>
+
+              {/* Sync toggle */}
+              <div className="pt-3 border-t border-white/10">
+                <label className="flex items-center justify-between cursor-pointer">
+                  <div>
+                    <p className="text-sm font-medium">Auto-sync workouts</p>
+                    <p className="text-xs text-secondary">Push scheduled workouts to Zwift & Wahoo</p>
+                  </div>
+                  <button
+                    onClick={handleToggleIntervalsSync}
+                    className={`relative w-10 h-5 rounded-full transition-colors ${
+                      intervalsSyncEnabled ? 'bg-blue-500' : 'bg-white/20'
+                    }`}
+                  >
+                    <div
+                      className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform ${
+                        intervalsSyncEnabled ? 'translate-x-5' : 'translate-x-0.5'
+                      }`}
+                    />
+                  </button>
+                </label>
+              </div>
+
+              {/* Platform info */}
+              <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                <p className="text-xs text-blue-300 mb-2">Connect devices in Intervals.icu settings:</p>
+                <div className="flex flex-wrap gap-2">
+                  <span className="px-2 py-1 bg-orange-500/20 text-orange-400 rounded text-xs font-medium">Zwift</span>
+                  <span className="px-2 py-1 bg-blue-600/20 text-blue-400 rounded text-xs font-medium">Wahoo</span>
+                  <span className="px-2 py-1 bg-gray-500/20 text-gray-400 rounded text-xs font-medium">Garmin</span>
+                </div>
+                <a
+                  href="https://intervals.icu/settings"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300"
+                >
+                  Open Intervals.icu Settings
+                  <ExternalLink size={12} />
+                </a>
+              </div>
+            </div>
+          ) : showIntervalsForm ? (
+            <form onSubmit={handleIntervalsConnect} className="space-y-3">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                  <svg className="w-6 h-6 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="font-medium">Intervals.icu</p>
+                  <p className="text-sm text-tertiary">Enter your API credentials</p>
+                </div>
+              </div>
+
+              {intervalsError && (
+                <div className="p-2 bg-red-500/10 rounded-lg text-sm text-red-400">
+                  {intervalsError}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm text-white/60 mb-1">Athlete ID</label>
+                <input
+                  type="text"
+                  value={intervalsAthleteId}
+                  onChange={(e) => setIntervalsAthleteId(e.target.value)}
+                  placeholder="e.g., i12345"
+                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/30 focus:outline-none focus:border-blue-500"
+                  disabled={intervalsConnecting}
+                />
+                <p className="text-xs text-secondary mt-1">
+                  Found in your Intervals.icu profile URL
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm text-white/60 mb-1">API Key</label>
+                <div className="relative">
+                  <input
+                    type={showIntervalsApiKey ? 'text' : 'password'}
+                    value={intervalsApiKey}
+                    onChange={(e) => setIntervalsApiKey(e.target.value)}
+                    placeholder="Your Intervals.icu API key"
+                    className="w-full px-3 py-2 pr-10 bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/30 focus:outline-none focus:border-blue-500"
+                    disabled={intervalsConnecting}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowIntervalsApiKey(!showIntervalsApiKey)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-secondary hover:text-white/60"
+                  >
+                    {showIntervalsApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+                <p className="text-xs text-secondary mt-1">
+                  Get your API key from{' '}
+                  <a
+                    href="https://intervals.icu/settings"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-400 hover:text-blue-300"
+                  >
+                    Intervals.icu Settings → Developer
+                  </a>
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowIntervalsForm(false)
+                    setIntervalsError(null)
+                  }}
+                  className="flex-1 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
+                  disabled={intervalsConnecting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={intervalsConnecting || !intervalsAthleteId || !intervalsApiKey}
+                  className="flex-1 py-2 bg-blue-500 hover:bg-blue-400 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {intervalsConnecting ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Connecting...
+                    </>
+                  ) : (
+                    'Connect'
+                  )}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                  <svg className="w-6 h-6 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="font-medium">Intervals.icu</p>
+                  <p className="text-sm text-tertiary">Sync workouts to Zwift & Wahoo</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowIntervalsForm(true)}
+                className="px-4 py-2 bg-blue-500 hover:bg-blue-400 text-white rounded-lg text-sm transition-colors"
+              >
+                Connect
+              </button>
+            </div>
+          )}
+        </div>
+
         {/* Eight Sleep */}
         <div className="mt-4 p-4 bg-white/5 rounded-lg">
           {eightSleepLoading ? (
@@ -1103,7 +1402,7 @@ export function SettingsView({ user, profile, integrations }: SettingsViewProps)
         {/* Future integrations */}
         <div className="mt-4 p-4 border border-dashed border-white/10 rounded-lg">
           <p className="text-sm text-secondary text-center">
-            More integrations coming soon: TrainerRoad, Zwift, Apple Health, WHOOP
+            More integrations coming soon: TrainerRoad, Apple Health, WHOOP
           </p>
         </div>
       </section>
